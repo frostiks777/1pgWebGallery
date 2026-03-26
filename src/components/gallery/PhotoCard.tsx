@@ -9,6 +9,7 @@ interface PhotoCardProps {
   onClick: () => void;
   className?: string;
   aspectRatio?: string;
+  mode?: 'demo' | 'webdav';
 }
 
 export const PhotoCard = memo(function PhotoCard({ 
@@ -16,12 +17,17 @@ export const PhotoCard = memo(function PhotoCard({
   index, 
   onClick,
   className = '',
-  aspectRatio = 'aspect-square'
+  aspectRatio = 'aspect-square',
+  mode = 'demo'
 }: PhotoCardProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const imageUrl = `/api/photos${photo.path}`;
+  // For demo mode, photo.path is already /demo-photos/image.jpg (direct to public)
+  // For webdav mode, photo.path is /path/to/image.jpg and needs /api/photos prefix
+  const imageUrl = mode === 'demo' 
+    ? photo.path 
+    : `/api/photos${photo.path}`;
   
   return (
     <div

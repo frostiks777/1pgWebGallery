@@ -1,34 +1,59 @@
 'use client';
 
 import { Photo } from './types';
-import { memo } from 'react';
+import { useState } from 'react';
 
 interface MediterraneanLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  mode?: 'demo' | 'webdav';
 }
 
-const MediterraneanPhotoCard = memo(function MediterraneanPhotoCard({
+function MediterraneanPhotoCard({
   photo,
   index,
   onClick,
-  variant
+  variant,
+  mode
 }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   variant: 'tile' | 'arch' | 'window';
+  mode: 'demo' | 'webdav';
 }) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const imageUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+  
+  const imageElement = hasError ? (
+    <div className="flex items-center justify-center bg-slate-200" style={{ width: '100%', aspectRatio: variant === 'arch' ? '3/4' : variant === 'window' ? '4/3' : 1 }}>
+      <span className="text-3xl">⚠️</span>
+    </div>
+  ) : (
+    <>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
+          <div className="w-6 h-6 border-2 border-slate-200 border-t-teal-500 rounded-full animate-spin" />
+        </div>
+      )}
+      <img
+        src={imageUrl}
+        alt={photo.name}
+        className={`${variant === 'arch' ? 'med-arch-image' : variant === 'window' ? 'med-window-image' : 'med-tile-image'} ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        loading="lazy"
+        onLoad={() => setIsLoading(false)}
+        onError={() => { setHasError(true); setIsLoading(false); }}
+      />
+    </>
+  );
+
   if (variant === 'arch') {
     return (
       <div className="med-arch-card group cursor-pointer" onClick={onClick}>
         <div className="med-arch-frame">
-          <img
-            src={`/api/photos${photo.path}`}
-            alt={photo.name}
-            className="med-arch-image"
-            loading="lazy"
-          />
+          {imageElement}
           <div className="med-arch-overlay">
             <div className="med-arch-content">
               <span className="med-icon">🧭</span>
@@ -129,12 +154,7 @@ const MediterraneanPhotoCard = memo(function MediterraneanPhotoCard({
         {/* Window frame */}
         <div className="med-window-frame">
           <div className="med-window-inner">
-            <img
-              src={`/api/photos${photo.path}`}
-              alt={photo.name}
-              className="med-window-image"
-              loading="lazy"
-            />
+            {imageElement}
           </div>
           
           {/* Flower box */}
@@ -168,6 +188,7 @@ const MediterraneanPhotoCard = memo(function MediterraneanPhotoCard({
           .med-window-inner {
             overflow: hidden;
             background: #87ceeb;
+            position: relative;
           }
 
           .med-window-image {
@@ -256,12 +277,7 @@ const MediterraneanPhotoCard = memo(function MediterraneanPhotoCard({
   return (
     <div className="med-tile-card group cursor-pointer" onClick={onClick}>
       <div className="med-tile-frame">
-        <img
-          src={`/api/photos${photo.path}`}
-          alt={photo.name}
-          className="med-tile-image"
-          loading="lazy"
-        />
+        {imageElement}
         <div className="med-tile-overlay">
           <div className="med-tile-info">
             <span className="med-tile-icon">⚓</span>
@@ -350,9 +366,9 @@ const MediterraneanPhotoCard = memo(function MediterraneanPhotoCard({
       `}</style>
     </div>
   );
-});
+}
 
-export function MediterraneanLayout({ photos, onPhotoClick }: MediterraneanLayoutProps) {
+export function MediterraneanLayout({ photos, onPhotoClick, mode = 'demo' }: MediterraneanLayoutProps) {
   // Assign variants in pattern
   const getVariant = (index: number): 'tile' | 'arch' | 'window' => {
     const pattern: ('tile' | 'arch' | 'window')[] = ['tile', 'tile', 'window', 'tile', 'arch', 'tile'];
@@ -384,6 +400,7 @@ export function MediterraneanLayout({ photos, onPhotoClick }: MediterraneanLayou
               index={index}
               onClick={() => onPhotoClick(photo, index)}
               variant={getVariant(index)}
+              mode={mode}
             />
           </div>
         ))}

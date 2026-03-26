@@ -11,18 +11,21 @@ interface LightboxProps {
   currentIndex: number;
   isOpen: boolean;
   onClose: () => void;
+  mode?: 'demo' | 'webdav';
 }
 
 function LightboxContent({ 
   photos, 
   initialIndex, 
   isOpen, 
-  onClose 
+  onClose,
+  mode = 'demo'
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
   isOpen: boolean; 
   onClose: () => void;
+  mode: 'demo' | 'webdav';
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -72,6 +75,9 @@ function LightboxContent({
   const currentPhoto = photos[index];
 
   if (!currentPhoto) return null;
+  
+  const imageUrl = mode === 'demo' ? currentPhoto.path : `/api/photos${currentPhoto.path}`;
+  const downloadUrl = mode === 'webdav' ? `/api/photos${currentPhoto.path}` : currentPhoto.path;
 
   return (
     <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
@@ -108,7 +114,7 @@ function LightboxContent({
             <ZoomIn className="h-5 w-5" />
           </Button>
           <a
-            href={`/api/photos${currentPhoto.path}`}
+            href={downloadUrl}
             download={currentPhoto.name}
             className="inline-flex"
           >
@@ -161,7 +167,7 @@ function LightboxContent({
           </div>
         )}
         <img
-          src={`/api/photos${currentPhoto.path}`}
+          src={imageUrl}
           alt={currentPhoto.name}
           className={`max-w-full max-h-full object-contain transition-transform duration-300 ${
             isLoading ? 'opacity-0' : 'opacity-100'
@@ -174,33 +180,36 @@ function LightboxContent({
       {/* Thumbnails */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex justify-center gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
-          {photos.map((photo, i) => (
-            <button
-              key={photo.path}
-              onClick={() => {
-                setIsLoading(true);
-                setIndex(i);
-              }}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
-                i === index
-                  ? 'ring-2 ring-white scale-110'
-                  : 'opacity-50 hover:opacity-80'
-              }`}
-            >
-              <img
-                src={`/api/photos${photo.path}`}
-                alt={photo.name}
-                className="w-full h-full object-cover"
-              />
-            </button>
-          ))}
+          {photos.map((photo, i) => {
+            const thumbUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+            return (
+              <button
+                key={photo.path}
+                onClick={() => {
+                  setIsLoading(true);
+                  setIndex(i);
+                }}
+                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
+                  i === index
+                    ? 'ring-2 ring-white scale-110'
+                    : 'opacity-50 hover:opacity-80'
+                }`}
+              >
+                <img
+                  src={thumbUrl}
+                  alt={photo.name}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
     </DialogContent>
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProps) {
+export function Lightbox({ photos, currentIndex, isOpen, onClose, mode = 'demo' }: LightboxProps) {
   // Use key to reset state when currentIndex changes
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
 
@@ -214,6 +223,7 @@ export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProp
         initialIndex={currentIndex}
         isOpen={isOpen}
         onClose={onClose}
+        mode={mode}
       />
     </Dialog>
   );

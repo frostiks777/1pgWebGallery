@@ -1,31 +1,54 @@
 'use client';
 
 import { Photo } from './types';
-import { memo } from 'react';
+import { useState } from 'react';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  mode?: 'demo' | 'webdav';
 }
 
-const MinimalistPhotoCard = memo(function MinimalistPhotoCard({
+function MinimalistPhotoCard({
   photo,
   index,
-  onClick
+  onClick,
+  mode
 }: {
   photo: Photo;
   index: number;
   onClick: () => void;
+  mode: 'demo' | 'webdav';
 }) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const imageUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+  
   return (
     <div className="minimalist-card group cursor-pointer" onClick={onClick}>
       <div className="minimalist-image-wrapper">
-        <img
-          src={`/api/photos${photo.path}`}
-          alt={photo.name}
-          className="minimalist-image"
-          loading="lazy"
-        />
+        {hasError ? (
+          <div className="minimalist-error">
+            <span>⚠️</span>
+          </div>
+        ) : (
+          <>
+            {isLoading && (
+              <div className="minimalist-loader">
+                <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin" />
+              </div>
+            )}
+            <img
+              src={imageUrl}
+              alt={photo.name}
+              className={`minimalist-image ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+              loading="lazy"
+              onLoad={() => setIsLoading(false)}
+              onError={() => { setHasError(true); setIsLoading(false); }}
+            />
+          </>
+        )}
         
         {/* Subtle overlay on hover */}
         <div className="minimalist-overlay">
@@ -68,6 +91,23 @@ const MinimalistPhotoCard = memo(function MinimalistPhotoCard({
           transform: scale(1.02);
         }
 
+        .minimalist-loader {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .minimalist-error {
+          width: 100%;
+          aspect-ratio: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2rem;
+        }
+
         .minimalist-overlay {
           position: absolute;
           inset: 0;
@@ -106,9 +146,9 @@ const MinimalistPhotoCard = memo(function MinimalistPhotoCard({
       `}</style>
     </div>
   );
-});
+}
 
-export function MinimalismLayout({ photos, onPhotoClick }: MinimalismLayoutProps) {
+export function MinimalismLayout({ photos, onPhotoClick, mode = 'demo' }: MinimalismLayoutProps) {
   return (
     <div className="minimalism-container">
       {/* Header */}
@@ -127,6 +167,7 @@ export function MinimalismLayout({ photos, onPhotoClick }: MinimalismLayoutProps
             photo={photo}
             index={index}
             onClick={() => onPhotoClick(photo, index)}
+            mode={mode}
           />
         ))}
       </div>

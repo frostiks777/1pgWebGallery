@@ -167,21 +167,21 @@ export default function GalleryPage() {
   const renderLayout = () => {
     switch (layout) {
       case 'masonry':
-        return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'bento':
-        return <BentoLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <BentoLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'honeycomb':
-        return <HoneycombLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <HoneycombLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'wave':
-        return <WaveLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <WaveLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'empire':
-        return <EmpireLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <EmpireLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'minimalism':
-        return <MinimalismLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <MinimalismLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       case 'mediterranean':
-        return <MediterraneanLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <MediterraneanLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
       default:
-        return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+        return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} mode={mode} />;
     }
   };
 
@@ -544,6 +544,7 @@ export default function GalleryPage() {
           currentIndex={currentPhotoIndex}
           isOpen={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
+          mode={mode}
         />
       </div>
     </TooltipProvider>

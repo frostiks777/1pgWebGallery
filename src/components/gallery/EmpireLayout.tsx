@@ -1,22 +1,30 @@
 'use client';
 
 import { Photo } from './types';
-import { memo } from 'react';
+import { useState } from 'react';
 
 interface EmpireLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  mode?: 'demo' | 'webdav';
 }
 
-const EmpirePhotoCard = memo(function EmpirePhotoCard({
+function EmpirePhotoCard({
   photo,
   index,
-  onClick
+  onClick,
+  mode
 }: {
   photo: Photo;
   index: number;
   onClick: () => void;
+  mode: 'demo' | 'webdav';
 }) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const imageUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+  
   // Alternating elegant frame styles
   const frameStyles = [
     'ornate-frame-gold',
@@ -45,13 +53,29 @@ const EmpirePhotoCard = memo(function EmpirePhotoCard({
         onClick={onClick}
       >
         {/* Inner decorative border */}
-        <div className="empire-inner-border">
-          <img
-            src={`/api/photos${photo.path}`}
-            alt={photo.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+        <div className="empire-inner-border bg-slate-100 dark:bg-slate-800">
+          {hasError ? (
+            <div className="w-full h-48 flex flex-col items-center justify-center">
+              <span className="text-3xl mb-2">⚠️</span>
+              <span className="text-xs text-slate-500">Failed to load</span>
+            </div>
+          ) : (
+            <>
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-slate-300 border-t-violet-500 rounded-full animate-spin" />
+                </div>
+              )}
+              <img
+                src={imageUrl}
+                alt={photo.name}
+                className={`w-full h-48 object-cover ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                loading="lazy"
+                onLoad={() => setIsLoading(false)}
+                onError={() => { setHasError(true); setIsLoading(false); }}
+              />
+            </>
+          )}
         </div>
 
         {/* Corner decorations */}
@@ -127,6 +151,7 @@ const EmpirePhotoCard = memo(function EmpirePhotoCard({
           background: linear-gradient(135deg, #faf7f2, #fff);
           padding: 8px;
           box-shadow: inset 0 2px 8px rgba(139, 109, 76, 0.1);
+          position: relative;
         }
 
         .empire-corner {
@@ -181,9 +206,9 @@ const EmpirePhotoCard = memo(function EmpirePhotoCard({
       `}</style>
     </div>
   );
-});
+}
 
-export function EmpireLayout({ photos, onPhotoClick }: EmpireLayoutProps) {
+export function EmpireLayout({ photos, onPhotoClick, mode = 'demo' }: EmpireLayoutProps) {
   return (
     <div className="empire-background py-8">
       {/* Decorative header */}
@@ -201,6 +226,7 @@ export function EmpireLayout({ photos, onPhotoClick }: EmpireLayoutProps) {
             photo={photo}
             index={index}
             onClick={() => onPhotoClick(photo, index)}
+            mode={mode}
           />
         ))}
       </div>

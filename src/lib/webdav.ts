@@ -173,6 +173,9 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
 
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.heic', '.heif'];
     
+    // Counter for logging
+    let loggedCount = 0;
+    
     const photos: PhotoInfo[] = files
       .filter((file: FileStat) => {
         if (file.type !== 'file') return false;
@@ -181,8 +184,9 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
       })
       .map((file: FileStat) => {
         // Log the first few paths to debug
-        if (photos.length < 3) {
+        if (loggedCount < 3) {
           console.log(`[WebDAV] Photo path: ${file.filename}, basename: ${file.basename}`);
+          loggedCount++;
         }
         
         return {

@@ -33,6 +33,7 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
         
         return {
           name: file,
+          // For demo photos, use direct path to public folder (no /api/photos prefix)
           path: `/demo-photos/${file}`,
           size: stats.size,
           lastModified: stats.mtime.toISOString(),
@@ -90,6 +91,7 @@ export async function GET() {
           mode: 'webdav',
           photos: photos.map(photo => ({
             name: photo.name,
+            // For WebDAV photos, the path is already full and will be served via /api/photos
             path: photo.path,
             size: photo.size,
             lastModified: photo.lastModified.toISOString(),
