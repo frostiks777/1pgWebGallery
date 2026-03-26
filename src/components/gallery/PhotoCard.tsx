@@ -23,11 +23,9 @@ export const PhotoCard = memo(function PhotoCard({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // For demo mode, photo.path is already /demo-photos/image.jpg (direct to public)
-  // For webdav mode, photo.path is /path/to/image.jpg and needs /api/photos prefix
-  const imageUrl = mode === 'demo' 
-    ? photo.path 
-    : `/api/photos${photo.path}`;
+  // Use the new photo-file API endpoint with query parameter
+  // This is more reliable than catch-all routes
+  const imageUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
   
   return (
     <div
@@ -39,9 +37,6 @@ export const PhotoCard = memo(function PhotoCard({
           <div className="text-3xl mb-2">⚠️</div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-full">{photo.name}</p>
           <p className="text-xs text-red-400 mt-1">Failed to load</p>
-          <p className="text-xs text-slate-400 mt-2 truncate max-w-full" title={imageUrl}>
-            {imageUrl.length > 40 ? imageUrl.substring(0, 40) + '...' : imageUrl}
-          </p>
         </div>
       ) : (
         <>

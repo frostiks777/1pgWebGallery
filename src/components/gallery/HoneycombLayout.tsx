@@ -12,18 +12,17 @@ interface HoneycombLayoutProps {
 function HexagonItem({
   photo,
   index,
-  onClick,
-  mode
+  onClick
 }: {
   photo: Photo;
   index: number;
   onClick: () => void;
-  mode: 'demo' | 'webdav';
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const imageUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+  // Use the photo-file API endpoint
+  const imageUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
   
   return (
     <div
@@ -97,7 +96,6 @@ export function HoneycombLayout({ photos, onPhotoClick, mode = 'demo' }: Honeyco
                 photo={photo}
                 index={index}
                 onClick={() => onPhotoClick(photo, index)}
-                mode={mode}
               />
             </div>
           );

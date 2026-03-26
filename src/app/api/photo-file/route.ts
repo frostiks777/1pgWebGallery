@@ -2,26 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { path: pathSegments } = await params;
+    const { searchParams } = new URL(request.url);
+    const photoPath = searchParams.get('path');
     
-    const fullPath = pathSegments.join('/');
-    console.log(`[Photo API] Request for: /${fullPath}`);
-    console.log(`[Photo API] Path segments:`, pathSegments);
+    if (!photoPath) {
+      return NextResponse.json(
+        { error: 'Missing path parameter. Use ?path=/path/to/photo.jpg' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`[Photo File API] Request for: ${photoPath}`);
+    
+    // Decode URL encoding
+    const decodedPath = decodeURIComponent(photoPath);
+    const pathSegments = decodedPath.split('/').filter(Boolean);
+    
+    console.log(`[Photo File API] Decoded path: ${decodedPath}`);
+    console.log(`[Photo File API] Path segments:`, pathSegments);
     
     // Check if this is a demo photo request
     if (pathSegments[0] === 'demo-photos') {
-      // Serve local demo photo
       const localPath = path.join(process.cwd(), 'public', ...pathSegments);
       
-      console.log(`[Photo API] Demo photo, local path: ${localPath}`);
+      console.log(`[Photo File API] Demo photo, local path: ${localPath}`);
       
       if (!fs.existsSync(localPath)) {
-        console.error(`[Photo API] Demo photo not found: ${localPath}`);
+        console.error(`[Photo File API] Demo photo not found: ${localPath}`);
         return NextResponse.json(
           { error: 'Photo not found', path: localPath },
           { status: 404 }
@@ -38,8 +47,6 @@ export async function GET(
         '.webp': 'image/webp',
       };
       
-      console.log(`[Photo API] Serving demo photo: ${localPath}, size: ${buffer.length}`);
-      
       return new NextResponse(buffer, {
         headers: {
           'Content-Type': mimeTypes[ext] || 'image/jpeg',
@@ -48,37 +55,29 @@ export async function GET(
       });
     }
     
-    // For WebDAV photos, check if WebDAV is configured
+    // For WebDAV photos
     const webdavUrl = process.env.WEBDAV_URL;
     const webdavUsername = process.env.WEBDAV_USERNAME;
     const webdavPassword = process.env.WEBDAV_PASSWORD;
     
-    console.log(`[Photo API] WebDAV config check - URL: ${webdavUrl ? 'set' : 'not set'}`);
-    
     if (!webdavUrl || !webdavUsername || !webdavPassword) {
-      console.error('[Photo API] WebDAV not configured');
       return NextResponse.json(
-        { error: 'WebDAV not configured. Cannot fetch photo.' },
+        { error: 'WebDAV not configured' },
         { status: 503 }
       );
     }
     
-    // Use WebDAV for non-demo photos
-    // The path from WebDAV filename already includes the full path like /2025-09-11_AA/Photos/image.jpg
-    const photoPath = '/' + pathSegments.join('/');
-    console.log(`[Photo API] Fetching from WebDAV: ${photoPath}`);
+    console.log(`[Photo File API] Fetching from WebDAV: ${decodedPath}`);
     
     try {
       const { getPhotoAsBase64 } = await import('@/lib/webdav');
-      const base64 = await getPhotoAsBase64(photoPath);
+      const base64 = await getPhotoAsBase64(decodedPath.startsWith('/') ? decodedPath : '/' + decodedPath);
       
-      // Extract the base64 data without the prefix
       const base64Data = base64.split(',')[1];
       const mimeType = base64.split(';')[0].split(':')[1];
-      
       const buffer = Buffer.from(base64Data, 'base64');
       
-      console.log(`[Photo API] Successfully fetched photo, size: ${buffer.length} bytes`);
+      console.log(`[Photo File API] Successfully fetched, size: ${buffer.length} bytes`);
       
       return new NextResponse(buffer, {
         headers: {
@@ -87,14 +86,14 @@ export async function GET(
         },
       });
     } catch (fetchError) {
-      console.error(`[Photo API] Error fetching from WebDAV:`, fetchError);
+      console.error(`[Photo File API] Error:`, fetchError);
       return NextResponse.json(
-        { error: `Failed to fetch photo: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` },
+        { error: `Failed to fetch: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('[Photo API] Error:', error);
+    console.error('[Photo File API] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch photo' },
       { status: 500 }

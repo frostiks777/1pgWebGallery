@@ -19,13 +19,11 @@ function LightboxContent({
   initialIndex, 
   isOpen, 
   onClose,
-  mode = 'demo'
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
   isOpen: boolean; 
   onClose: () => void;
-  mode: 'demo' | 'webdav';
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -76,8 +74,8 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
   
-  const imageUrl = mode === 'demo' ? currentPhoto.path : `/api/photos${currentPhoto.path}`;
-  const downloadUrl = mode === 'webdav' ? `/api/photos${currentPhoto.path}` : currentPhoto.path;
+  // Use the photo-file API endpoint
+  const imageUrl = `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}`;
 
   return (
     <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
@@ -114,7 +112,7 @@ function LightboxContent({
             <ZoomIn className="h-5 w-5" />
           </Button>
           <a
-            href={downloadUrl}
+            href={imageUrl}
             download={currentPhoto.name}
             className="inline-flex"
           >
@@ -181,7 +179,7 @@ function LightboxContent({
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex justify-center gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
           {photos.map((photo, i) => {
-            const thumbUrl = mode === 'demo' ? photo.path : `/api/photos${photo.path}`;
+            const thumbUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
             return (
               <button
                 key={photo.path}
@@ -209,8 +207,7 @@ function LightboxContent({
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose, mode = 'demo' }: LightboxProps) {
-  // Use key to reset state when currentIndex changes
+export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProps) {
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
 
   if (!isOpen || photos.length === 0) return null;
@@ -223,7 +220,6 @@ export function Lightbox({ photos, currentIndex, isOpen, onClose, mode = 'demo' 
         initialIndex={currentIndex}
         isOpen={isOpen}
         onClose={onClose}
-        mode={mode}
       />
     </Dialog>
   );
