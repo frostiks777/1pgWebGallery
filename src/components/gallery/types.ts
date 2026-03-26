@@ -12,8 +12,7 @@ export type CollageLayout =
   | 'honeycomb' 
   | 'wave'
   | 'empire'
-  | 'minimalism'
-  | 'mediterranean';
+  | 'minimalism';
 
 export interface GalleryProps {
   photos: Photo[];

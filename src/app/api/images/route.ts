@@ -11,8 +11,9 @@ try {
   console.warn('[Images API] Sharp not available — images will be served without optimization');
 }
 
-// Cache directory for images
-const CACHE_DIR = path.join(process.cwd(), '.cache', 'images');
+// Use /tmp for cache — always writable regardless of Next.js standalone mode.
+// Override via CACHE_DIR env variable if needed.
+const CACHE_DIR = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
 
 // Image size configurations
 const IMAGE_SIZES = {
