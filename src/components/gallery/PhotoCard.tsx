@@ -1,7 +1,7 @@
 'use client';
 
 import { Photo } from './types';
-import { memo, useState, useEffect } from 'react';
+import { memo, useState } from 'react';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -23,8 +23,8 @@ export const PhotoCard = memo(function PhotoCard({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use thumbnail API for preview - small compressed images
-  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=${thumbnailSize}`;
+  // Use cached image API - browser handles resizing via CSS
+  const imageUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}`;
   
   return (
     <div
@@ -46,7 +46,7 @@ export const PhotoCard = memo(function PhotoCard({
             </div>
           )}
           <img
-            src={thumbnailUrl}
+            src={imageUrl}
             alt={photo.name}
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
               isLoading ? 'opacity-0' : 'opacity-100'
@@ -54,8 +54,7 @@ export const PhotoCard = memo(function PhotoCard({
             loading="lazy"
             decoding="async"
             onLoad={() => setIsLoading(false)}
-            onError={(e) => {
-              console.error(`[Gallery] Failed to load thumbnail: ${thumbnailUrl}`);
+            onError={() => {
               setHasError(true);
               setIsLoading(false);
             }}

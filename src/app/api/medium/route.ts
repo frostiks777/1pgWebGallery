@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Jimp } from 'jimp';
 
-// Cache directory for medium-size images
+// Cache directory for medium images
 const CACHE_DIR = path.join(process.cwd(), '.cache', 'medium');
-const MEDIUM_SIZE = 1920; // Max width for medium images (good for viewing, ~1-3MB)
 
 // Ensure cache directory exists
 try {
@@ -26,14 +24,15 @@ function getCacheKey(photoPath: string): string {
   return hash;
 }
 
-// Get cached medium image path
+// Get cached image path
 function getCachedPath(photoPath: string): string {
   const cacheKey = getCacheKey(photoPath);
-  return path.join(CACHE_DIR, `${cacheKey}.jpg`);
+  const ext = path.extname(photoPath).toLowerCase() || '.jpg';
+  return path.join(CACHE_DIR, `${cacheKey}${ext}`);
 }
 
-// Check if medium image is cached and fresh
-function getCachedMedium(photoPath: string): Buffer | null {
+// Check if image is cached and fresh
+function getCachedImage(photoPath: string): { buffer: Buffer; contentType: string } | null {
   try {
     const cachePath = getCachedPath(photoPath);
     
@@ -43,14 +42,17 @@ function getCachedMedium(photoPath: string): Buffer | null {
       const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
       
       if (age < maxAge) {
-        console.log(`[Medium] Cache hit for: ${photoPath}`);
-        return fs.readFileSync(cachePath);
+        const ext = path.extname(photoPath).toLowerCase();
+        const contentType = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+        return {
+          buffer: fs.readFileSync(cachePath),
+          contentType
+        };
       } else {
-        console.log(`[Medium] Cache expired for: ${photoPath}`);
         try {
           fs.unlinkSync(cachePath);
         } catch (e) {
-          // Ignore deletion errors
+          // Ignore
         }
       }
     }
@@ -61,33 +63,28 @@ function getCachedMedium(photoPath: string): Buffer | null {
   return null;
 }
 
-// Save medium image to cache
-function cacheMedium(photoPath: string, buffer: Buffer): void {
+// Save image to cache
+function cacheImage(photoPath: string, buffer: Buffer): void {
   try {
+    // Ensure directory exists
+    if (!fs.existsSync(CACHE_DIR)) {
+      fs.mkdirSync(CACHE_DIR, { recursive: true });
+    }
     const cachePath = getCachedPath(photoPath);
     fs.writeFileSync(cachePath, buffer);
-    console.log(`[Medium] Cached: ${photoPath} (${Math.round(buffer.length / 1024 / 1024)}MB)`);
+    console.log(`[Medium] Cached: ${photoPath}`);
   } catch (error) {
     console.error(`[Medium] Error caching:`, error);
   }
 }
 
-// Resize image using Jimp
-async function resizeToMedium(buffer: Buffer): Promise<Buffer> {
-  const image = await Jimp.read(buffer);
-  
-  const width = image.width;
-  const height = image.height;
-  
-  // Only resize if larger than medium size
-  if (width > MEDIUM_SIZE || height > MEDIUM_SIZE) {
-    image.resize({ w: MEDIUM_SIZE });
-  }
-  
-  // Get buffer with JPEG quality 85
-  const result = await image.getBuffer('image/jpeg', { quality: 85 });
-  console.log(`[Medium] Resized from ${width}x${height} to ${image.width}x${image.height}: ${Math.round(result.length / 1024 / 1024)}MB`);
-  return result;
+// Get content type from extension
+function getContentType(photoPath: string): string {
+  const ext = path.extname(photoPath).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  return 'image/jpeg';
 }
 
 export async function GET(request: NextRequest) {
@@ -96,21 +93,17 @@ export async function GET(request: NextRequest) {
     const photoPath = searchParams.get('path');
     
     if (!photoPath) {
-      return NextResponse.json(
-        { error: 'Missing path parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing path parameter' }, { status: 400 });
     }
     
     const decodedPath = decodeURIComponent(photoPath);
-    console.log(`[Medium] Request for: ${decodedPath}`);
     
     // Check cache first
-    const cached = getCachedMedium(decodedPath);
+    const cached = getCachedImage(decodedPath);
     if (cached) {
-      return new NextResponse(cached, {
+      return new NextResponse(cached.buffer, {
         headers: {
-          'Content-Type': 'image/jpeg',
+          'Content-Type': cached.contentType,
           'Cache-Control': 'public, max-age=2592000, immutable',
           'X-Cache': 'HIT',
         },
@@ -119,7 +112,6 @@ export async function GET(request: NextRequest) {
     
     // Check if demo photo
     const pathSegments = decodedPath.split('/').filter(Boolean);
-    
     let imageBuffer: Buffer;
     
     if (pathSegments[0] === 'demo-photos') {
@@ -154,17 +146,14 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log(`[Medium] Original image size: ${Math.round(imageBuffer.length / 1024 / 1024)}MB`);
+    // Cache the image
+    cacheImage(decodedPath, imageBuffer);
     
-    // Resize to medium
-    const mediumBuffer = await resizeToMedium(imageBuffer);
+    const contentType = getContentType(decodedPath);
     
-    // Cache the medium image
-    cacheMedium(decodedPath, mediumBuffer);
-    
-    return new NextResponse(mediumBuffer, {
+    return new NextResponse(imageBuffer, {
       headers: {
-        'Content-Type': 'image/jpeg',
+        'Content-Type': contentType,
         'Cache-Control': 'public, max-age=2592000, immutable',
         'X-Cache': 'MISS',
       },
@@ -172,7 +161,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[Medium] Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate medium image' },
+      { error: error instanceof Error ? error.message : 'Failed to get image' },
       { status: 500 }
     );
   }

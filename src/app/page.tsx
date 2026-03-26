@@ -21,7 +21,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -55,19 +54,16 @@ interface PhotosResponse {
   mode: 'demo' | 'webdav';
   photos: Photo[];
   error?: string;
-  message?: string;
 }
 
-const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode; group: 'grid' | 'artistic' | 'style' }[] = [
-  // Grid layouts
-  { value: 'masonry', label: 'Masonry', icon: <Grid3X3 className="h-4 w-4" />, group: 'grid' },
-  { value: 'bento', label: 'Bento Grid', icon: <LayoutGrid className="h-4 w-4" />, group: 'grid' },
-  { value: 'honeycomb', label: 'Honeycomb', icon: <Hexagon className="h-4 w-4" />, group: 'artistic' },
-  { value: 'wave', label: 'Wave', icon: <Waves className="h-4 w-4" />, group: 'artistic' },
-  // Style layouts
-  { value: 'empire', label: 'Empire', icon: <Crown className="h-4 w-4" />, group: 'style' },
-  { value: 'minimalism', label: 'Minimalism', icon: <Minus className="h-4 w-4" />, group: 'style' },
-  { value: 'mediterranean', label: 'Mediterranean', icon: <Palmtree className="h-4 w-4" />, group: 'style' },
+const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode }[] = [
+  { value: 'masonry', label: 'Masonry', icon: <Grid3X3 className="h-4 w-4" /> },
+  { value: 'bento', label: 'Bento', icon: <LayoutGrid className="h-4 w-4" /> },
+  { value: 'honeycomb', label: 'Honeycomb', icon: <Hexagon className="h-4 w-4" /> },
+  { value: 'wave', label: 'Wave', icon: <Waves className="h-4 w-4" /> },
+  { value: 'empire', label: 'Empire', icon: <Crown className="h-4 w-4" /> },
+  { value: 'minimalism', label: 'Minimal', icon: <Minus className="h-4 w-4" /> },
+  { value: 'mediterranean', label: 'Med', icon: <Palmtree className="h-4 w-4" /> },
 ];
 
 export default function GalleryPage() {
@@ -156,7 +152,6 @@ export default function GalleryPage() {
     }
   };
 
-  // Check if current layout is a style layout (has its own background)
   const isStyleLayout = ['empire', 'minimalism', 'mediterranean'].includes(layout);
 
   return (
@@ -164,64 +159,46 @@ export default function GalleryPage() {
       <div className={`min-h-screen flex flex-col ${isStyleLayout ? '' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950'}`}>
         {/* Header */}
         <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              {/* Logo */}
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-xl shadow-lg ${mode === 'webdav' ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/20' : 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-500/20'}`}>
-                  <Cloud className="h-6 w-6 text-white" />
+                  <Cloud className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                  <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                     Photo Gallery
                   </h1>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {mode === 'webdav' ? 'WebDAV Cloud' : 'Demo Mode'}
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {mode === 'webdav' ? 'WebDAV' : 'Demo'}
                     </p>
                     {mode === 'webdav' && (
                       <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        Connected
+                        ●
                       </Badge>
                     )}
                   </div>
                 </div>
               </div>
 
+              {/* Controls Row */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {/* Sort Control */}
+                {/* Sort */}
                 <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
-                  <SelectTrigger className="w-[180px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-                    <SelectValue placeholder="Sort by..." />
+                  <SelectTrigger className="w-[140px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9">
+                    <SelectValue placeholder="Sort..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="name-asc">
-                      <div className="flex items-center gap-2">
-                        <SortAsc className="h-4 w-4" />
-                        Name (A-Z)
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="name-desc">
-                      <div className="flex items-center gap-2">
-                        <SortDesc className="h-4 w-4" />
-                        Name (Z-A)
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="date-asc">
-                      <div className="flex items-center gap-2">
-                        <SortAsc className="h-4 w-4" />
-                        Date (Oldest)
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="date-desc">
-                      <div className="flex items-center gap-2">
-                        <SortDesc className="h-4 w-4" />
-                        Date (Newest)
-                      </div>
-                    </SelectItem>
+                    <SelectItem value="name-asc"><SortAsc className="h-3 w-3 inline mr-1" />Name ↑</SelectItem>
+                    <SelectItem value="name-desc"><SortDesc className="h-3 w-3 inline mr-1" />Name ↓</SelectItem>
+                    <SelectItem value="date-asc"><SortAsc className="h-3 w-3 inline mr-1" />Date ↑</SelectItem>
+                    <SelectItem value="date-desc"><SortDesc className="h-3 w-3 inline mr-1" />Date ↓</SelectItem>
                   </SelectContent>
                 </Select>
 
-                {/* Refresh Button */}
+                {/* Refresh */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -229,134 +206,73 @@ export default function GalleryPage() {
                       size="icon"
                       onClick={fetchPhotos}
                       disabled={isLoading}
-                      className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
+                      className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9"
                     >
                       <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Refresh Photos</TooltipContent>
+                  <TooltipContent>Refresh</TooltipContent>
                 </Tooltip>
               </div>
             </div>
 
-            {/* Layout Selector */}
-            <Separator className="my-4" />
-            <div className="flex flex-col gap-3">
-              {/* Grid Layouts */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 uppercase tracking-wider">
-                  Grid:
-                </span>
-                {layoutOptions.filter(o => o.group === 'grid').map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={layout === option.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayout(option.value)}
-                    className={`flex items-center gap-2 transition-all ${
-                      layout === option.value
-                        ? 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/20'
-                        : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
-                    }`}
-                  >
-                    {option.icon}
-                    <span className="hidden sm:inline">{option.label}</span>
-                  </Button>
-                ))}
-              </div>
-
-              {/* Artistic Layouts */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 uppercase tracking-wider">
-                  Art:
-                </span>
-                {layoutOptions.filter(o => o.group === 'artistic').map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={layout === option.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayout(option.value)}
-                    className={`flex items-center gap-2 transition-all ${
-                      layout === option.value
-                        ? 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-lg shadow-violet-500/20'
-                        : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
-                    }`}
-                  >
-                    {option.icon}
-                    <span className="hidden sm:inline">{option.label}</span>
-                  </Button>
-                ))}
-              </div>
-
-              {/* Style Layouts */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 uppercase tracking-wider">
-                  Style:
-                </span>
-                {layoutOptions.filter(o => o.group === 'style').map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={layout === option.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayout(option.value)}
-                    className={`flex items-center gap-2 transition-all ${
-                      layout === option.value
-                        ? layout === 'empire'
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-lg shadow-amber-500/20'
-                          : layout === 'minimalism'
-                          ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-500/20'
-                          : 'bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white shadow-lg shadow-cyan-500/20'
-                        : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
-                    }`}
-                  >
-                    {option.icon}
-                    <span className="hidden sm:inline">{option.label}</span>
-                  </Button>
-                ))}
-              </div>
+            {/* Layout Selector - Single Row */}
+            <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1">
+              {layoutOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={layout === option.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setLayout(option.value)}
+                  className={`flex items-center gap-1.5 h-8 px-2.5 transition-all ${
+                    layout === option.value
+                      ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
+                      : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
+                  }`}
+                >
+                  {option.icon}
+                  <span className="hidden sm:inline text-xs">{option.label}</span>
+                </Button>
+              ))}
             </div>
           </div>
         </header>
 
         {/* Main Content */}
-        <main className={`flex-1 ${isStyleLayout ? '' : 'container mx-auto px-4 py-8'}`}>
-          {/* Loading State */}
+        <main className={`flex-1 ${isStyleLayout ? '' : 'container mx-auto px-4 py-6'}`}>
+          {/* Loading */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center min-h-[50vh]">
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center gap-4"
+                className="flex flex-col items-center gap-3"
               >
-                <Loader2 className="h-12 w-12 text-violet-500 animate-spin" />
+                <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
                 <p className="text-slate-500 dark:text-slate-400">Loading photos...</p>
               </motion.div>
             </div>
           )}
 
-          {/* Error State */}
+          {/* Error */}
           {!isLoading && error && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center justify-center min-h-[50vh]"
             >
-              <Card className="max-w-lg w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-red-200 dark:border-red-900">
+              <Card className="max-w-md w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-red-200 dark:border-red-900">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                      <XCircle className="h-6 w-6 text-red-500" />
+                    <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                      <XCircle className="h-5 w-5 text-red-500" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                        Connection Error
-                      </h3>
-                      <p className="text-slate-500 dark:text-slate-400 mb-4">
-                        {error}
-                      </p>
-                      <Button onClick={fetchPhotos} variant="default">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Try Again
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">Error</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{error}</p>
+                      <Button size="sm" onClick={fetchPhotos}>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Retry
                       </Button>
                     </div>
                   </div>
@@ -365,53 +281,45 @@ export default function GalleryPage() {
             </motion.div>
           )}
 
-          {/* Empty State */}
+          {/* Empty */}
           {!isLoading && !error && photos.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center justify-center min-h-[50vh]"
             >
-              <Card className="max-w-md w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+              <Card className="max-w-sm w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="pt-6 text-center">
-                  <div className="mx-auto w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                    <ImageOff className="h-8 w-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                    No Photos Found
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400">
-                    The configured directory is empty or does not exist.
-                  </p>
+                  <ImageOff className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">No Photos</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">The directory is empty.</p>
                 </CardContent>
               </Card>
             </motion.div>
           )}
 
-          {/* Photo Gallery */}
+          {/* Gallery */}
           {!isLoading && !error && photos.length > 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Photo Count Badge - only for non-style layouts */}
               {!isStyleLayout && (
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-4">
                   <Badge variant="secondary" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-                    {photos.length} photo{photos.length !== 1 ? 's' : ''}
+                    {photos.length} photos
                   </Badge>
                 </div>
               )}
 
-              {/* Gallery Grid */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={layout}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.15 }}
                 >
                   {renderLayout()}
                 </motion.div>
@@ -423,15 +331,10 @@ export default function GalleryPage() {
         {/* Footer */}
         {!isStyleLayout && (
           <footer className="mt-auto border-t border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-            <div className="container mx-auto px-4 py-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 dark:text-slate-400">
-                <p>
-                  Photo Gallery • WebDAV Cloud Integration
-                </p>
-                <p>
-                  {photos.length > 0 && `${photos.length} photos loaded`}
-                </p>
-              </div>
+            <div className="container mx-auto px-4 py-4">
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
+                Photo Gallery • {photos.length > 0 && `${photos.length} photos`}
+              </p>
             </div>
           </footer>
         )}

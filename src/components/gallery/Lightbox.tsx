@@ -29,10 +29,10 @@ function LightboxContent({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Load medium image for viewing (2-3MB compressed)
+  // Load cached image for viewing
   const currentPhoto = photos[index];
-  const mediumImageUrl = currentPhoto ? `/api/medium?path=${encodeURIComponent(currentPhoto.path)}` : '';
-  // Full size image for download only
+  const imageUrl = currentPhoto ? `/api/medium?path=${encodeURIComponent(currentPhoto.path)}` : '';
+  // Full size image for download
   const fullImageUrl = currentPhoto ? `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}` : '';
 
   const handlePrev = useCallback(() => {
@@ -112,7 +112,7 @@ function LightboxContent({
           <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
             <ZoomIn className="h-5 w-5" />
           </Button>
-          {/* Download button - uses full size image */}
+          {/* Download button - full size */}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" title="Download full size">
               <Download className="h-5 w-5" />
@@ -146,7 +146,7 @@ function LightboxContent({
         </>
       )}
 
-      {/* Image container - load medium image for viewing */}
+      {/* Image container */}
       <div className="flex items-center justify-center w-full h-[95vh] overflow-hidden">
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
@@ -164,7 +164,7 @@ function LightboxContent({
           </div>
         ) : (
           <img
-            src={mediumImageUrl}
+            src={imageUrl}
             alt={currentPhoto.name}
             className={`max-w-full max-h-full object-contain transition-all duration-300 ${
               isLoading ? 'opacity-0' : 'opacity-100'
@@ -176,10 +176,10 @@ function LightboxContent({
         )}
       </div>
 
-      {/* Thumbnails - use small thumbnails for navigation */}
+      {/* Thumbnails */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex justify-center gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
-          {photos.map((photo, i) => (
+          {photos.slice(0, 20).map((photo, i) => (
             <button
               key={photo.path}
               onClick={() => {
@@ -190,14 +190,14 @@ function LightboxContent({
                   setIndex(i);
                 }
               }}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
+              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden transition-all duration-200 ${
                 i === index
                   ? 'ring-2 ring-white scale-110'
                   : 'opacity-50 hover:opacity-80'
               }`}
             >
               <img
-                src={`/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=100`}
+                src={`/api/thumbnail?path=${encodeURIComponent(photo.path)}`}
                 alt={photo.name}
                 className="w-full h-full object-cover"
               />
@@ -210,7 +210,6 @@ function LightboxContent({
 }
 
 export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProps) {
-  // Use key to reset state when currentIndex changes
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
 
   if (!isOpen || photos.length === 0) return null;
