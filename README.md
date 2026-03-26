@@ -231,6 +231,29 @@ bun run lint     # Run ESLint
 bun run start    # Start production server
 ```
 
+## 🚀 Deployment
+
+Detailed deployment instructions for Ubuntu Server are available in [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+### Quick Deploy
+
+```bash
+# Clone repository
+git clone https://github.com/frostiks777/1pgWebGallery.git
+cd 1pgWebGallery
+
+# Install dependencies
+bun install
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your WebDAV credentials
+
+# Build and start
+bun run build
+bun run start
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

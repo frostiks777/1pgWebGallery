@@ -1,0 +1,93 @@
+# =============================================================================
+# Photo Gallery - Systemd Service Unit
+# =============================================================================
+# Разместите этот файл: /etc/systemd/system/photo-gallery.service
+# Активация: sudo systemctl daemon-reload
+#            sudo systemctl enable photo-gallery
+#            sudo systemctl start photo-gallery
+# =============================================================================
+
+[Unit]
+Description=Photo Gallery - Next.js Application
+Documentation=https://github.com/frostiks777/1pgWebGallery
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/apps/photo-gallery
+
+# Окружение
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+EnvironmentFile=/var/www/apps/photo-gallery/.env.local
+
+# Запуск (укажите правильный путь к bun)
+# Вариант 1: Bun установлен глобально
+# ExecStart=/usr/local/bin/bun run start
+
+# Вариант 2: Bun установлен в домашней директории пользователя
+ExecStart=/home/YOUR_USER/.bun/bin/bun run start
+
+# Вариант 3: Используя Node.js
+# ExecStart=/usr/bin/node .next/standalone/server.js
+
+# Перезапуск при падении
+Restart=on-failure
+RestartSec=10
+
+# Таймауты
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+# Логирование
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=photo-gallery
+
+# Ограничения ресурсов (опционально)
+LimitNOFILE=65535
+# MemoryMax=1G
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
+# =============================================================================
+# ПОЛЕЗНЫЕ КОМАНДЫ
+# =============================================================================
+# 
+# Статус сервиса:
+#   sudo systemctl status photo-gallery
+#
+# Запуск:
+#   sudo systemctl start photo-gallery
+#
+# Остановка:
+#   sudo systemctl stop photo-gallery
+#
+# Перезапуск:
+#   sudo systemctl restart photo-gallery
+#
+# Логи в реальном времени:
+#   sudo journalctl -u photo-gallery -f
+#
+# Последние 100 строк логов:
+#   sudo journalctl -u photo-gallery -n 100
+#
+# Логи за последний час:
+#   sudo journalctl -u photo-gallery --since "1 hour ago"
+#
+# Обновление приложения:
+#   cd /var/www/apps/photo-gallery
+#   git pull
+#   bun install
+#   bun run build
+#   sudo systemctl restart photo-gallery
+#
+# =============================================================================
