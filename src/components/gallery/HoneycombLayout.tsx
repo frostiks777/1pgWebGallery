@@ -6,43 +6,30 @@ import { useState } from 'react';
 interface HoneycombLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
-  mode?: 'demo' | 'webdav';
 }
 
-function HexagonItem({
-  photo,
-  index,
-  onClick
-}: {
-  photo: Photo;
-  index: number;
-  onClick: () => void;
-}) {
+function HexagonCard({ photo, index, onClick }: { photo: Photo; index: number; onClick: () => void }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use the photo-file API endpoint
-  const imageUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
+  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=200`;
   
   return (
-    <div
-      className="hexagon-container group cursor-pointer relative"
-      onClick={onClick}
-    >
+    <div className="hexagon-container group cursor-pointer relative" onClick={onClick}>
       <div className="hexagon relative overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-100 dark:bg-slate-800">
         {hasError ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-200 dark:bg-slate-700">
+          <div className="w-full h-full flex items-center justify-center bg-slate-200">
             <span className="text-2xl">⚠️</span>
           </div>
         ) : (
           <>
             {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="w-6 h-6 border-2 border-slate-300 border-t-violet-500 rounded-full animate-spin" />
               </div>
             )}
             <img
-              src={imageUrl}
+              src={thumbnailUrl}
               alt={photo.name}
               className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
               loading="lazy"
@@ -73,9 +60,9 @@ function HexagonItem({
   );
 }
 
-export function HoneycombLayout({ photos, onPhotoClick, mode = 'demo' }: HoneycombLayoutProps) {
+export function HoneycombLayout({ photos, onPhotoClick }: HoneycombLayoutProps) {
   return (
-    <div className="honeycomb-wrapper overflow-x-auto py-8">
+    <div className="overflow-x-auto py-8">
       <div className="flex flex-wrap justify-center gap-1">
         {photos.map((photo, index) => {
           const row = Math.floor(index / 3);
@@ -85,14 +72,13 @@ export function HoneycombLayout({ photos, onPhotoClick, mode = 'demo' }: Honeyco
           return (
             <div
               key={photo.path}
-              className="hex-wrapper"
               style={{
                 marginTop: row === 0 ? '0' : '-50px',
                 marginLeft: posInRow === 0 ? '0' : '-30px',
                 paddingLeft: isEvenRow && posInRow === 0 ? '90px' : '0',
               }}
             >
-              <HexagonItem
+              <HexagonCard
                 photo={photo}
                 index={index}
                 onClick={() => onPhotoClick(photo, index)}

@@ -9,7 +9,7 @@ interface PhotoCardProps {
   onClick: () => void;
   className?: string;
   aspectRatio?: string;
-  mode?: 'demo' | 'webdav';
+  thumbnailSize?: number;
 }
 
 export const PhotoCard = memo(function PhotoCard({ 
@@ -18,14 +18,13 @@ export const PhotoCard = memo(function PhotoCard({
   onClick,
   className = '',
   aspectRatio = 'aspect-square',
-  mode = 'demo'
+  thumbnailSize = 300
 }: PhotoCardProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use the new photo-file API endpoint with query parameter
-  // This is more reliable than catch-all routes
-  const imageUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
+  // Use thumbnail API for preview
+  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=${thumbnailSize}`;
   
   return (
     <div
@@ -46,13 +45,13 @@ export const PhotoCard = memo(function PhotoCard({
             </div>
           )}
           <img
-            src={imageUrl}
+            src={thumbnailUrl}
             alt={photo.name}
             className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
             loading="lazy"
             onLoad={() => setIsLoading(false)}
             onError={(e) => {
-              console.error(`[Gallery] Failed to load image: ${imageUrl}`, e);
+              console.error(`[Gallery] Failed to load thumbnail: ${thumbnailUrl}`, e);
               setHasError(true);
               setIsLoading(false);
             }}

@@ -3,13 +3,7 @@
 import { Photo } from './types';
 import { PhotoCard } from './PhotoCard';
 
-interface WaveLayoutProps {
-  photos: Photo[];
-  onPhotoClick: (photo: Photo, index: number) => void;
-  mode?: 'demo' | 'webdav';
-}
-
-export function WaveLayout({ photos, onPhotoClick, mode = 'demo' }: WaveLayoutProps) {
+export function WaveLayout({ photos, onPhotoClick }: { photos: Photo[]; onPhotoClick: (photo: Photo, index: number) => void }) {
   return (
     <div className="flex flex-wrap justify-center gap-4 pt-12 pb-12">
       {photos.map((photo, index) => {
@@ -26,7 +20,7 @@ export function WaveLayout({ photos, onPhotoClick, mode = 'demo' }: WaveLayoutPr
               onClick={() => onPhotoClick(photo, index)}
               aspectRatio=""
               className="h-64"
-              mode={mode}
+              thumbnailSize={250}
             />
           </div>
         );

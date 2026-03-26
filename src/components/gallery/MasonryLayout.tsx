@@ -2,15 +2,13 @@
 
 import { Photo } from './types';
 import { PhotoCard } from './PhotoCard';
-import { memo } from 'react';
 
 interface MasonryLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
-  mode?: 'demo' | 'webdav';
 }
 
-export function MasonryLayout({ photos, onPhotoClick, mode = 'demo' }: MasonryLayoutProps) {
+export function MasonryLayout({ photos, onPhotoClick }: MasonryLayoutProps) {
   // Create 3 columns for masonry layout
   const columns: Photo[][] = [[], [], []];
   
@@ -30,7 +28,7 @@ export function MasonryLayout({ photos, onPhotoClick, mode = 'demo' }: MasonryLa
                 photo={photo}
                 index={originalIndex}
                 onClick={() => onPhotoClick(photo, originalIndex)}
-                mode={mode}
+                thumbnailSize={400}
               />
             );
           })}

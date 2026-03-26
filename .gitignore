@@ -57,3 +57,6 @@ mini-services/
 .zscripts/
 Caddyfile
 upload/
+
+# Thumbnail cache
+.cache/

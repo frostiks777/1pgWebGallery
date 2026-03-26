@@ -6,27 +6,25 @@ import { PhotoCard } from './PhotoCard';
 interface BentoLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
-  mode?: 'demo' | 'webdav';
 }
 
-export function BentoLayout({ photos, onPhotoClick, mode = 'demo' }: BentoLayoutProps) {
+export function BentoLayout({ photos, onPhotoClick }: BentoLayoutProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 auto-rows-[120px]">
       {photos.map((photo, index) => {
         // Create interesting bento patterns
         let className = '';
-        let aspectRatio = 'aspect-square';
+        let thumbnailSize = 200;
         
-        // Make some photos larger based on position
         if (index % 7 === 0) {
           className = 'col-span-2 row-span-2';
-          aspectRatio = '';
+          thumbnailSize = 400;
         } else if (index % 5 === 0) {
           className = 'col-span-2 row-span-1';
-          aspectRatio = '';
+          thumbnailSize = 300;
         } else if (index % 11 === 0) {
           className = 'col-span-1 row-span-2';
-          aspectRatio = '';
+          thumbnailSize = 200;
         }
         
         return (
@@ -36,8 +34,8 @@ export function BentoLayout({ photos, onPhotoClick, mode = 'demo' }: BentoLayout
             index={index}
             onClick={() => onPhotoClick(photo, index)}
             className={className}
-            aspectRatio={aspectRatio}
-            mode={mode}
+            aspectRatio=""
+            thumbnailSize={thumbnailSize}
           />
         );
       })}

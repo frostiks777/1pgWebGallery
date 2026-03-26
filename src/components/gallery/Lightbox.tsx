@@ -3,22 +3,21 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut } from 'lucide-react';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
   photos: Photo[];
   currentIndex: number;
   isOpen: boolean;
   onClose: () => void;
-  mode?: 'demo' | 'webdav';
 }
 
 function LightboxContent({ 
   photos, 
   initialIndex, 
   isOpen, 
-  onClose,
+  onClose
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
@@ -28,15 +27,30 @@ function LightboxContent({
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  // Load full image on demand
+  const currentPhoto = photos[index];
+  const fullImageUrl = currentPhoto ? `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}` : '';
 
   const handlePrev = useCallback(() => {
-    setIsLoading(true);
-    setIndex((prev) => (prev - 1 + photos.length) % photos.length);
+    setIndex((prev) => {
+      const newIndex = (prev - 1 + photos.length) % photos.length;
+      setIsLoading(true);
+      setHasError(false);
+      setZoom(1);
+      return newIndex;
+    });
   }, [photos.length]);
 
   const handleNext = useCallback(() => {
-    setIsLoading(true);
-    setIndex((prev) => (prev + 1) % photos.length);
+    setIndex((prev) => {
+      const newIndex = (prev + 1) % photos.length;
+      setIsLoading(true);
+      setHasError(false);
+      setZoom(1);
+      return newIndex;
+    });
   }, [photos.length]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 3));
@@ -70,19 +84,14 @@ function LightboxContent({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const currentPhoto = photos[index];
-
   if (!currentPhoto) return null;
-  
-  // Use the photo-file API endpoint
-  const imageUrl = `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}`;
 
   return (
     <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
-      {/* Visually hidden title for accessibility */}
       <DialogTitle className="sr-only">
         Photo viewer - {currentPhoto.name}
       </DialogTitle>
+      
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
         <div className="text-white">
@@ -92,44 +101,21 @@ function LightboxContent({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleZoomOut}
-            className="text-white hover:bg-white/20"
-          >
+          <Button variant="ghost" size="icon" onClick={handleZoomOut} className="text-white hover:bg-white/20">
             <ZoomOut className="h-5 w-5" />
           </Button>
           <span className="text-white text-sm min-w-[3rem] text-center">
             {Math.round(zoom * 100)}%
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleZoomIn}
-            className="text-white hover:bg-white/20"
-          >
+          <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
             <ZoomIn className="h-5 w-5" />
           </Button>
-          <a
-            href={imageUrl}
-            download={currentPhoto.name}
-            className="inline-flex"
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-            >
+          <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
               <Download className="h-5 w-5" />
             </Button>
           </a>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white hover:bg-white/20"
-          >
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -157,50 +143,63 @@ function LightboxContent({
         </>
       )}
 
-      {/* Image container */}
+      {/* Image container - load full image only when lightbox is open */}
       <div className="flex items-center justify-center w-full h-[95vh] overflow-hidden">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-10 h-10 text-white animate-spin" />
+            <p className="text-white/70 text-sm">Loading full image...</p>
           </div>
         )}
-        <img
-          src={imageUrl}
-          alt={currentPhoto.name}
-          className={`max-w-full max-h-full object-contain transition-transform duration-300 ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          }`}
-          style={{ transform: `scale(${zoom})` }}
-          onLoad={() => setIsLoading(false)}
-        />
+        {hasError ? (
+          <div className="flex flex-col items-center justify-center gap-4 text-white">
+            <X className="w-16 h-16 text-red-400" />
+            <p className="text-lg">Failed to load image</p>
+            <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <img
+            src={fullImageUrl}
+            alt={currentPhoto.name}
+            className={`max-w-full max-h-full object-contain transition-all duration-300 ${
+              isLoading ? 'opacity-0' : 'opacity-100'
+            }`}
+            style={{ transform: `scale(${zoom})` }}
+            onLoad={() => setIsLoading(false)}
+            onError={() => { setHasError(true); setIsLoading(false); }}
+          />
+        )}
       </div>
 
-      {/* Thumbnails */}
+      {/* Thumbnails - use small thumbnails for navigation */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex justify-center gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
-          {photos.map((photo, i) => {
-            const thumbUrl = `/api/photo-file?path=${encodeURIComponent(photo.path)}`;
-            return (
-              <button
-                key={photo.path}
-                onClick={() => {
+          {photos.map((photo, i) => (
+            <button
+              key={photo.path}
+              onClick={() => {
+                if (i !== index) {
                   setIsLoading(true);
+                  setHasError(false);
+                  setZoom(1);
                   setIndex(i);
-                }}
-                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
-                  i === index
-                    ? 'ring-2 ring-white scale-110'
-                    : 'opacity-50 hover:opacity-80'
-                }`}
-              >
-                <img
-                  src={thumbUrl}
-                  alt={photo.name}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            );
-          })}
+                }
+              }}
+              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
+                i === index
+                  ? 'ring-2 ring-white scale-110'
+                  : 'opacity-50 hover:opacity-80'
+              }`}
+            >
+              <img
+                src={`/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=100`}
+                alt={photo.name}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
         </div>
       </div>
     </DialogContent>
@@ -208,6 +207,7 @@ function LightboxContent({
 }
 
 export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProps) {
+  // Use key to reset state when currentIndex changes
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
 
   if (!isOpen || photos.length === 0) return null;
