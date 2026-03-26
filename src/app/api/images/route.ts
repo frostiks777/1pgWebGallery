@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import sharp from 'sharp';
 
-// Cache directory for optimized images
+// Try to load sharp — it may not be available on all platforms
+let sharpModule: typeof import('sharp') | null = null;
+try {
+  sharpModule = require('sharp');
+} catch {
+  console.warn('[Images API] Sharp not available — images will be served without optimization');
+}
+
+// Cache directory for images
 const CACHE_DIR = path.join(process.cwd(), '.cache', 'images');
 
 // Image size configurations
@@ -25,7 +32,6 @@ try {
   console.error('[Images API] Error creating cache directory:', error);
 }
 
-// Generate cache key from path and size
 function getCacheKey(photoPath: string, size: ImageSize): string {
   const hash = crypto
     .createHash('md5')
@@ -34,40 +40,34 @@ function getCacheKey(photoPath: string, size: ImageSize): string {
   return hash;
 }
 
-// Get cached image path
 function getCachedPath(photoPath: string, size: ImageSize): string {
   const cacheKey = getCacheKey(photoPath, size);
-  return path.join(CACHE_DIR, `${cacheKey}.webp`);
+  const ext = sharpModule ? '.webp' : (path.extname(photoPath).toLowerCase() || '.jpg');
+  return path.join(CACHE_DIR, `${cacheKey}${ext}`);
 }
 
-// Check if cached image exists and is fresh
 function getCachedImage(photoPath: string, size: ImageSize): Buffer | null {
   try {
     const cachePath = getCachedPath(photoPath, size);
-    
+
     if (fs.existsSync(cachePath)) {
       const stats = fs.statSync(cachePath);
       const age = Date.now() - stats.mtimeMs;
       const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
-      
+
       if (age < maxAge) {
         return fs.readFileSync(cachePath);
       } else {
-        try {
-          fs.unlinkSync(cachePath);
-        } catch (e) {
-          // Ignore
-        }
+        try { fs.unlinkSync(cachePath); } catch { /* ignore */ }
       }
     }
   } catch (error) {
     console.error(`[Images API] Error reading cache:`, error);
   }
-  
+
   return null;
 }
 
-// Save optimized image to cache
 function cacheImage(photoPath: string, size: ImageSize, buffer: Buffer): void {
   try {
     if (!fs.existsSync(CACHE_DIR)) {
@@ -80,12 +80,25 @@ function cacheImage(photoPath: string, size: ImageSize, buffer: Buffer): void {
   }
 }
 
-// Optimize image with Sharp
+function getContentType(photoPath: string): string {
+  if (sharpModule) return 'image/webp';
+  const ext = path.extname(photoPath).toLowerCase();
+  const types: Record<string, string> = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.png': 'image/png', '.gif': 'image/gif',
+    '.webp': 'image/webp', '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+  };
+  return types[ext] || 'image/jpeg';
+}
+
 async function optimizeImage(buffer: Buffer, size: ImageSize): Promise<Buffer> {
+  if (!sharpModule) return buffer;
+
   const { width, height } = IMAGE_SIZES[size];
-  
+
   try {
-    return await sharp(buffer)
+    return await sharpModule(buffer)
       .resize(width, height, {
         fit: 'inside',
         withoutEnlargement: true,
@@ -93,13 +106,11 @@ async function optimizeImage(buffer: Buffer, size: ImageSize): Promise<Buffer> {
       .webp({ quality: 85 })
       .toBuffer();
   } catch (error) {
-    console.error('[Images API] Sharp optimization failed:', error);
-    // Fallback: return original buffer
+    console.error('[Images API] Sharp optimization failed, serving original:', error);
     return buffer;
   }
 }
 
-// Stream file from WebDAV using direct buffer method
 async function fetchWebDAVImage(photoPath: string): Promise<Buffer> {
   const { createClient } = await import('webdav');
   const webdavUrl = process.env.WEBDAV_URL;
@@ -116,60 +127,52 @@ async function fetchWebDAVImage(photoPath: string): Promise<Buffer> {
   });
 
   const normalizedPath = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
-  
-  try {
-    const arrayBuffer = await client.getFileContents(normalizedPath, {
-      format: 'binary',
-    }) as ArrayBuffer;
-    
-    return Buffer.from(arrayBuffer);
-  } catch (error) {
-    console.error(`[Images API] WebDAV fetch failed for ${normalizedPath}:`, error);
-    throw error;
-  }
+
+  const arrayBuffer = await client.getFileContents(normalizedPath, {
+    format: 'binary',
+  }) as ArrayBuffer;
+
+  return Buffer.from(arrayBuffer);
 }
 
-// Main GET handler
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const photoPath = searchParams.get('path');
     const sizeParam = searchParams.get('size') || 'medium';
-    
+
     if (!photoPath) {
       return NextResponse.json({ error: 'Missing path parameter' }, { status: 400 });
     }
-    
+
     const size = (sizeParam in IMAGE_SIZES ? sizeParam : 'medium') as ImageSize;
     const decodedPath = decodeURIComponent(photoPath);
-    
+
     // Check cache first
     const cached = getCachedImage(decodedPath, size);
     if (cached) {
       return new NextResponse(new Uint8Array(cached), {
         headers: {
-          'Content-Type': 'image/webp',
+          'Content-Type': getContentType(decodedPath),
           'Cache-Control': 'public, max-age=31536000, immutable',
           'X-Cache': 'HIT',
         },
       });
     }
-    
+
     // Fetch original image
     const pathSegments = decodedPath.split('/').filter(Boolean);
     let originalBuffer: Buffer;
-    
+
     if (pathSegments[0] === 'demo-photos') {
-      // Local demo photo
       const localPath = path.join(process.cwd(), 'public', ...pathSegments);
-      
+
       if (!fs.existsSync(localPath)) {
         return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
       }
-      
+
       originalBuffer = fs.readFileSync(localPath);
     } else {
-      // WebDAV photo
       try {
         originalBuffer = await fetchWebDAVImage(decodedPath);
       } catch (error) {
@@ -180,16 +183,16 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-    
-    // Optimize image
-    const optimizedBuffer = await optimizeImage(originalBuffer, size);
-    
-    // Cache optimized image
-    cacheImage(decodedPath, size, optimizedBuffer);
-    
-    return new NextResponse(new Uint8Array(optimizedBuffer), {
+
+    // Optimize if sharp is available, otherwise serve as-is
+    const resultBuffer = await optimizeImage(originalBuffer, size);
+
+    // Cache the result
+    cacheImage(decodedPath, size, resultBuffer);
+
+    return new NextResponse(new Uint8Array(resultBuffer), {
       headers: {
-        'Content-Type': 'image/webp',
+        'Content-Type': getContentType(decodedPath),
         'Cache-Control': 'public, max-age=31536000, immutable',
         'X-Cache': 'MISS',
       },
