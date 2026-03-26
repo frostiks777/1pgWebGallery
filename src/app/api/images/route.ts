@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     // Check cache first
     const cached = getCachedImage(decodedPath, size);
     if (cached) {
-      return new NextResponse(cached, {
+      return new NextResponse(new Uint8Array(cached), {
         headers: {
           'Content-Type': 'image/webp',
           'Cache-Control': 'public, max-age=31536000, immutable',
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
     // Cache optimized image
     cacheImage(decodedPath, size, optimizedBuffer);
     
-    return new NextResponse(optimizedBuffer, {
+    return new NextResponse(new Uint8Array(optimizedBuffer), {
       headers: {
         'Content-Type': 'image/webp',
         'Cache-Control': 'public, max-age=31536000, immutable',
