@@ -16,9 +16,7 @@ import {
   Crown,
   Minus,
   Palmtree,
-  XCircle,
-  Info,
-  Bug
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,25 +50,12 @@ import {
 
 type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
 
-interface ConnectionDetails {
-  url: string;
-  photosDir: string;
-  directoryExists?: boolean;
-  fileCount?: number;
-  samplePaths?: string[];
-}
-
 interface PhotosResponse {
   success: boolean;
   mode: 'demo' | 'webdav';
   photos: Photo[];
   error?: string;
   message?: string;
-  connectionDetails?: ConnectionDetails;
-  debug?: {
-    samplePaths: string[];
-    totalPhotos: number;
-  };
 }
 
 const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode; group: 'grid' | 'artistic' | 'style' }[] = [
@@ -90,20 +75,15 @@ export default function GalleryPage() {
   const [originalPhotos, setOriginalPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
-  const [debugInfo, setDebugInfo] = useState<{ samplePaths: string[]; totalPhotos: number } | null>(null);
   const [mode, setMode] = useState<'demo' | 'webdav'>('demo');
   const [layout, setLayout] = useState<CollageLayout>('masonry');
   const [sortOption, setSortOption] = useState<SortOption>('name-asc');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [showDebug, setShowDebug] = useState(false);
 
   const fetchPhotos = async () => {
     setIsLoading(true);
     setError(null);
-    setConnectionDetails(null);
-    setDebugInfo(null);
     
     try {
       const response = await fetch('/api/photos');
@@ -113,20 +93,11 @@ export default function GalleryPage() {
       
       if (!data.success) {
         setError(data.error || 'Failed to fetch photos');
-        if (data.connectionDetails) {
-          setConnectionDetails(data.connectionDetails);
-        }
         setPhotos([]);
         setOriginalPhotos([]);
       } else {
         setOriginalPhotos(data.photos);
         setPhotos(data.photos);
-        if (data.connectionDetails) {
-          setConnectionDetails(data.connectionDetails);
-        }
-        if (data.debug) {
-          setDebugInfo(data.debug);
-        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load photos');
@@ -207,7 +178,7 @@ export default function GalleryPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       {mode === 'webdav' ? 'WebDAV Cloud' : 'Demo Mode'}
                     </p>
-                    {mode === 'webdav' && connectionDetails && (
+                    {mode === 'webdav' && (
                       <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         Connected
                       </Badge>
@@ -217,18 +188,6 @@ export default function GalleryPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {/* Debug Button */}
-                {mode === 'webdav' && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
-                  >
-                    <Bug className="h-4 w-4" />
-                  </Button>
-                )}
-                
                 {/* Sort Control */}
                 <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
                   <SelectTrigger className="w-[180px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
@@ -279,38 +238,6 @@ export default function GalleryPage() {
                 </Tooltip>
               </div>
             </div>
-
-            {/* Debug Panel */}
-            {showDebug && mode === 'webdav' && (
-              <div className="mt-4 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Debug Info</span>
-                  <Button variant="ghost" size="sm" onClick={() => setShowDebug(false)}>Hide</Button>
-                </div>
-                <div className="space-y-2 text-slate-600 dark:text-slate-300">
-                  {connectionDetails && (
-                    <>
-                      <p><span className="font-medium">WebDAV URL:</span> {connectionDetails.url}</p>
-                      <p><span className="font-medium">Photos Directory:</span> {connectionDetails.photosDir}</p>
-                      <p><span className="font-medium">Directory Exists:</span> {connectionDetails.directoryExists ? 'Yes' : 'No'}</p>
-                    </>
-                  )}
-                  {debugInfo && (
-                    <>
-                      <p><span className="font-medium">Total Photos:</span> {debugInfo.totalPhotos}</p>
-                      <p><span className="font-medium">Sample Image URLs:</span></p>
-                      <ul className="list-disc list-inside ml-2 space-y-1">
-                        {debugInfo.samplePaths.map((path, i) => (
-                          <li key={i} className="font-mono text-xs break-all">
-                            /api/photos{path}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Layout Selector */}
             <Separator className="my-4" />
@@ -427,34 +354,10 @@ export default function GalleryPage() {
                       <p className="text-slate-500 dark:text-slate-400 mb-4">
                         {error}
                       </p>
-                      
-                      {connectionDetails && (
-                        <div className="bg-slate-100 dark:bg-slate-700/50 rounded-lg p-4 mb-4">
-                          <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                            <Info className="h-4 w-4" />
-                            Connection Details
-                          </h4>
-                          <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                            <p><span className="font-medium">WebDAV URL:</span> {connectionDetails.url}</p>
-                            <p><span className="font-medium">Photos Directory:</span> {connectionDetails.photosDir}</p>
-                            {connectionDetails.directoryExists !== undefined && (
-                              <p>
-                                <span className="font-medium">Directory Exists:</span>{' '}
-                                <span className={connectionDetails.directoryExists ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                                  {connectionDetails.directoryExists ? 'Yes' : 'No'}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        <Button onClick={fetchPhotos} variant="default">
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Try Again
-                        </Button>
-                      </div>
+                      <Button onClick={fetchPhotos} variant="default">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Try Again
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -472,7 +375,7 @@ export default function GalleryPage() {
               <Card className="max-w-md w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="pt-6 text-center">
                   <div className="mx-auto w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                    <Cloud className="h-8 w-8 text-slate-400" />
+                    <ImageOff className="h-8 w-8 text-slate-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
                     No Photos Found
@@ -480,11 +383,6 @@ export default function GalleryPage() {
                   <p className="text-slate-500 dark:text-slate-400">
                     The configured directory is empty or does not exist.
                   </p>
-                  {connectionDetails && (
-                    <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                      <p>Directory: {connectionDetails.photosDir}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -495,7 +393,7 @@ export default function GalleryPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.3 }}
             >
               {/* Photo Count Badge - only for non-style layouts */}
               {!isStyleLayout && (
@@ -513,7 +411,7 @@ export default function GalleryPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                 >
                   {renderLayout()}
                 </motion.div>

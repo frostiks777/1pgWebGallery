@@ -4,8 +4,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { Jimp } from 'jimp';
 
-// Cache directory for thumbnails
-const CACHE_DIR = path.join(process.cwd(), '.cache', 'thumbnails');
+// Cache directory for medium-size images
+const CACHE_DIR = path.join(process.cwd(), '.cache', 'medium');
+const MEDIUM_SIZE = 1920; // Max width for medium images (good for viewing, ~1-3MB)
 
 // Ensure cache directory exists
 try {
@@ -13,39 +14,39 @@ try {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
   }
 } catch (error) {
-  console.error('[Thumbnail] Error creating cache directory:', error);
+  console.error('[Medium] Error creating cache directory:', error);
 }
 
 // Generate a cache key from photo path
-function getCacheKey(photoPath: string, size: number): string {
+function getCacheKey(photoPath: string): string {
   const hash = crypto
     .createHash('md5')
-    .update(`${photoPath}-${size}`)
+    .update(photoPath)
     .digest('hex');
   return hash;
 }
 
-// Get cached thumbnail path
-function getCachedThumbnailPath(photoPath: string, size: number): string {
-  const cacheKey = getCacheKey(photoPath, size);
+// Get cached medium image path
+function getCachedPath(photoPath: string): string {
+  const cacheKey = getCacheKey(photoPath);
   return path.join(CACHE_DIR, `${cacheKey}.jpg`);
 }
 
-// Check if thumbnail is cached and fresh
-function getCachedThumbnail(photoPath: string, size: number): Buffer | null {
+// Check if medium image is cached and fresh
+function getCachedMedium(photoPath: string): Buffer | null {
   try {
-    const cachePath = getCachedThumbnailPath(photoPath, size);
+    const cachePath = getCachedPath(photoPath);
     
     if (fs.existsSync(cachePath)) {
       const stats = fs.statSync(cachePath);
       const age = Date.now() - stats.mtimeMs;
-      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+      const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
       
       if (age < maxAge) {
-        console.log(`[Thumbnail] Cache hit for: ${photoPath}`);
+        console.log(`[Medium] Cache hit for: ${photoPath}`);
         return fs.readFileSync(cachePath);
       } else {
-        console.log(`[Thumbnail] Cache expired for: ${photoPath}`);
+        console.log(`[Medium] Cache expired for: ${photoPath}`);
         try {
           fs.unlinkSync(cachePath);
         } catch (e) {
@@ -54,38 +55,38 @@ function getCachedThumbnail(photoPath: string, size: number): Buffer | null {
       }
     }
   } catch (error) {
-    console.error(`[Thumbnail] Error reading cache:`, error);
+    console.error(`[Medium] Error reading cache:`, error);
   }
   
   return null;
 }
 
-// Save thumbnail to cache
-function cacheThumbnail(photoPath: string, size: number, buffer: Buffer): void {
+// Save medium image to cache
+function cacheMedium(photoPath: string, buffer: Buffer): void {
   try {
-    const cachePath = getCachedThumbnailPath(photoPath, size);
+    const cachePath = getCachedPath(photoPath);
     fs.writeFileSync(cachePath, buffer);
-    console.log(`[Thumbnail] Cached: ${photoPath} (${Math.round(buffer.length / 1024)}KB)`);
+    console.log(`[Medium] Cached: ${photoPath} (${Math.round(buffer.length / 1024 / 1024)}MB)`);
   } catch (error) {
-    console.error(`[Thumbnail] Error caching:`, error);
+    console.error(`[Medium] Error caching:`, error);
   }
 }
 
 // Resize image using Jimp
-async function resizeImage(buffer: Buffer, maxSize: number): Promise<Buffer> {
+async function resizeToMedium(buffer: Buffer): Promise<Buffer> {
   const image = await Jimp.read(buffer);
   
   const width = image.width;
   const height = image.height;
   
-  // Resize maintaining aspect ratio
-  if (width > maxSize || height > maxSize) {
-    image.resize({ w: maxSize });
+  // Only resize if larger than medium size
+  if (width > MEDIUM_SIZE || height > MEDIUM_SIZE) {
+    image.resize({ w: MEDIUM_SIZE });
   }
   
-  // Get buffer with JPEG quality
-  const result = await image.getBuffer('image/jpeg', { quality: 80 });
-  console.log(`[Thumbnail] Resized ${width}x${height} to ${image.width}x${image.height}: ${Math.round(result.length / 1024)}KB`);
+  // Get buffer with JPEG quality 85
+  const result = await image.getBuffer('image/jpeg', { quality: 85 });
+  console.log(`[Medium] Resized from ${width}x${height} to ${image.width}x${image.height}: ${Math.round(result.length / 1024 / 1024)}MB`);
   return result;
 }
 
@@ -93,7 +94,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const photoPath = searchParams.get('path');
-    const size = parseInt(searchParams.get('size') || '300', 10);
     
     if (!photoPath) {
       return NextResponse.json(
@@ -103,15 +103,15 @@ export async function GET(request: NextRequest) {
     }
     
     const decodedPath = decodeURIComponent(photoPath);
-    console.log(`[Thumbnail] Request for: ${decodedPath}, size: ${size}`);
+    console.log(`[Medium] Request for: ${decodedPath}`);
     
     // Check cache first
-    const cached = getCachedThumbnail(decodedPath, size);
+    const cached = getCachedMedium(decodedPath);
     if (cached) {
       return new NextResponse(cached, {
         headers: {
           'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=604800, immutable',
+          'Cache-Control': 'public, max-age=2592000, immutable',
           'X-Cache': 'HIT',
         },
       });
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         const base64Data = base64.split(',')[1];
         imageBuffer = Buffer.from(base64Data, 'base64');
       } catch (error) {
-        console.error(`[Thumbnail] Error fetching from WebDAV:`, error);
+        console.error(`[Medium] Error fetching from WebDAV:`, error);
         return NextResponse.json(
           { error: `Failed to fetch: ${error instanceof Error ? error.message : 'Unknown error'}` },
           { status: 500 }
@@ -154,23 +154,25 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Resize image for thumbnail
-    const thumbnailBuffer = await resizeImage(imageBuffer, size);
+    console.log(`[Medium] Original image size: ${Math.round(imageBuffer.length / 1024 / 1024)}MB`);
     
-    // Cache the thumbnail
-    cacheThumbnail(decodedPath, size, thumbnailBuffer);
+    // Resize to medium
+    const mediumBuffer = await resizeToMedium(imageBuffer);
     
-    return new NextResponse(thumbnailBuffer, {
+    // Cache the medium image
+    cacheMedium(decodedPath, mediumBuffer);
+    
+    return new NextResponse(mediumBuffer, {
       headers: {
         'Content-Type': 'image/jpeg',
-        'Cache-Control': 'public, max-age=604800, immutable',
+        'Cache-Control': 'public, max-age=2592000, immutable',
         'X-Cache': 'MISS',
       },
     });
   } catch (error) {
-    console.error('[Thumbnail] Error:', error);
+    console.error('[Medium] Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate thumbnail' },
+      { error: error instanceof Error ? error.message : 'Failed to generate medium image' },
       { status: 500 }
     );
   }

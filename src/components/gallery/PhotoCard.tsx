@@ -1,7 +1,7 @@
 'use client';
 
 import { Photo } from './types';
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -23,50 +23,56 @@ export const PhotoCard = memo(function PhotoCard({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use thumbnail API for preview
+  // Use thumbnail API for preview - small compressed images
   const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=${thumbnailSize}`;
   
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-100 dark:bg-slate-800 ${aspectRatio} ${className}`}
+      className={`group relative overflow-hidden rounded-xl cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-200 dark:bg-slate-800 ${aspectRatio} ${className}`}
       onClick={onClick}
     >
       {hasError ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-200 dark:bg-slate-800">
           <div className="text-3xl mb-2">⚠️</div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-full">{photo.name}</p>
           <p className="text-xs text-red-400 mt-1">Failed to load</p>
         </div>
       ) : (
         <>
+          {/* Skeleton placeholder */}
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
-              <div className="w-8 h-8 border-2 border-slate-300 border-t-violet-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 animate-pulse">
+              <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-300 dark:from-slate-700 dark:to-slate-900" />
             </div>
           )}
           <img
             src={thumbnailUrl}
             alt={photo.name}
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
+              isLoading ? 'opacity-0' : 'opacity-100'
+            }`}
             loading="lazy"
+            decoding="async"
             onLoad={() => setIsLoading(false)}
             onError={(e) => {
-              console.error(`[Gallery] Failed to load thumbnail: ${thumbnailUrl}`, e);
+              console.error(`[Gallery] Failed to load thumbnail: ${thumbnailUrl}`);
               setHasError(true);
               setIsLoading(false);
             }}
           />
         </>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      <div className="absolute bottom-0 left-0 right-0 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-200">
         <p className="text-white text-sm font-medium truncate">{photo.name}</p>
-        <p className="text-white/70 text-xs mt-1">
+        <p className="text-white/70 text-xs mt-0.5">
           {new Date(photo.lastModified).toLocaleDateString()}
         </p>
       </div>
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <span className="bg-white/20 backdrop-blur-md text-white text-xs px-2 py-1 rounded-full">
+      {/* Index badge */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
           #{index + 1}
         </span>
       </div>

@@ -4,7 +4,7 @@ import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface LightboxProps {
   photos: Photo[];
@@ -29,8 +29,10 @@ function LightboxContent({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Load full image on demand
+  // Load medium image for viewing (2-3MB compressed)
   const currentPhoto = photos[index];
+  const mediumImageUrl = currentPhoto ? `/api/medium?path=${encodeURIComponent(currentPhoto.path)}` : '';
+  // Full size image for download only
   const fullImageUrl = currentPhoto ? `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}` : '';
 
   const handlePrev = useCallback(() => {
@@ -110,8 +112,9 @@ function LightboxContent({
           <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
             <ZoomIn className="h-5 w-5" />
           </Button>
+          {/* Download button - uses full size image */}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" title="Download full size">
               <Download className="h-5 w-5" />
             </Button>
           </a>
@@ -143,12 +146,12 @@ function LightboxContent({
         </>
       )}
 
-      {/* Image container - load full image only when lightbox is open */}
+      {/* Image container - load medium image for viewing */}
       <div className="flex items-center justify-center w-full h-[95vh] overflow-hidden">
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-white animate-spin" />
-            <p className="text-white/70 text-sm">Loading full image...</p>
+            <p className="text-white/70 text-sm">Loading image...</p>
           </div>
         )}
         {hasError ? (
@@ -161,7 +164,7 @@ function LightboxContent({
           </div>
         ) : (
           <img
-            src={fullImageUrl}
+            src={mediumImageUrl}
             alt={currentPhoto.name}
             className={`max-w-full max-h-full object-contain transition-all duration-300 ${
               isLoading ? 'opacity-0' : 'opacity-100'
