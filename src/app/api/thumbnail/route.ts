@@ -8,8 +8,12 @@ const CACHE_DIR = path.join(process.cwd(), '.cache', 'thumbnails');
 const THUMBNAIL_SIZE = 300; // Max width/height for thumbnails
 
 // Ensure cache directory exists
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+  }
+} catch (error) {
+  console.error('[Thumbnail] Error creating cache directory:', error);
 }
 
 // Generate a cache key from photo path
@@ -23,9 +27,8 @@ function getCacheKey(photoPath: string, size: number): string {
 
 // Get cached thumbnail path
 function getCachedThumbnailPath(photoPath: string, size: number): string {
-  const ext = path.extname(photoPath).toLowerCase() || '.jpg';
   const cacheKey = getCacheKey(photoPath, size);
-  return path.join(CACHE_DIR, `${cacheKey}${ext}`);
+  return path.join(CACHE_DIR, `${cacheKey}.jpg`);
 }
 
 // Check if thumbnail is cached and fresh
@@ -43,7 +46,11 @@ function getCachedThumbnail(photoPath: string, size: number): Buffer | null {
         return fs.readFileSync(cachePath);
       } else {
         console.log(`[Thumbnail] Cache expired for: ${photoPath}`);
-        fs.unlinkSync(cachePath);
+        try {
+          fs.unlinkSync(cachePath);
+        } catch (e) {
+          // Ignore deletion errors
+        }
       }
     }
   } catch (error) {
@@ -58,26 +65,48 @@ function cacheThumbnail(photoPath: string, size: number, buffer: Buffer): void {
   try {
     const cachePath = getCachedThumbnailPath(photoPath, size);
     fs.writeFileSync(cachePath, buffer);
-    console.log(`[Thumbnail] Cached: ${photoPath}`);
+    console.log(`[Thumbnail] Cached: ${photoPath} (${Math.round(buffer.length / 1024)}KB)`);
   } catch (error) {
     console.error(`[Thumbnail] Error caching:`, error);
   }
 }
 
-// Resize image using sharp
+// Resize image using sharp (preferred) or jimp (fallback)
 async function resizeImage(buffer: Buffer, maxSize: number): Promise<Buffer> {
+  // Try sharp first
   try {
     const sharp = await import('sharp');
-    return await sharp(buffer)
+    const result = await sharp.default(buffer)
       .resize(maxSize, maxSize, {
         fit: 'inside',
         withoutEnlargement: true,
       })
-      .jpeg({ quality: 80 })
+      .jpeg({ quality: 80, mozjpeg: true })
       .toBuffer();
-  } catch (error) {
-    console.error('[Thumbnail] Sharp error:', error);
-    return buffer;
+    console.log(`[Thumbnail] Sharp resized to ${maxSize}px: ${Math.round(result.length / 1024)}KB`);
+    return result;
+  } catch (sharpError) {
+    console.log('[Thumbnail] Sharp not available, using jimp fallback:', sharpError instanceof Error ? sharpError.message : 'Unknown error');
+    
+    // Fallback to jimp (pure JavaScript, no native dependencies)
+    try {
+      const jimp = await import('jimp');
+      const image = await jimp.default.read(buffer);
+      
+      // Resize maintaining aspect ratio
+      if (image.getWidth() > maxSize || image.getHeight() > maxSize) {
+        image.scaleToFit(maxSize, maxSize);
+      }
+      
+      // Set quality and get buffer
+      image.quality(80);
+      const result = await image.getBufferAsync(jimp.default.MIME_JPEG);
+      console.log(`[Thumbnail] Jimp resized to ${maxSize}px: ${Math.round(result.length / 1024)}KB`);
+      return result;
+    } catch (jimpError) {
+      console.error('[Thumbnail] Jimp also failed:', jimpError);
+      throw new Error('Both Sharp and Jimp failed to resize image');
+    }
   }
 }
 
@@ -146,8 +175,23 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    console.log(`[Thumbnail] Original image size: ${Math.round(imageBuffer.length / 1024)}KB`);
+    
     // Resize image for thumbnail
-    const thumbnailBuffer = await resizeImage(imageBuffer, size);
+    let thumbnailBuffer: Buffer;
+    try {
+      thumbnailBuffer = await resizeImage(imageBuffer, size);
+    } catch (resizeError) {
+      console.error('[Thumbnail] Resize failed, returning original:', resizeError);
+      // If resize completely fails, return original (but don't cache it as it's large)
+      return new NextResponse(imageBuffer, {
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'public, max-age=3600',
+          'X-Cache': 'MISS-NO-RESIZE',
+        },
+      });
+    }
     
     // Cache the thumbnail
     cacheThumbnail(decodedPath, size, thumbnailBuffer);
