@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
-    "start": "NODE_ENV=production node .next/standalone/server.js",
-    "lint": "eslint ."
+    "dev": "bun next dev -p 3000",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' bun next build",
+    "start": "NODE_ENV=production bun .next/standalone/server.js",
+    "lint": "bunx eslint ."
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
