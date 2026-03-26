@@ -9,39 +9,39 @@ interface BentoLayoutProps {
   onPhotoClick: (photo: Photo, index: number) => void;
 }
 
+// Period-10 pattern: tiles perfectly fill a 6-column grid with dense packing
+const BENTO_PATTERN: { col: string; row: string }[] = [
+  { col: 'col-span-2', row: 'row-span-2' }, // 0 — big square
+  { col: 'col-span-1', row: 'row-span-1' }, // 1
+  { col: 'col-span-1', row: 'row-span-1' }, // 2
+  { col: 'col-span-1', row: 'row-span-2' }, // 3 — tall
+  { col: 'col-span-1', row: 'row-span-1' }, // 4
+  { col: 'col-span-3', row: 'row-span-1' }, // 5 — wide
+  { col: 'col-span-1', row: 'row-span-1' }, // 6
+  { col: 'col-span-1', row: 'row-span-1' }, // 7
+  { col: 'col-span-2', row: 'row-span-1' }, // 8 — medium wide
+  { col: 'col-span-1', row: 'row-span-1' }, // 9
+];
+
 export function BentoLayout({ photos, onPhotoClick }: BentoLayoutProps) {
-  // Memoize photo rendering configuration
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
-      let className = '';
-      let thumbnailSize = 200;
-      
-      if (index % 7 === 0) {
-        className = 'col-span-2 sm:col-span-2 row-span-1 sm:row-span-2';
-        thumbnailSize = 400;
-      } else if (index % 5 === 0) {
-        className = 'col-span-2 row-span-1';
-        thumbnailSize = 300;
-      } else if (index % 11 === 0) {
-        className = 'col-span-1 row-span-1 sm:row-span-2';
-        thumbnailSize = 200;
-      }
-      
-      return { photo, className, thumbnailSize, index };
+      const pattern = BENTO_PATTERN[index % BENTO_PATTERN.length];
+      return { photo, index, col: pattern.col, row: pattern.row };
     });
   }, [photos]);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 auto-rows-[100px] sm:auto-rows-[120px]">
-      {photoConfigs.map(({ photo, className, thumbnailSize, index }) => (
+    <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 auto-rows-[110px] md:auto-rows-[130px] [grid-auto-flow:dense]">
+      {photoConfigs.map(({ photo, index, col, row }) => (
         <PhotoCard
           key={photo.path}
           photo={photo}
           index={index}
           onClick={() => onPhotoClick(photo, index)}
-          className={className}
+          className={`${col} ${row}`}
           aspectRatio=""
-          thumbnailSize={thumbnailSize}
+          thumbnailSize={400}
         />
       ))}
     </div>
