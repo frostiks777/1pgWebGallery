@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Photo } from './types';
 import { PhotoCard } from './PhotoCard';
 
@@ -9,12 +10,14 @@ interface MasonryLayoutProps {
 }
 
 export function MasonryLayout({ photos, onPhotoClick }: MasonryLayoutProps) {
-  // Create 3 columns for masonry layout
-  const columns: Photo[][] = [[], [], []];
-  
-  photos.forEach((photo, index) => {
-    columns[index % 3].push(photo);
-  });
+  // Create 3 columns for masonry layout - memoized to prevent recalculation
+  const columns = useMemo(() => {
+    const cols: Photo[][] = [[], [], []];
+    photos.forEach((photo, index) => {
+      cols[index % 3].push(photo);
+    });
+    return cols;
+  }, [photos]);
 
   return (
     <div className="flex gap-4">

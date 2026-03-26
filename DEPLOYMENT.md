@@ -21,7 +21,11 @@ sudo apt update && sudo apt upgrade -y
 
 ### 1.2 Установка необходимых пакетов
 ```bash
+# Базовые пакеты
 sudo apt install -y curl git nginx certbot python3-certbot-nginx nodejs npm
+
+# Пакеты для Sharp (обработка изображений)
+sudo apt install -y build-essential libvips-dev
 ```
 
 ### 1.3 Настройка firewall
@@ -239,6 +243,68 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 ### 6.2 Автоматическое обновление
 ```bash
 sudo certbot renew --dry-run
+```
+
+---
+
+## 6.5. Настройка Nginx кэширования (Рекомендуется для производительности)
+
+### 6.5.1 Добавление кэша изображений в конфигурацию
+Отредактируйте `/etc/nginx/sites-available/photo-gallery` и добавьте в начало файла (ДО блока server):
+
+```nginx
+# Кэш для оптимизированных изображений
+proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:100m max_size=10g inactive=30d use_temp_path=off;
+```
+
+Добавьте location для API изображений ВНУТРИ блока server:
+
+```nginx
+    # Кэширование API изображений - добавить внутри server блока
+    location /api/images {
+        proxy_pass http://photo_gallery;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        
+        # Включить кэш Nginx
+        proxy_cache images_cache;
+        proxy_cache_valid 200 30d;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_use_stale error timeout updating;
+        proxy_cache_background_update on;
+        proxy_cache_lock on;
+        
+        # Заголовки
+        add_header X-Cache-Status $upstream_cache_status;
+        add_header Cache-Control "public, max-age=2592000, immutable";
+        
+        # Увеличенные таймауты для обработки изображений
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+```
+
+### 6.5.2 Создание директории кэша
+```bash
+sudo mkdir -p /var/cache/nginx/images
+sudo chown -R www-data:www-data /var/cache/nginx/images
+sudo chmod 755 /var/cache/nginx/images
+```
+
+### 6.5.3 Перезапуск Nginx
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 6.5.4 Очистка кэша (при необходимости)
+```bash
+# Очистить кэш Nginx
+sudo rm -rf /var/cache/nginx/images/*
+
+# Очистить кэш приложения
+sudo rm -rf /var/www/apps/photo-gallery/.cache/images/*
 ```
 
 ---

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Grid3X3, 
@@ -77,7 +77,7 @@ export default function GalleryPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  const fetchPhotos = async () => {
+  const fetchPhotos = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -102,11 +102,11 @@ export default function GalleryPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPhotos();
-  }, []);
+  }, [fetchPhotos]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {
@@ -126,12 +126,12 @@ export default function GalleryPage() {
     setPhotos(sorted);
   }, [sortOption, originalPhotos]);
 
-  const handlePhotoClick = (photo: Photo, index: number) => {
+  const handlePhotoClick = useCallback((photo: Photo, index: number) => {
     setCurrentPhotoIndex(index);
     setLightboxOpen(true);
-  };
+  }, []);
 
-  const renderLayout = () => {
+  const renderLayout = useMemo(() => {
     switch (layout) {
       case 'masonry':
         return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} />;
@@ -150,9 +150,12 @@ export default function GalleryPage() {
       default:
         return <MasonryLayout photos={photos} onPhotoClick={handlePhotoClick} />;
     }
-  };
+  }, [layout, photos, handlePhotoClick]);
 
-  const isStyleLayout = ['empire', 'minimalism', 'mediterranean'].includes(layout);
+  const isStyleLayout = useMemo(
+    () => ['empire', 'minimalism', 'mediterranean'].includes(layout),
+    [layout]
+  );
 
   return (
     <TooltipProvider>
@@ -321,7 +324,7 @@ export default function GalleryPage() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.15 }}
                 >
-                  {renderLayout()}
+                  {renderLayout}
                 </motion.div>
               </AnimatePresence>
             </motion.div>

@@ -214,7 +214,7 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
   }
 }
 
-export async function getPhotoAsBase64(photoPath: string): Promise<string> {
+export async function getPhotoBuffer(photoPath: string): Promise<Buffer> {
   const client = getWebDAVClient();
   
   try {
@@ -227,29 +227,9 @@ export async function getPhotoAsBase64(photoPath: string): Promise<string> {
     
     console.log(`[WebDAV] Received ${buffer.byteLength} bytes for ${photoPath}`);
     
-    // Determine MIME type from extension
-    const ext = photoPath.toLowerCase().split('.').pop() || 'jpg';
-    const mimeTypes: Record<string, string> = {
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'png': 'image/png',
-      'gif': 'image/gif',
-      'webp': 'image/webp',
-      'bmp': 'image/bmp',
-      'svg': 'image/svg+xml',
-      'heic': 'image/heic',
-      'heif': 'image/heif',
-    };
-    const mimeType = mimeTypes[ext] || 'image/jpeg';
-    
-    const base64 = Buffer.from(buffer).toString('base64');
-    return `data:${mimeType};base64,${base64}`;
+    return Buffer.from(buffer);
   } catch (error) {
     console.error(`[WebDAV] Error fetching photo ${photoPath}:`, error);
     throw error;
   }
-}
-
-export async function getPhotoThumbnail(photoPath: string, maxSize: number = 300): Promise<string> {
-  return getPhotoAsBase64(photoPath);
 }

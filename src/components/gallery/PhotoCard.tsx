@@ -23,8 +23,8 @@ export const PhotoCard = memo(function PhotoCard({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use cached image API - browser handles resizing via CSS
-  const imageUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}`;
+  // Use unified optimized images API
+  const imageUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   return (
     <div

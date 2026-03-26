@@ -29,11 +29,11 @@ function LightboxContent({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Load cached image for viewing
+  // Load optimized image for viewing
   const currentPhoto = photos[index];
-  const imageUrl = currentPhoto ? `/api/medium?path=${encodeURIComponent(currentPhoto.path)}` : '';
+  const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   // Full size image for download
-  const fullImageUrl = currentPhoto ? `/api/photo-file?path=${encodeURIComponent(currentPhoto.path)}` : '';
+  const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
 
   const handlePrev = useCallback(() => {
     setIndex((prev) => {
@@ -85,6 +85,22 @@ function LightboxContent({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
+
+  // Prefetch adjacent images
+  useEffect(() => {
+    if (!isOpen || !currentPhoto) return;
+    
+    const prefetchImage = (idx: number) => {
+      if (idx >= 0 && idx < photos.length) {
+        const img = new Image();
+        img.src = `/api/images?path=${encodeURIComponent(photos[idx].path)}&size=medium`;
+      }
+    };
+    
+    // Prefetch next and previous images
+    prefetchImage(index + 1);
+    prefetchImage(index - 1);
+  }, [index, isOpen, currentPhoto, photos]);
 
   if (!currentPhoto) return null;
 
@@ -197,9 +213,10 @@ function LightboxContent({
               }`}
             >
               <img
-                src={`/api/thumbnail?path=${encodeURIComponent(photo.path)}`}
+                src={`/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`}
                 alt={photo.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             </button>
           ))}
