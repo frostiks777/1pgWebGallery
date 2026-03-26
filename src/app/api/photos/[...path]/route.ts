@@ -15,6 +15,7 @@ export async function GET(
       const localPath = path.join(process.cwd(), 'public', ...pathSegments);
       
       if (!fs.existsSync(localPath)) {
+        console.error(`[Photo API] Demo photo not found: ${localPath}`);
         return NextResponse.json(
           { error: 'Photo not found' },
           { status: 404 }
@@ -39,8 +40,23 @@ export async function GET(
       });
     }
     
+    // For WebDAV photos, check if WebDAV is configured
+    const webdavUrl = process.env.WEBDAV_URL;
+    const webdavUsername = process.env.WEBDAV_USERNAME;
+    const webdavPassword = process.env.WEBDAV_PASSWORD;
+    
+    if (!webdavUrl || !webdavUsername || !webdavPassword) {
+      console.error('[Photo API] WebDAV not configured');
+      return NextResponse.json(
+        { error: 'WebDAV not configured. Cannot fetch photo.' },
+        { status: 503 }
+      );
+    }
+    
     // Use WebDAV for non-demo photos
     const photoPath = '/' + pathSegments.join('/');
+    console.log(`[Photo API] Fetching from WebDAV: ${photoPath}`);
+    
     const { getPhotoAsBase64 } = await import('@/lib/webdav');
     const base64 = await getPhotoAsBase64(photoPath);
     
@@ -57,7 +73,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Error fetching photo:', error);
+    console.error('[Photo API] Error fetching photo:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch photo' },
       { status: 500 }

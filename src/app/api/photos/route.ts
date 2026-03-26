@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { testWebDAVConnection } from '@/lib/webdav';
 
 interface LocalPhoto {
   name: string;
@@ -61,22 +62,45 @@ export async function GET() {
     const webdavPassword = process.env.WEBDAV_PASSWORD;
     
     if (webdavUrl && webdavUsername && webdavPassword) {
-      // Use WebDAV
-      const { getPhotosFromDirectory } = await import('@/lib/webdav');
+      // Test connection first
       const photosDir = process.env.PHOTOS_DIR || '/Photos';
-      const photos = await getPhotosFromDirectory(photosDir);
+      const connectionTest = await testWebDAVConnection(photosDir);
       
-      return NextResponse.json({
-        success: true,
-        mode: 'webdav',
-        photos: photos.map(photo => ({
-          name: photo.name,
-          path: photo.path,
-          size: photo.size,
-          lastModified: photo.lastModified.toISOString(),
-          mimeType: photo.mimeType,
-        })),
-      });
+      if (!connectionTest.success) {
+        return NextResponse.json({
+          success: false,
+          mode: 'webdav',
+          error: connectionTest.message,
+          connectionDetails: connectionTest.details,
+          photos: [],
+        }, { status: 200 }); // Return 200 but with error info so frontend can display it
+      }
+      
+      // Use WebDAV
+      try {
+        const { getPhotosFromDirectory } = await import('@/lib/webdav');
+        const photos = await getPhotosFromDirectory(photosDir);
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'webdav',
+          photos: photos.map(photo => ({
+            name: photo.name,
+            path: photo.path,
+            size: photo.size,
+            lastModified: photo.lastModified.toISOString(),
+            mimeType: photo.mimeType,
+          })),
+          connectionDetails: connectionTest.details,
+        });
+      } catch (webdavError) {
+        return NextResponse.json({
+          success: false,
+          mode: 'webdav',
+          error: `WebDAV error: ${webdavError instanceof Error ? webdavError.message : 'Unknown error'}`,
+          photos: [],
+        }, { status: 200 });
+      }
     } else {
       // Use local demo photos
       const photos = await getLocalDemoPhotos();

@@ -351,6 +351,103 @@ kill -9 <PID>
 systemctl restart photo-gallery
 ```
 
+### WebDAV: Invalid response: 404 Not Found
+
+Это означает, что папка с фотографиями не найдена на сервере WebDAV.
+
+**Шаги для решения:**
+
+1. **Проверьте правильность WebDAV URL:**
+```bash
+# Для Nextcloud URL должен быть:
+WEBDAV_URL=https://your-nextcloud.com/remote.php/dav/files/USERNAME/
+
+# Для Яндекс.Диск:
+WEBDAV_URL=https://webdav.yandex.ru/
+
+# Для pCloud:
+WEBDAV_URL=https://webdav.pcloud.com/
+```
+
+2. **Проверьте правильность пути к папке с фото:**
+```bash
+# Посмотреть доступные папки:
+curl -u USERNAME:PASSWORD https://your-nextcloud.com/remote.php/dav/files/USERNAME/
+
+# Обычно папка с фото:
+PHOTOS_DIR=/Photos
+# или
+PHOTOS_DIR=/photos
+# или
+PHOTOS_DIR=/Изображения
+```
+
+3. **Тест подключения WebDAV:**
+```bash
+# На сервере выполните:
+curl -I -u USERNAME:PASSWORD https://your-nextcloud.com/remote.php/dav/files/USERNAME/
+
+# Должен вернуть 200 OK или 207 Multi-Status
+```
+
+4. **Создайте App Password для Nextcloud:**
+   - Войдите в Nextcloud
+   - Settings → Security → Devices & sessions
+   - Нажмите "Create new app password"
+   - Используйте этот пароль в `WEBDAV_PASSWORD`
+
+5. **Проверьте логи:**
+```bash
+journalctl -u photo-gallery -f
+```
+
+### WebDAV: 401 Unauthorized
+
+Неверные учетные данные:
+- Проверьте `WEBDAV_USERNAME` и `WEBDAV_PASSWORD`
+- Для Nextcloud используйте App Password, а не основной пароль
+
+### WebDAV: Connection refused
+
+Сервер недоступен:
+- Проверьте правильность URL
+- Проверьте доступность сервера: `ping your-nextcloud.com`
+- Проверьте firewall
+
+---
+
+## 🧪 Тестирование WebDAV подключения
+
+После настройки `.env.local` выполните:
+
+```bash
+# На сервере
+cd /var/www/apps/photo-gallery
+
+# Перезапустите сервис
+systemctl restart photo-gallery
+
+# Проверьте логи
+journalctl -u photo-gallery -f
+
+# В другом терминале - тест API
+curl http://localhost:3000/api/webdav/test
+```
+
+Ответ должен содержать:
+```json
+{
+  "success": true,
+  "message": "Successfully connected to WebDAV. Found X items in \"/Photos\".",
+  "details": {
+    "url": "https://...",
+    "photosDir": "/Photos",
+    "directoryExists": true,
+    "fileCount": 123
+  }
+}
+```
+
 ---
 
 Готово! 🎉 Сайт: `https://your-domain.com`
