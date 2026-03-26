@@ -16,8 +16,8 @@ Environment="PORT=3000"
 Environment="NODE_OPTIONS=--max-old-space-size=4096"
 EnvironmentFile=/var/www/apps/photo-gallery/.env.local
 
-# Запуск через Node.js (standalone mode)
-ExecStart=/usr/bin/node .next/standalone/server.js
+# Запуск через Bun (bunx next start)
+ExecStart=/usr/local/bin/bunx next start -p 3000
 
 # Перезапуск при падении
 Restart=on-failure

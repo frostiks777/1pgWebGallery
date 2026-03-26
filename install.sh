@@ -3,7 +3,6 @@
 # Photo Gallery - Автоматическая установка на Ubuntu 22
 # =============================================================================
 # Запуск: curl -fsSL https://raw.githubusercontent.com/frostiks777/1pgWebGallery/main/install.sh | sudo bash
-# Или: sudo bash install.sh
 # =============================================================================
 
 set -e
@@ -34,68 +33,54 @@ if [ ! -f /etc/lsb-release ]; then
     exit 1
 fi
 
-echo -e "${BLUE}[1/9] Обновление системы...${NC}"
+echo -e "${BLUE}[1/10] Обновление системы...${NC}"
 apt update && apt upgrade -y
 
-echo -e "${BLUE}[2/9] Установка базовых пакетов...${NC}"
-apt install -y curl git nginx certbot python3-certbot-nginx build-essential
+echo -e "${BLUE}[2/10] Установка базовых пакетов...${NC}"
+apt install -y curl git nginx certbot python3-certbot-nginx
 
-echo -e "${BLUE}[3/9] Настройка firewall...${NC}"
+echo -e "${BLUE}[3/10] Настройка firewall...${NC}"
 ufw --force enable
 ufw allow OpenSSH
 ufw allow 'Nginx Full'
 ufw status
 
-echo -e "${BLUE}[4/9] Добавление swap (2GB)...${NC}"
+echo -e "${BLUE}[4/10] Добавление swap (2GB)...${NC}"
 if [ ! -f /swapfile ]; then
     fallocate -l 2G /swapfile
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
     echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    sysctl vm.swappiness=10
+    echo 'vm.swappiness=10' >> /etc/sysctl.conf
     echo -e "${GREEN}Swap добавлен${NC}"
 else
     echo -e "${YELLOW}Swap уже существует${NC}"
 fi
 
-echo -e "${BLUE}[5/9] Установка Bun...${NC}"
+echo -e "${BLUE}[5/10] Установка Bun...${NC}"
 if ! command -v bun &> /dev/null; then
     curl -fsSL https://bun.sh/install | bash
-    export BUN_INSTALL="$HOME/.bun"
-    export PATH="$BUN_INSTALL/bin:$PATH"
-    
-    # Добавляем в bashrc для всех пользователей
-    echo 'export BUN_INSTALL="$HOME/.bun"' >> /etc/bash.bashrc
-    echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> /etc/bash.bashrc
-    
-    # Создаем симлинк для глобального доступа
     ln -sf /root/.bun/bin/bun /usr/local/bin/bun
     ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
 fi
 
-# Проверка Bun
-if command -v bun &> /dev/null; then
-    BUN_VERSION=$(bun --version)
-    echo -e "${GREEN}Bun установлен: v${BUN_VERSION}${NC}"
-else
-    echo -e "${RED}Ошибка установки Bun${NC}"
-    exit 1
-fi
+BUN_VERSION=$(bun --version 2>/dev/null || echo "unknown")
+echo -e "${GREEN}Bun установлен: v${BUN_VERSION}${NC}"
 
-echo -e "${BLUE}[6/9] Создание директории проекта...${NC}"
+echo -e "${BLUE}[6/10] Создание директории проекта...${NC}"
 mkdir -p /var/www/apps
 cd /var/www/apps
 
-# Запрос домена
 echo ""
 read -p "Введите домен (например, gallery.example.com): " DOMAIN
-
 if [ -z "$DOMAIN" ]; then
-    echo -e "${RED}Домен не указан. Используется localhost${NC}"
+    echo -e "${YELLOW}Домен не указан. Используется localhost${NC}"
     DOMAIN="localhost"
 fi
 
-echo -e "${BLUE}[7/9] Клонирование проекта...${NC}"
+echo -e "${BLUE}[7/10] Клонирование проекта...${NC}"
 if [ -d "photo-gallery" ]; then
     echo -e "${YELLOW}Директория существует. Обновление...${NC}"
     cd photo-gallery
@@ -105,66 +90,68 @@ else
     cd photo-gallery
 fi
 
-echo -e "${BLUE}[8/9] Установка зависимостей и сборка...${NC}"
-
-# Установка зависимостей
+echo -e "${BLUE}[8/10] Установка зависимостей и сборка...${NC}"
 bun install
 
-# Создание .env.local
 if [ ! -f ".env.local" ]; then
     cp .env.example .env.local
     echo -e "${YELLOW}"
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  ВАЖНО: Настройте WebDAV в файле /var/www/apps/photo-gallery/.env.local"
+    echo "  ВАЖНО: Настройте WebDAV в файле .env.local"
     echo "═══════════════════════════════════════════════════════════════"
+    echo "  nano /var/www/apps/photo-gallery/.env.local"
     echo ""
-    echo "Пример конфигурации для Nextcloud:"
+    echo "Пример для Nextcloud:"
     echo "  WEBDAV_URL=https://cloud.example.com/remote.php/dav/files/username/"
     echo "  WEBDAV_USERNAME=your-username"
     echo "  WEBDAV_PASSWORD=your-app-password"
-    echo "  PHOTOS_DIR=/Photos"
-    echo ""
-    echo "Для редактирования: nano /var/www/apps/photo-gallery/.env.local"
     echo -e "${NC}"
 fi
 
-# Сборка с увеличенным лимитом памяти
-echo -e "${YELLOW}Сборка проекта (может занять несколько минут)...${NC}"
-NODE_OPTIONS="--max-old-space-size=4096" bun next build
+echo -e "${YELLOW}Сборка проекта...${NC}"
+NODE_OPTIONS="--max-old-space-size=4096" bunx next build
 
-# Права доступа
 chown -R www-data:www-data /var/www/apps/photo-gallery
 chmod -R 755 /var/www/apps/photo-gallery
 
-echo -e "${BLUE}[9/9] Настройка сервисов...${NC}"
-
-# Systemd сервис
+echo -e "${BLUE}[9/10] Создание systemd сервиса...${NC}"
 cat > /etc/systemd/system/photo-gallery.service << 'EOF'
 [Unit]
-Description=Photo Gallery - WebDAV Cloud Photos
-After=network.target
+Description=Photo Gallery - Next.js Application
+After=network.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/apps/photo-gallery
+
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
 Environment="NODE_OPTIONS=--max-old-space-size=4096"
 EnvironmentFile=/var/www/apps/photo-gallery/.env.local
-ExecStart=/usr/local/bin/bun .next/standalone/server.js
+
+ExecStart=/usr/local/bin/bunx next start -p 3000
+
 Restart=on-failure
 RestartSec=10
+TimeoutStartSec=60
+TimeoutStopSec=30
+
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=photo-gallery
+
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Nginx конфигурация
+echo -e "${BLUE}[10/10] Настройка Nginx...${NC}"
 cat > /etc/nginx/sites-available/photo-gallery << EOF
 upstream photo_gallery {
     server 127.0.0.1:3000;
@@ -174,7 +161,7 @@ upstream photo_gallery {
 server {
     listen 80;
     listen [::]:80;
-    server_name $DOMAIN;
+    server_name $DOMAIN www.$DOMAIN;
 
     access_log /var/log/nginx/photo-gallery.access.log;
     error_log /var/log/nginx/photo-gallery.error.log;
@@ -239,14 +226,10 @@ server {
 }
 EOF
 
-# Активация
 ln -sf /etc/nginx/sites-available/photo-gallery /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-
-# Проверка Nginx
 nginx -t
 
-# Запуск сервисов
 systemctl daemon-reload
 systemctl enable photo-gallery
 systemctl start photo-gallery
@@ -261,21 +244,21 @@ echo -e "${NC}"
 echo ""
 echo -e "${YELLOW}Дальнейшие шаги:${NC}"
 echo ""
-echo "1. Настройте DNS запись $DOMAIN → IP адрес сервера"
+echo "1. Настройте DNS: $DOMAIN → $(curl -s ifconfig.me)"
 echo ""
-echo "2. Настройте WebDAV подключение:"
+echo "2. Настройте WebDAV:"
 echo "   nano /var/www/apps/photo-gallery/.env.local"
 echo ""
-echo "3. Перезапустите сервис после настройки:"
+echo "3. Перезапустите:"
 echo "   systemctl restart photo-gallery"
 echo ""
-echo "4. Для SSL сертификата выполните:"
+echo "4. SSL сертификат:"
 echo "   certbot --nginx -d $DOMAIN"
 echo ""
-echo -e "${GREEN}Сайт доступен: http://$DOMAIN${NC}"
+echo -e "${GREEN}Сайт: http://$DOMAIN${NC}"
 echo ""
-echo "Полезные команды:"
-echo "  Статус:   systemctl status photo-gallery"
-echo "  Логи:     journalctl -u photo-gallery -f"
+echo "Команды:"
+echo "  Статус:     systemctl status photo-gallery"
+echo "  Логи:       journalctl -u photo-gallery -f"
 echo "  Перезапуск: systemctl restart photo-gallery"
 echo ""

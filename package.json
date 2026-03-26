@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "bun next dev -p 3000",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' bun next build",
-    "start": "NODE_ENV=production bun .next/standalone/server.js",
+    "dev": "bunx next dev -p 3000",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' bunx next build",
+    "start": "NODE_ENV=production bunx next start -p 3000",
     "lint": "bunx eslint ."
   },
   "dependencies": {
