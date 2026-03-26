@@ -12,7 +12,7 @@ function MinimalistCard({ photo, index, onClick }: { photo: Photo; index: number
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=300`;
+  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   return (
     <div className="min-card group cursor-pointer" onClick={onClick}>

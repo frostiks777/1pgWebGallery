@@ -12,7 +12,7 @@ function EmpireCard({ photo, index, onClick }: { photo: Photo; index: number; on
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=350`;
+  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   const frameStyles = ['from-amber-500 to-yellow-600', 'from-orange-600 to-amber-700', 'from-gray-400 to-gray-500'];
   const frameStyle = frameStyles[index % frameStyles.length];

@@ -18,7 +18,7 @@ function MediterraneanCard({ photo, index, variant, onClick }: {
   const [isLoading, setIsLoading] = useState(true);
   
   const size = variant === 'arch' ? 400 : variant === 'window' ? 350 : 300;
-  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=${size}`;
+  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   const imageContent = hasError ? (
     <div className="w-full h-full flex items-center justify-center bg-slate-200 text-2xl">⚠️</div>

@@ -12,7 +12,7 @@ function HexagonCard({ photo, index, onClick }: { photo: Photo; index: number; o
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  const thumbnailUrl = `/api/thumbnail?path=${encodeURIComponent(photo.path)}&size=200`;
+  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   return (
     <div className="hexagon-container group cursor-pointer relative" onClick={onClick}>
