@@ -9,10 +9,14 @@ export async function GET(
   try {
     const { path: pathSegments } = await params;
     
+    console.log(`[Photo API] Request for: /${pathSegments.join('/')}`);
+    
     // Check if this is a demo photo request
     if (pathSegments[0] === 'demo-photos') {
       // Serve local demo photo
       const localPath = path.join(process.cwd(), 'public', ...pathSegments);
+      
+      console.log(`[Photo API] Demo photo, local path: ${localPath}`);
       
       if (!fs.existsSync(localPath)) {
         console.error(`[Photo API] Demo photo not found: ${localPath}`);
@@ -54,26 +58,37 @@ export async function GET(
     }
     
     // Use WebDAV for non-demo photos
+    // The path from WebDAV filename already includes the full path like /2025-09-11_AA/Photos/image.jpg
     const photoPath = '/' + pathSegments.join('/');
     console.log(`[Photo API] Fetching from WebDAV: ${photoPath}`);
     
-    const { getPhotoAsBase64 } = await import('@/lib/webdav');
-    const base64 = await getPhotoAsBase64(photoPath);
-    
-    // Extract the base64 data without the prefix
-    const base64Data = base64.split(',')[1];
-    const mimeType = base64.split(';')[0].split(':')[1];
-    
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': mimeType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    });
+    try {
+      const { getPhotoAsBase64 } = await import('@/lib/webdav');
+      const base64 = await getPhotoAsBase64(photoPath);
+      
+      // Extract the base64 data without the prefix
+      const base64Data = base64.split(',')[1];
+      const mimeType = base64.split(';')[0].split(':')[1];
+      
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      console.log(`[Photo API] Successfully fetched photo, size: ${buffer.length} bytes`);
+      
+      return new NextResponse(buffer, {
+        headers: {
+          'Content-Type': mimeType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      });
+    } catch (fetchError) {
+      console.error(`[Photo API] Error fetching from WebDAV:`, fetchError);
+      return NextResponse.json(
+        { error: `Failed to fetch photo: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('[Photo API] Error fetching photo:', error);
+    console.error('[Photo API] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch photo' },
       { status: 500 }

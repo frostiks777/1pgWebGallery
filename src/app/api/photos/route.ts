@@ -73,13 +73,17 @@ export async function GET() {
           error: connectionTest.message,
           connectionDetails: connectionTest.details,
           photos: [],
-        }, { status: 200 }); // Return 200 but with error info so frontend can display it
+        }, { status: 200 });
       }
       
       // Use WebDAV
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
         const photos = await getPhotosFromDirectory(photosDir);
+        
+        // Log sample paths for debugging
+        const samplePaths = photos.slice(0, 3).map(p => p.path);
+        console.log(`[API] Sample photo paths: ${samplePaths.join(', ')}`);
         
         return NextResponse.json({
           success: true,
@@ -92,6 +96,10 @@ export async function GET() {
             mimeType: photo.mimeType,
           })),
           connectionDetails: connectionTest.details,
+          debug: {
+            samplePaths,
+            totalPhotos: photos.length,
+          },
         });
       } catch (webdavError) {
         return NextResponse.json({

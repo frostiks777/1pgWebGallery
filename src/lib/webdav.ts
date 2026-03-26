@@ -25,6 +25,7 @@ export interface ConnectionTestResult {
     photosDir: string;
     directoryExists?: boolean;
     fileCount?: number;
+    samplePaths?: string[];
   };
 }
 
@@ -98,12 +99,23 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
     // Try to access the photos directory
     let photosDirExists = false;
     let filesInDir = 0;
+    let samplePaths: string[] = [];
     
     try {
       const dirContents = await client.getDirectoryContents(photosDir);
       photosDirExists = true;
       filesInDir = Array.isArray(dirContents) ? dirContents.length : 0;
+      
+      // Get sample paths for debugging
+      if (Array.isArray(dirContents)) {
+        const imageFiles = dirContents
+          .filter((f: FileStat) => f.type === 'file')
+          .slice(0, 3);
+        samplePaths = imageFiles.map((f: FileStat) => f.filename);
+      }
+      
       console.log(`[WebDAV] Photos directory "${photosDir}" accessible, found ${filesInDir} items`);
+      console.log(`[WebDAV] Sample paths: ${samplePaths.join(', ')}`);
     } catch (dirError) {
       console.error(`[WebDAV] Cannot access photos directory "${photosDir}":`, dirError);
       
@@ -131,6 +143,7 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
         photosDir,
         directoryExists: photosDirExists,
         fileCount: filesInDir,
+        samplePaths,
       },
     };
   } catch (error) {
@@ -166,13 +179,20 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
         const ext = file.basename.toLowerCase().substring(file.basename.lastIndexOf('.'));
         return imageExtensions.includes(ext);
       })
-      .map((file: FileStat) => ({
-        name: file.basename,
-        path: file.filename,
-        size: file.size || 0,
-        lastModified: new Date(file.lastmod),
-        mimeType: file.mime || 'image/jpeg',
-      }));
+      .map((file: FileStat) => {
+        // Log the first few paths to debug
+        if (photos.length < 3) {
+          console.log(`[WebDAV] Photo path: ${file.filename}, basename: ${file.basename}`);
+        }
+        
+        return {
+          name: file.basename,
+          path: file.filename, // Full path from WebDAV root
+          size: file.size || 0,
+          lastModified: new Date(file.lastmod),
+          mimeType: file.mime || 'image/jpeg',
+        };
+      });
 
     console.log(`[WebDAV] Found ${photos.length} photos out of ${files.length} files`);
 
@@ -195,9 +215,31 @@ export async function getPhotoAsBase64(photoPath: string): Promise<string> {
   
   try {
     console.log(`[WebDAV] Fetching photo: ${photoPath}`);
-    const buffer = await client.getFileContents(photoPath, { format: 'binary' }) as ArrayBuffer;
+    
+    // Get the file as ArrayBuffer
+    const buffer = await client.getFileContents(photoPath, { 
+      format: 'binary' 
+    }) as ArrayBuffer;
+    
+    console.log(`[WebDAV] Received ${buffer.byteLength} bytes for ${photoPath}`);
+    
+    // Determine MIME type from extension
+    const ext = photoPath.toLowerCase().split('.').pop() || 'jpg';
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'heic': 'image/heic',
+      'heif': 'image/heif',
+    };
+    const mimeType = mimeTypes[ext] || 'image/jpeg';
+    
     const base64 = Buffer.from(buffer).toString('base64');
-    return `data:image/jpeg;base64,${base64}`;
+    return `data:${mimeType};base64,${base64}`;
   } catch (error) {
     console.error(`[WebDAV] Error fetching photo ${photoPath}:`, error);
     throw error;

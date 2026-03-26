@@ -3,20 +3,21 @@
 import { Photo } from './types';
 import { memo, useState } from 'react';
 
-interface MasonryLayoutProps {
-  photos: Photo[];
-  onPhotoClick: (photo: Photo, index: number) => void;
-}
-
-const PhotoCard = memo(function PhotoCard({ 
-  photo, 
-  index, 
-  onClick 
-}: { 
-  photo: Photo; 
+interface PhotoCardProps {
+  photo: Photo;
   index: number;
   onClick: () => void;
-}) {
+  className?: string;
+  aspectRatio?: string;
+}
+
+export const PhotoCard = memo(function PhotoCard({ 
+  photo, 
+  index, 
+  onClick,
+  className = '',
+  aspectRatio = 'aspect-square'
+}: PhotoCardProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -24,14 +25,17 @@ const PhotoCard = memo(function PhotoCard({
   
   return (
     <div
-      className="group relative overflow-hidden rounded-xl cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-100 dark:bg-slate-800"
+      className={`group relative overflow-hidden rounded-xl cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-100 dark:bg-slate-800 ${aspectRatio} ${className}`}
       onClick={onClick}
     >
       {hasError ? (
-        <div className="aspect-square flex flex-col items-center justify-center p-4 text-center">
-          <div className="text-red-500 mb-2">⚠️</div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+          <div className="text-3xl mb-2">⚠️</div>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-full">{photo.name}</p>
           <p className="text-xs text-red-400 mt-1">Failed to load</p>
+          <p className="text-xs text-slate-400 mt-2 truncate max-w-full" title={imageUrl}>
+            {imageUrl.length > 40 ? imageUrl.substring(0, 40) + '...' : imageUrl}
+          </p>
         </div>
       ) : (
         <>
@@ -43,7 +47,7 @@ const PhotoCard = memo(function PhotoCard({
           <img
             src={imageUrl}
             alt={photo.name}
-            className={`w-full h-auto object-cover transition-all duration-500 group-hover:scale-105 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
             loading="lazy"
             onLoad={() => setIsLoading(false)}
             onError={(e) => {
@@ -69,32 +73,3 @@ const PhotoCard = memo(function PhotoCard({
     </div>
   );
 });
-
-export function MasonryLayout({ photos, onPhotoClick }: MasonryLayoutProps) {
-  // Create 3 columns for masonry layout
-  const columns: Photo[][] = [[], [], []];
-  
-  photos.forEach((photo, index) => {
-    columns[index % 3].push(photo);
-  });
-
-  return (
-    <div className="flex gap-4">
-      {columns.map((column, colIndex) => (
-        <div key={colIndex} className="flex-1 flex flex-col gap-4">
-          {column.map((photo, photoIndex) => {
-            const originalIndex = colIndex + photoIndex * 3;
-            return (
-              <PhotoCard
-                key={photo.path}
-                photo={photo}
-                index={originalIndex}
-                onClick={() => onPhotoClick(photo, originalIndex)}
-              />
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
