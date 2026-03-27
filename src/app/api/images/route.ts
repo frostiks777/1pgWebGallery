@@ -46,7 +46,7 @@ const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
  * large images where encoding time matters.
  */
 const IMAGE_PRESETS = {
-  thumbnail: { width: 600,  height: 600,  quality: 72, effort: 6 },
+  thumbnail: { width: 800,  height: 800,  quality: 80, effort: 6 },
   medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
   full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
 } as const;
