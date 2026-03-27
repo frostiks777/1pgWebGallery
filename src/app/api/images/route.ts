@@ -2,26 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import type { WebDAVClient } from 'webdav';
 
 // Try to load sharp — it may not be available on all platforms
 let sharpModule: typeof import('sharp') | null = null;
 try {
   sharpModule = require('sharp');
 } catch {
-  console.warn('[Images API] Sharp not available — images will be served without optimization');
+  // sharp is optional; images will be served without optimization
 }
 
-// Fallback local cache in /tmp (always writable; persists within server session)
-const CACHE_DIR = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
-
-// Name of the co-located thumbnails subfolder placed next to original photos.
-// Set COLOCATED_THUMBS_DIR env to override (e.g. ".cache" or "thumbs").
+const CACHE_DIR     = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
-
-// Set WEBDAV_COLOCATED_CACHE=false to disable writing thumbs back to WebDAV
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
-// Image size configurations
 const IMAGE_SIZES = {
   thumbnail: { width: 400,  height: 400  },
   medium:    { width: 1200, height: 1200 },
@@ -30,159 +24,173 @@ const IMAGE_SIZES = {
 
 type ImageSize = keyof typeof IMAGE_SIZES;
 
-// Track consecutive WebDAV write failures to back off gradually.
-// Reset to 0 on any successful write.
-let webdavWriteConsecFailures = 0;
-let webdavWriteLastFailureAt  = 0;
+// Track WebDAV write failures with exponential back-off
+let webdavWriteFailures    = 0;
+let webdavWriteLastFailure = 0;
 
-function webdavWriteBackedOff(): boolean {
-  if (webdavWriteConsecFailures === 0) return false;
-  // Exponential-ish backoff: 30 s → 2 min → 10 min (caps there)
-  const intervals = [30_000, 120_000, 600_000];
-  const interval  = intervals[Math.min(webdavWriteConsecFailures - 1, intervals.length - 1)];
-  return Date.now() - webdavWriteLastFailureAt < interval;
+function isWebdavWriteBackedOff(): boolean {
+  if (webdavWriteFailures === 0) return false;
+  const backoffs = [30_000, 120_000, 600_000];
+  const delay    = backoffs[Math.min(webdavWriteFailures - 1, backoffs.length - 1)];
+  return Date.now() - webdavWriteLastFailure < delay;
 }
 
-// Ensure fallback /tmp cache directory exists
+// Track which WebDAV directories we have already verified / created
+// during this server process lifetime so we don't re-check on every request.
+const verifiedDirs = new Set<string>();
+
 try {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
+  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+} catch { /* /tmp may be read-only in rare container setups */ }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared WebDAV client (singleton — avoids opening a new TCP connection per req)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _sharedClient: WebDAVClient | null = null;
+
+function getWebDAVClient(): WebDAVClient | null {
+  if (_sharedClient) return _sharedClient;
+  const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
+  if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createClient } = require('webdav');
+    _sharedClient = createClient(WEBDAV_URL, {
+      username: WEBDAV_USERNAME,
+      password: WEBDAV_PASSWORD,
+    }) as WebDAVClient;
+    return _sharedClient;
+  } catch {
+    return null;
   }
-} catch (err) {
-  console.error('[Images API] Cannot create /tmp cache dir:', err);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function thumbExtension(originalPath: string): string {
-  return sharpModule ? '.webp' : (path.extname(originalPath).toLowerCase() || '.jpg');
+function thumbExt(p: string): string {
+  return sharpModule ? '.webp' : (path.extname(p).toLowerCase() || '.jpg');
 }
 
-function getContentType(photoPath: string): string {
+function contentType(p: string): string {
   if (sharpModule) return 'image/webp';
-  const ext = path.extname(photoPath).toLowerCase();
-  const map: Record<string, string> = {
+  const ext = path.extname(p).toLowerCase();
+  const m: Record<string, string> = {
     '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
     '.gif': 'image/gif',  '.webp': 'image/webp',  '.bmp': 'image/bmp',
     '.svg': 'image/svg+xml',
   };
-  return map[ext] || 'image/jpeg';
+  return m[ext] || 'image/jpeg';
 }
 
-async function optimizeImage(buffer: Buffer, size: ImageSize): Promise<Buffer> {
-  if (!sharpModule) return buffer;
+async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
+  if (!sharpModule) return buf;
   const { width, height } = IMAGE_SIZES[size];
   try {
-    return await sharpModule(buffer)
+    const out = await sharpModule(buf)
       .resize(width, height, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 85 })
       .toBuffer();
+    const pct = ((1 - out.byteLength / buf.byteLength) * 100).toFixed(0);
+    console.info(`[Images] ${size}: ${buf.byteLength} → ${out.byteLength} bytes (−${pct}%)`);
+    return out;
   } catch (err) {
-    console.error('[Images API] Sharp failed, serving original:', err);
-    return buffer;
+    console.error('[Images] sharp failed, serving original:', err);
+    return buf;
   }
 }
 
+/** Wrap a promise with a hard timeout so it can never hang. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Fallback /tmp cache  (existing mechanism, keeps working when co-located fails)
+// /tmp cache  (always available, session-persistent)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function tmpCachePath(photoPath: string, size: ImageSize): string {
+function tmpPath(photoPath: string, size: ImageSize): string {
   const hash = crypto.createHash('md5').update(`${photoPath}-${size}`).digest('hex');
-  return path.join(CACHE_DIR, `${hash}${thumbExtension(photoPath)}`);
+  return path.join(CACHE_DIR, `${hash}${thumbExt(photoPath)}`);
 }
 
 function readTmpCache(photoPath: string, size: ImageSize): Buffer | null {
   try {
-    const p = tmpCachePath(photoPath, size);
-    if (fs.existsSync(p)) {
-      const age = Date.now() - fs.statSync(p).mtimeMs;
-      if (age < 30 * 24 * 60 * 60 * 1000) return fs.readFileSync(p);
-      try { fs.unlinkSync(p); } catch { /* ignore */ }
-    }
-  } catch (err) {
-    console.error('[Images API] /tmp cache read error:', err);
-  }
-  return null;
+    const p = tmpPath(photoPath, size);
+    if (!fs.existsSync(p)) return null;
+    const age = Date.now() - fs.statSync(p).mtimeMs;
+    if (age > 30 * 24 * 3600_000) { try { fs.unlinkSync(p); } catch {} return null; }
+    return fs.readFileSync(p);
+  } catch { return null; }
 }
 
 function writeTmpCache(photoPath: string, size: ImageSize, buf: Buffer): void {
   try {
     if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-    fs.writeFileSync(tmpCachePath(photoPath, size), buf);
-  } catch (err) {
-    console.error('[Images API] /tmp cache write error:', err);
-  }
+    fs.writeFileSync(tmpPath(photoPath, size), buf);
+  } catch { /* not critical */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Co-located cache — LOCAL demo photos
-// Stores: public/demo-photos/.thumbs/{size}/{basename}.webp
 // ─────────────────────────────────────────────────────────────────────────────
 
-function localColocatedPath(photoPath: string, size: ImageSize): string {
-  // photoPath = /demo-photos/sub/photo.jpg
-  const segments = photoPath.split('/').filter(Boolean);
-  const filename  = segments[segments.length - 1];
-  const dirs      = segments.slice(0, -1);
-  const basename  = filename.replace(/\.[^.]+$/, '');
-  const ext       = thumbExtension(photoPath);
-  return path.join(process.cwd(), 'public', ...dirs, THUMBS_SUBDIR, size, `${basename}${ext}`);
+function localThumbPath(photoPath: string, size: ImageSize): string {
+  const segs     = photoPath.split('/').filter(Boolean);
+  const filename = segs[segs.length - 1];
+  const dirs     = segs.slice(0, -1);
+  const base     = filename.replace(/\.[^.]+$/, '');
+  return path.join(process.cwd(), 'public', ...dirs, THUMBS_SUBDIR, size, `${base}${thumbExt(photoPath)}`);
 }
 
-function readLocalColocated(photoPath: string, size: ImageSize): Buffer | null {
-  try {
-    const p = localColocatedPath(photoPath, size);
-    if (fs.existsSync(p)) return fs.readFileSync(p);
-  } catch { /* ignore */ }
-  return null;
+function readLocalThumb(p: string, size: ImageSize): Buffer | null {
+  try { const fp = localThumbPath(p, size); return fs.existsSync(fp) ? fs.readFileSync(fp) : null; }
+  catch { return null; }
 }
 
-function writeLocalColocated(photoPath: string, size: ImageSize, buf: Buffer): boolean {
+function writeLocalThumb(p: string, size: ImageSize, buf: Buffer): void {
   try {
-    const p   = localColocatedPath(photoPath, size);
-    const dir = path.dirname(p);
+    const fp  = localThumbPath(p, size);
+    const dir = path.dirname(fp);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(p, buf);
-    console.log(`[Images API] Co-located cache saved (local): ${p}`);
-    return true;
-  } catch (err) {
-    console.warn('[Images API] Cannot write local co-located cache:', err);
-    return false;
-  }
+    fs.writeFileSync(fp, buf);
+  } catch { /* not critical */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Co-located cache — WEBDAV photos
-// Stores: {photosDir}/.thumbs/{size}/{basename}.webp  (on the WebDAV server)
+// Co-located cache — WEBDAV
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Returns WebDAV paths for thumb dir and thumb file (posix separators). */
-function webdavColocatedPaths(photoPath: string, size: ImageSize): { dir: string; file: string } {
-  const lastSlash = photoPath.lastIndexOf('/');
-  const parentDir = lastSlash >= 0 ? photoPath.slice(0, lastSlash) || '/' : '/';
-  const filename  = lastSlash >= 0 ? photoPath.slice(lastSlash + 1) : photoPath;
-  const dotIndex  = filename.lastIndexOf('.');
-  const basename  = dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
-  const ext       = thumbExtension(photoPath);
-  const dir  = `${parentDir}/${THUMBS_SUBDIR}/${size}`;
-  const file = `${dir}/${basename}${ext}`;
+function webdavThumbPaths(photoPath: string, size: ImageSize): { dir: string; file: string } {
+  const slash   = photoPath.lastIndexOf('/');
+  const parent  = slash >= 0 ? (photoPath.slice(0, slash) || '/') : '/';
+  const fname   = slash >= 0 ? photoPath.slice(slash + 1) : photoPath;
+  const dot     = fname.lastIndexOf('.');
+  const base    = dot >= 0 ? fname.slice(0, dot) : fname;
+  const dir     = `${parent}/${THUMBS_SUBDIR}/${size}`;
+  const file    = `${dir}/${base}${thumbExt(photoPath)}`;
   return { dir, file };
 }
 
-async function readWebDAVColocated(photoPath: string, size: ImageSize): Promise<Buffer | null> {
+async function readWebDAVThumb(photoPath: string, size: ImageSize): Promise<Buffer | null> {
   if (!WEBDAV_COLOCATED_ENABLED) return null;
+  const client = getWebDAVClient();
+  if (!client) return null;
   try {
-    const { createClient } = await import('webdav');
-    const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
-    if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) return null;
-
-    const client = createClient(WEBDAV_URL, { username: WEBDAV_USERNAME, password: WEBDAV_PASSWORD });
-    const { file } = webdavColocatedPaths(photoPath, size);
-    const ab = await client.getFileContents(file, { format: 'binary' }) as ArrayBuffer;
-    console.log(`[Images API] Co-located cache HIT (WebDAV): ${file}`);
+    const { file } = webdavThumbPaths(photoPath, size);
+    const ab = await withTimeout(
+      client.getFileContents(file, { format: 'binary' }) as Promise<ArrayBuffer>,
+      10_000, `readThumb ${file}`,
+    );
+    console.info(`[Images] WebDAV thumb HIT: ${file} (${Buffer.from(ab).byteLength} bytes)`);
     return Buffer.from(ab);
   } catch {
     return null;
@@ -190,183 +198,161 @@ async function readWebDAVColocated(photoPath: string, size: ImageSize): Promise<
 }
 
 /**
- * Writes the optimised thumbnail back to the WebDAV server in the .thumbs/ subfolder.
- *
- * Strategy:
- * - Uses exponential back-off after consecutive failures (30 s → 2 min → 10 min).
- * - Back-off resets to 0 as soon as any write succeeds.
- * - On a read-only WebDAV mount the back-off eventually reaches 10 min, so the
- *   server just keeps using the /tmp cache without hammering the WebDAV server.
- * - Detailed error text is always logged so the admin can diagnose issues.
+ * Fire-and-forget: writes the optimised thumb back to WebDAV.
+ * Never blocks the HTTP response; failures are logged and back-off tracked.
  */
-async function writeWebDAVColocated(photoPath: string, size: ImageSize, buf: Buffer): Promise<void> {
-  if (!WEBDAV_COLOCATED_ENABLED) return;
-  if (webdavWriteBackedOff()) {
-    console.log(`[Images API] WebDAV write skipped (back-off active, ${webdavWriteConsecFailures} consecutive failures)`);
-    return;
-  }
+async function writeWebDAVThumb(photoPath: string, size: ImageSize, buf: Buffer): Promise<void> {
+  if (!WEBDAV_COLOCATED_ENABLED || isWebdavWriteBackedOff()) return;
+  const client = getWebDAVClient();
+  if (!client) return;
 
   try {
-    const { createClient } = await import('webdav');
-    const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
-    if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) return;
+    const { dir, file } = webdavThumbPaths(photoPath, size);
 
-    const client = createClient(WEBDAV_URL, { username: WEBDAV_USERNAME, password: WEBDAV_PASSWORD });
-    const { dir, file } = webdavColocatedPaths(photoPath, size);
-
-    // Create each segment of the thumb directory if it does not yet exist.
-    // We check existence first to avoid spurious errors from some WebDAV servers
-    // that return 405 for MKCOL on existing paths.
-    const segments  = dir.split('/').filter(Boolean);
-    let currentPath = '';
-    for (const seg of segments) {
-      currentPath += '/' + seg;
+    // Ensure directories exist (skip segments we already verified this session)
+    const segs = dir.split('/').filter(Boolean);
+    let cur    = '';
+    for (const seg of segs) {
+      cur += '/' + seg;
+      if (verifiedDirs.has(cur)) continue;
       try {
-        const exists = await client.exists(currentPath);
+        const exists = await withTimeout(client.exists(cur), 5_000, `exists ${cur}`);
         if (!exists) {
-          await client.createDirectory(currentPath);
-          console.log(`[Images API] Created WebDAV directory: ${currentPath}`);
+          await withTimeout(client.createDirectory(cur), 5_000, `mkdir ${cur}`);
+          console.info(`[Images] Created WebDAV dir: ${cur}`);
         }
-      } catch (dirErr) {
-        // Some servers throw even when the directory already exists — keep going.
-        console.warn(`[Images API] createDirectory(${currentPath}) warning:`,
-          dirErr instanceof Error ? dirErr.message : String(dirErr));
+        verifiedDirs.add(cur);
+      } catch {
+        // Keep going — directory may already exist via a parallel request
       }
     }
 
-    // Pass buf directly — webdav v5 accepts Buffer (which extends Uint8Array).
-    // Buffer.from() creates a clean copy isolated from any shared pool offsets.
-    const ok = await client.putFileContents(file, Buffer.from(buf), { overwrite: true });
-    if (!ok) {
-      // putFileContents returns false (not an exception) when the server
-      // rejects the upload with a non-2xx status.
-      throw new Error(`putFileContents returned false — server rejected upload to ${file}`);
+    const ok = await withTimeout(
+      client.putFileContents(file, Buffer.from(buf), { overwrite: true }),
+      15_000, `putFile ${file}`,
+    );
+
+    if (ok === false) {
+      throw new Error(`putFileContents returned false for ${file}`);
     }
 
-    // Success: reset back-off counter
-    webdavWriteConsecFailures = 0;
-    webdavWriteLastFailureAt  = 0;
-    console.log(`[Images API] Co-located cache saved (WebDAV): ${file}`);
+    webdavWriteFailures    = 0;
+    webdavWriteLastFailure = 0;
+    console.info(`[Images] WebDAV thumb saved: ${file} (${buf.byteLength} bytes)`);
   } catch (err) {
-    webdavWriteConsecFailures++;
-    webdavWriteLastFailureAt = Date.now();
-    const msg = err instanceof Error ? `${err.constructor.name}: ${err.message}` : String(err);
-    console.warn(`[Images API] WebDAV co-located write FAILED [${size}] "${photoPath}"`);
-    console.warn(`[Images API]   Error: ${msg}`);
-    console.warn(`[Images API]   Consecutive failures: ${webdavWriteConsecFailures}. Next retry in back-off window.`);
+    webdavWriteFailures++;
+    webdavWriteLastFailure = Date.now();
+    console.error(`[Images] WebDAV write FAILED [${size}] "${photoPath}":`,
+      err instanceof Error ? err.message : String(err),
+      `| failures: ${webdavWriteFailures}`);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fetch original image from WebDAV
+// Fetch original from WebDAV
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function fetchWebDAVImage(photoPath: string): Promise<Buffer> {
-  const { createClient } = await import('webdav');
-  const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
-  if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) {
-    throw new Error('WebDAV credentials not configured');
-  }
-  const client = createClient(WEBDAV_URL, { username: WEBDAV_USERNAME, password: WEBDAV_PASSWORD });
-  const normalizedPath = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
-  const ab = await client.getFileContents(normalizedPath, { format: 'binary' }) as ArrayBuffer;
+async function fetchOriginal(photoPath: string): Promise<Buffer> {
+  const client = getWebDAVClient();
+  if (!client) throw new Error('WebDAV not configured');
+  const p  = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
+  const ab = await withTimeout(
+    client.getFileContents(p, { format: 'binary' }) as Promise<ArrayBuffer>,
+    60_000, `fetchOriginal ${p}`,
+  );
   return Buffer.from(ab);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main GET handler
-// Cache lookup order:
-//   1. /tmp cache  (fastest; session-persistent)
-//   2. Co-located cache in .thumbs/ subfolder (persistent across server restarts)
-//   3. Fetch original → optimize → save to both caches
+// GET /api/images?path=...&size=thumbnail|medium|full
+//
+// Lookup order:
+//   1. /tmp cache  →  instant
+//   2. .thumbs/ on WebDAV (or local)  →  fast
+//   3. Fetch original → sharp → respond → background-save to .thumbs/
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const photoPath = searchParams.get('path');
+    const rawPath   = searchParams.get('path');
     const sizeParam = searchParams.get('size') || 'medium';
 
-    if (!photoPath) {
+    if (!rawPath) {
       return NextResponse.json({ error: 'Missing path parameter' }, { status: 400 });
     }
 
-    const size        = (sizeParam in IMAGE_SIZES ? sizeParam : 'medium') as ImageSize;
-    const decodedPath = decodeURIComponent(photoPath);
-    const isDemo      = decodedPath.split('/').filter(Boolean)[0] === 'demo-photos';
-    const contentType = getContentType(decodedPath);
+    const size    = (sizeParam in IMAGE_SIZES ? sizeParam : 'medium') as ImageSize;
+    const decoded = decodeURIComponent(rawPath);
+    const isDemo  = decoded.split('/').filter(Boolean)[0] === 'demo-photos';
+    const ct      = contentType(decoded);
 
-    const respond = (buf: Buffer, cacheHeader: string) =>
+    const respond = (buf: Buffer, cache: string) =>
       new NextResponse(new Uint8Array(buf), {
         headers: {
-          'Content-Type': contentType,
+          'Content-Type': ct,
           'Cache-Control': 'public, max-age=31536000, immutable',
-          'X-Cache': cacheHeader,
+          'X-Cache': cache,
         },
       });
 
-    // ── 1. /tmp cache hit (fastest path) ──────────────────────────────────────
-    const tmpHit = readTmpCache(decodedPath, size);
+    // ── 1. /tmp cache ───────────────────────────────────────────────────────
+    const tmpHit = readTmpCache(decoded, size);
     if (tmpHit) return respond(tmpHit, 'HIT');
 
-    // ── 2. Co-located cache hit (.thumbs/ next to original photo) ─────────────
-    let colocatedHit: Buffer | null = null;
-    if (isDemo) {
-      colocatedHit = readLocalColocated(decodedPath, size);
-    } else {
-      colocatedHit = await readWebDAVColocated(decodedPath, size);
+    // ── 2. Co-located .thumbs/ cache ────────────────────────────────────────
+    const thumbHit = isDemo
+      ? readLocalThumb(decoded, size)
+      : await readWebDAVThumb(decoded, size);
+
+    if (thumbHit) {
+      writeTmpCache(decoded, size, thumbHit);
+      return respond(thumbHit, 'HIT-COLOCATED');
     }
 
-    if (colocatedHit) {
-      // Warm the /tmp cache so subsequent requests won't hit the network
-      writeTmpCache(decodedPath, size, colocatedHit);
-      return respond(colocatedHit, 'HIT-COLOCATED');
-    }
-
-    // ── 3. Fetch original ─────────────────────────────────────────────────────
-    let originalBuffer: Buffer;
-
+    // ── 3. Fetch original ───────────────────────────────────────────────────
+    let original: Buffer;
     if (isDemo) {
-      const segments  = decodedPath.split('/').filter(Boolean);
-      const localPath = path.join(process.cwd(), 'public', ...segments);
-      if (!fs.existsSync(localPath)) {
+      const segs = decoded.split('/').filter(Boolean);
+      const fp   = path.join(process.cwd(), 'public', ...segs);
+      if (!fs.existsSync(fp)) {
         return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
       }
-      originalBuffer = fs.readFileSync(localPath);
+      original = fs.readFileSync(fp);
     } else {
       try {
-        originalBuffer = await fetchWebDAVImage(decodedPath);
+        original = await fetchOriginal(decoded);
       } catch (err) {
-        console.error('[Images API] WebDAV fetch failed:', err);
+        console.error('[Images] fetch failed:', err);
         return NextResponse.json(
-          { error: `Failed to fetch image: ${err instanceof Error ? err.message : 'Unknown error'}` },
-          { status: 500 }
+          { error: `Fetch failed: ${err instanceof Error ? err.message : 'Unknown'}` },
+          { status: 500 },
         );
       }
     }
 
-    // ── 4. Optimize ───────────────────────────────────────────────────────────
-    const resultBuffer = await optimizeImage(originalBuffer, size);
+    // ── 4. Optimize ─────────────────────────────────────────────────────────
+    const result = await optimizeImage(original, size);
 
-    // ── 5. Always persist to /tmp cache first (fast, local) ──────────────────
-    writeTmpCache(decodedPath, size, resultBuffer);
+    // ── 5. Save to /tmp (sync, fast) ────────────────────────────────────────
+    writeTmpCache(decoded, size, result);
 
-    // ── 6. Persist to co-located cache next to the original photo ─────────────
-    //   Local:  sync write — no latency concern
-    //   WebDAV: awaited so errors surface in logs and we don't lose the write;
-    //           back-off logic inside prevents hammering an unwritable server
+    // ── 6. Save to .thumbs/ AFTER responding (fire-and-forget) ──────────────
+    //   This is the critical fix: the HTTP response goes out IMMEDIATELY.
+    //   The WebDAV write happens in the background; if it hangs or fails,
+    //   it cannot block the user from seeing the photo.
     if (isDemo) {
-      writeLocalColocated(decodedPath, size, resultBuffer);
+      writeLocalThumb(decoded, size, result);
     } else {
-      await writeWebDAVColocated(decodedPath, size, resultBuffer);
+      writeWebDAVThumb(decoded, size, result).catch(() => {});
     }
 
-    return respond(resultBuffer, 'MISS');
+    return respond(result, 'MISS');
   } catch (err) {
-    console.error('[Images API] Unhandled error:', err);
+    console.error('[Images] unhandled:', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to process image' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

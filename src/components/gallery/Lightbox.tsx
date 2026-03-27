@@ -4,7 +4,7 @@ import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
   photos: Photo[];
@@ -29,55 +29,52 @@ function LightboxContent({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Load optimized image for viewing
+  const thumbStripRef = useRef<HTMLDivElement>(null);
+  const thumbRefs     = useRef<Map<number, HTMLButtonElement>>(new Map());
+
   const currentPhoto = photos[index];
-  const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
-  // Full size image for download
+  const imageUrl     = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
+
+  // Auto-scroll the thumbnail strip so the active thumb is always visible
+  useEffect(() => {
+    const el = thumbRefs.current.get(index);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [index]);
 
   const handlePrev = useCallback(() => {
     setIndex((prev) => {
-      const newIndex = (prev - 1 + photos.length) % photos.length;
+      const next = (prev - 1 + photos.length) % photos.length;
       setIsLoading(true);
       setHasError(false);
       setZoom(1);
-      return newIndex;
+      return next;
     });
   }, [photos.length]);
 
   const handleNext = useCallback(() => {
     setIndex((prev) => {
-      const newIndex = (prev + 1) % photos.length;
+      const next = (prev + 1) % photos.length;
       setIsLoading(true);
       setHasError(false);
       setZoom(1);
-      return newIndex;
+      return next;
     });
   }, [photos.length]);
 
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 3));
+  const handleZoomIn  = () => setZoom((z) => Math.min(z + 0.5, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.5, 0.5));
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!isOpen) return;
-    
     switch (e.key) {
-      case 'ArrowLeft':
-        handlePrev();
-        break;
-      case 'ArrowRight':
-        handleNext();
-        break;
-      case 'Escape':
-        onClose();
-        break;
-      case '+':
-      case '=':
-        setZoom((z) => Math.min(z + 0.5, 3));
-        break;
-      case '-':
-        setZoom((z) => Math.max(z - 0.5, 0.5));
-        break;
+      case 'ArrowLeft':  handlePrev(); break;
+      case 'ArrowRight': handleNext(); break;
+      case 'Escape':     onClose();    break;
+      case '+': case '=': setZoom((z) => Math.min(z + 0.5, 3)); break;
+      case '-':           setZoom((z) => Math.max(z - 0.5, 0.5)); break;
     }
   }, [isOpen, onClose, handlePrev, handleNext]);
 
@@ -89,33 +86,33 @@ function LightboxContent({
   // Prefetch adjacent images
   useEffect(() => {
     if (!isOpen || !currentPhoto) return;
-    
-    const prefetchImage = (idx: number) => {
-      if (idx >= 0 && idx < photos.length) {
+    const prefetch = (i: number) => {
+      if (i >= 0 && i < photos.length) {
         const img = new Image();
-        img.src = `/api/images?path=${encodeURIComponent(photos[idx].path)}&size=medium`;
+        img.src = `/api/images?path=${encodeURIComponent(photos[i].path)}&size=medium`;
       }
     };
-    
-    // Prefetch next and previous images
-    prefetchImage(index + 1);
-    prefetchImage(index - 1);
+    prefetch(index + 1);
+    prefetch(index - 1);
   }, [index, isOpen, currentPhoto, photos]);
 
   if (!currentPhoto) return null;
 
   return (
-    <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+    <DialogContent
+      className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none"
+      showCloseButton={false}
+    >
       <DialogTitle className="sr-only">
         Photo viewer - {currentPhoto.name}
       </DialogTitle>
-      
+
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
         <div className="text-white">
           <p className="font-medium">{currentPhoto.name}</p>
           <p className="text-sm text-white/70">
-            {index + 1} / {photos.length} • {new Date(currentPhoto.lastModified).toLocaleDateString()}
+            {index + 1} / {photos.length} &bull; {new Date(currentPhoto.lastModified).toLocaleDateString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -128,7 +125,6 @@ function LightboxContent({
           <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
             <ZoomIn className="h-5 w-5" />
           </Button>
-          {/* Download button - full size */}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" title="Download full size">
               <Download className="h-5 w-5" />
@@ -144,17 +140,13 @@ function LightboxContent({
       {photos.length > 1 && (
         <>
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrev}
+            variant="ghost" size="icon" onClick={handlePrev}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-12 w-12"
           >
             <ChevronLeft className="h-8 w-8" />
           </Button>
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNext}
+            variant="ghost" size="icon" onClick={handleNext}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-12 w-12"
           >
             <ChevronRight className="h-8 w-8" />
@@ -192,12 +184,19 @@ function LightboxContent({
         )}
       </div>
 
-      {/* Thumbnails */}
+      {/* Thumbnail strip — ALL photos, scrollable, auto-scrolls to active */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
-        <div className="flex justify-center gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin">
-          {photos.slice(0, 20).map((photo, i) => (
+        <div
+          ref={thumbStripRef}
+          className="flex gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin px-[calc(50%-24px)]"
+        >
+          {photos.map((photo, i) => (
             <button
               key={photo.path}
+              ref={(el) => {
+                if (el) thumbRefs.current.set(i, el);
+                else thumbRefs.current.delete(i);
+              }}
               onClick={() => {
                 if (i !== index) {
                   setIsLoading(true);
