@@ -30,8 +30,18 @@ const IMAGE_SIZES = {
 
 type ImageSize = keyof typeof IMAGE_SIZES;
 
-// Per-session flag: null = unknown, true = writes succeeded, false = writes rejected
-let webdavColocatedWritable: boolean | null = null;
+// Track consecutive WebDAV write failures to back off gradually.
+// Reset to 0 on any successful write.
+let webdavWriteConsecFailures = 0;
+let webdavWriteLastFailureAt  = 0;
+
+function webdavWriteBackedOff(): boolean {
+  if (webdavWriteConsecFailures === 0) return false;
+  // Exponential-ish backoff: 30 s → 2 min → 10 min (caps there)
+  const intervals = [30_000, 120_000, 600_000];
+  const interval  = intervals[Math.min(webdavWriteConsecFailures - 1, intervals.length - 1)];
+  return Date.now() - webdavWriteLastFailureAt < interval;
+}
 
 // Ensure fallback /tmp cache directory exists
 try {
@@ -162,19 +172,14 @@ function webdavColocatedPaths(photoPath: string, size: ImageSize): { dir: string
   return { dir, file };
 }
 
-function makeWebDAVClient() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient } = require('webdav');
-  return createClient(process.env.WEBDAV_URL!, {
-    username: process.env.WEBDAV_USERNAME!,
-    password: process.env.WEBDAV_PASSWORD!,
-  });
-}
-
 async function readWebDAVColocated(photoPath: string, size: ImageSize): Promise<Buffer | null> {
   if (!WEBDAV_COLOCATED_ENABLED) return null;
   try {
-    const client = makeWebDAVClient();
+    const { createClient } = await import('webdav');
+    const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
+    if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) return null;
+
+    const client = createClient(WEBDAV_URL, { username: WEBDAV_USERNAME, password: WEBDAV_PASSWORD });
     const { file } = webdavColocatedPaths(photoPath, size);
     const ab = await client.getFileContents(file, { format: 'binary' }) as ArrayBuffer;
     console.log(`[Images API] Co-located cache HIT (WebDAV): ${file}`);
@@ -185,35 +190,72 @@ async function readWebDAVColocated(photoPath: string, size: ImageSize): Promise<
 }
 
 /**
- * Tries to write the optimized thumb back to the WebDAV server.
- * Tracks success/failure in `webdavColocatedWritable` so we stop trying
- * on servers that reject writes (read-only WebDAV mounts).
+ * Writes the optimised thumbnail back to the WebDAV server in the .thumbs/ subfolder.
+ *
+ * Strategy:
+ * - Uses exponential back-off after consecutive failures (30 s → 2 min → 10 min).
+ * - Back-off resets to 0 as soon as any write succeeds.
+ * - On a read-only WebDAV mount the back-off eventually reaches 10 min, so the
+ *   server just keeps using the /tmp cache without hammering the WebDAV server.
+ * - Detailed error text is always logged so the admin can diagnose issues.
  */
 async function writeWebDAVColocated(photoPath: string, size: ImageSize, buf: Buffer): Promise<void> {
-  if (!WEBDAV_COLOCATED_ENABLED || webdavColocatedWritable === false) return;
+  if (!WEBDAV_COLOCATED_ENABLED) return;
+  if (webdavWriteBackedOff()) {
+    console.log(`[Images API] WebDAV write skipped (back-off active, ${webdavWriteConsecFailures} consecutive failures)`);
+    return;
+  }
 
   try {
-    const client      = makeWebDAVClient();
+    const { createClient } = await import('webdav');
+    const { WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD } = process.env;
+    if (!WEBDAV_URL || !WEBDAV_USERNAME || !WEBDAV_PASSWORD) return;
+
+    const client = createClient(WEBDAV_URL, { username: WEBDAV_USERNAME, password: WEBDAV_PASSWORD });
     const { dir, file } = webdavColocatedPaths(photoPath, size);
 
-    // Ensure each path segment of the thumb dir exists
-    const segments   = dir.split('/').filter(Boolean);
-    let currentPath  = '';
+    // Create each segment of the thumb directory if it does not yet exist.
+    // We check existence first to avoid spurious errors from some WebDAV servers
+    // that return 405 for MKCOL on existing paths.
+    const segments  = dir.split('/').filter(Boolean);
+    let currentPath = '';
     for (const seg of segments) {
       currentPath += '/' + seg;
       try {
-        await client.createDirectory(currentPath);
-      } catch {
-        // Directory already exists — that is fine
+        const exists = await client.exists(currentPath);
+        if (!exists) {
+          await client.createDirectory(currentPath);
+          console.log(`[Images API] Created WebDAV directory: ${currentPath}`);
+        }
+      } catch (dirErr) {
+        // Some servers throw even when the directory already exists — keep going.
+        console.warn(`[Images API] createDirectory(${currentPath}) warning:`,
+          dirErr instanceof Error ? dirErr.message : String(dirErr));
       }
     }
 
-    await client.putFileContents(file, buf, { overwrite: true });
-    webdavColocatedWritable = true;
+    // Convert Buffer → Uint8Array so the webdav library receives a clean
+    // ArrayBufferView regardless of any internal Buffer pool offsets.
+    const data = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+
+    const ok = await client.putFileContents(file, data, { overwrite: true });
+    if (!ok) {
+      // putFileContents returns false (not an exception) when the server
+      // rejects the upload with a non-2xx status.
+      throw new Error(`putFileContents returned false — server rejected upload to ${file}`);
+    }
+
+    // Success: reset back-off counter
+    webdavWriteConsecFailures = 0;
+    webdavWriteLastFailureAt  = 0;
     console.log(`[Images API] Co-located cache saved (WebDAV): ${file}`);
   } catch (err) {
-    webdavColocatedWritable = false;
-    console.warn('[Images API] WebDAV co-located write failed; falling back to /tmp cache only.', err);
+    webdavWriteConsecFailures++;
+    webdavWriteLastFailureAt = Date.now();
+    const msg = err instanceof Error ? `${err.constructor.name}: ${err.message}` : String(err);
+    console.warn(`[Images API] WebDAV co-located write FAILED [${size}] "${photoPath}"`);
+    console.warn(`[Images API]   Error: ${msg}`);
+    console.warn(`[Images API]   Consecutive failures: ${webdavWriteConsecFailures}. Next retry in back-off window.`);
   }
 }
 
@@ -308,16 +350,18 @@ export async function GET(request: NextRequest) {
     // ── 4. Optimize ───────────────────────────────────────────────────────────
     const resultBuffer = await optimizeImage(originalBuffer, size);
 
-    // ── 5. Persist to co-located cache (primary) ──────────────────────────────
+    // ── 5. Always persist to /tmp cache first (fast, local) ──────────────────
+    writeTmpCache(decodedPath, size, resultBuffer);
+
+    // ── 6. Persist to co-located cache next to the original photo ─────────────
+    //   Local:  sync write — no latency concern
+    //   WebDAV: awaited so errors surface in logs and we don't lose the write;
+    //           back-off logic inside prevents hammering an unwritable server
     if (isDemo) {
       writeLocalColocated(decodedPath, size, resultBuffer);
     } else {
-      // WebDAV write is async — don't block the HTTP response
-      writeWebDAVColocated(decodedPath, size, resultBuffer).catch(() => {});
+      await writeWebDAVColocated(decodedPath, size, resultBuffer);
     }
-
-    // ── 6. Always persist to /tmp cache (fallback) ────────────────────────────
-    writeTmpCache(decodedPath, size, resultBuffer);
 
     return respond(resultBuffer, 'MISS');
   } catch (err) {
