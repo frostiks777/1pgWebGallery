@@ -17,8 +17,7 @@ let sharp: typeof import('sharp') | null = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   sharp = require('sharp');
-  // Limit libvips thread-pool to keep memory sane on small VPS/VDS
-  sharp.concurrency(1);
+  sharp!.concurrency(1);
   console.info('[Images] sharp loaded OK — image optimisation is ACTIVE');
 } catch (err) {
   console.error('[Images] *** SHARP FAILED TO LOAD — images will NOT be optimised! ***');
