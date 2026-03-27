@@ -55,20 +55,78 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
 
 ## 🗂️ Структура кэша
 
-**Новая директория кэша:**
+Система использует **двухуровневый кэш**:
+
+### Уровень 1 — Co-located кэш (рядом с оригиналами, постоянный)
+
+Миниатюры сохраняются в папку `.thumbs/{size}/` **в той же директории**, что и оригинальные фото.
+
+**Для локальных demo-фото:**
 ```
-.cache/
-  └── images/
-      ├── {hash}-thumbnail.webp
-      ├── {hash}-medium.webp
-      └── {hash}-full.webp
+public/
+  demo-photos/
+    photo1.jpg
+    photo2.jpg
+    .thumbs/
+      thumbnail/
+        photo1.webp
+        photo2.webp
+      medium/
+        photo1.webp
+        photo2.webp
+      full/
+        photo1.webp
+        photo2.webp
 ```
 
-**Старые директории (можно удалить):**
+**Для WebDAV фото** (сохраняется прямо на сервере WebDAV):
 ```
-.cache/
-  ├── images/     # старый формат
-  └── medium/     # старый формат
+/Photos/
+  vacation/
+    img001.jpg
+    img002.jpg
+    .thumbs/
+      thumbnail/
+        img001.webp
+        img002.webp
+      medium/
+        img001.webp
+```
+
+Если WebDAV сервер **не поддерживает запись** (read-only), система автоматически переключается на уровень 2.
+
+### Уровень 2 — /tmp кэш (сессионный, резервный)
+
+Используется как резервный вариант и для ускорения доступа внутри сессии сервера:
+```
+/tmp/photo-gallery-cache/
+  {md5hash}.webp    # ← имя файла = md5(path+size)
+```
+
+### Порядок поиска при запросе изображения
+
+```
+запрос /api/images?path=...&size=thumbnail
+  │
+  ├─ 1. /tmp кэш (самый быстрый) ──────────────→ [HIT]  X-Cache: HIT
+  │
+  ├─ 2. .thumbs/ рядом с оригиналом ───────────→ [HIT]  X-Cache: HIT-COLOCATED
+  │       (+ прогрев /tmp кэша)
+  │
+  └─ 3. Оригинал → оптимизация → сохранить в обоих кэшах → [MISS] X-Cache: MISS
+```
+
+### Конфигурация кэша через переменные окружения
+
+```env
+# Имя папки для co-located миниатюр (по умолчанию .thumbs)
+COLOCATED_THUMBS_DIR=.thumbs
+
+# Отключить запись миниатюр обратно на WebDAV (по умолчанию true)
+WEBDAV_COLOCATED_CACHE=false
+
+# Путь к локальному /tmp кэшу (по умолчанию /tmp/photo-gallery-cache)
+CACHE_DIR=/tmp/photo-gallery-cache
 ```
 
 ## 🚀 Шаги миграции
@@ -188,11 +246,33 @@ npm run build
 ### Проблема: Кэш не работает
 **Решение:**
 ```bash
-# Проверить что директория существует
-ls -la .cache/images/
+# Проверить /tmp кэш
+ls -la /tmp/photo-gallery-cache/
 
-# Проверить логи:
-# Должны быть сообщения [Images API] Cached: {path}
+# Проверить co-located кэш для demo фото
+ls -la public/demo-photos/.thumbs/
+
+# Проверить логи сервера — должны быть сообщения вида:
+# [Images API] Co-located cache saved (local): .../public/demo-photos/.thumbs/thumbnail/photo.webp
+# [Images API] Co-located cache HIT (WebDAV): /Photos/.thumbs/thumbnail/photo.webp
+# [Images API] WebDAV co-located write failed; falling back to /tmp cache only.
+```
+
+### Проблема: WebDAV не даёт права записи для миниатюр
+**Решение:** Добавить в `.env.local`:
+```env
+WEBDAV_COLOCATED_CACHE=false
+```
+Система продолжит работать через `/tmp` кэш.
+
+### Проблема: Не хочу папку `.thumbs` в директории с фото
+**Решение:** Либо отключить co-located кэш:
+```env
+WEBDAV_COLOCATED_CACHE=false
+```
+Либо сменить имя папки:
+```env
+COLOCATED_THUMBS_DIR=.cache
 ```
 
 ## 🎛️ Настройка кэша
