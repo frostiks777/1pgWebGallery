@@ -15,7 +15,10 @@ import {
   SortDesc,
   Crown,
   Minus,
-  XCircle
+  XCircle,
+  Images,
+  CircleCheck,
+  CircleDashed,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +78,51 @@ export default function GalleryPage() {
   const [sortOption, setSortOption] = useState<SortOption>('name-asc');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  // Thumbnail generation state
+  const [genStatus, setGenStatus] = useState<'idle' | 'running' | 'done'>('idle');
+  const [genProgress, setGenProgress] = useState(0);
+  const [genTooltip, setGenTooltip] = useState('Generate all thumbnails');
+
+  const pollGenerateStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/images/generate');
+      const data = await res.json();
+      if (data.running) {
+        setGenStatus('running');
+        setGenProgress(data.progress || 0);
+        setGenTooltip(`Generating... ${data.done}/${data.total} (${data.progress}%)`);
+      } else if (data.finishedAt) {
+        setGenStatus('done');
+        setGenProgress(100);
+        const skipped = data.skipped || 0;
+        const errors = data.errors || 0;
+        setGenTooltip(`Done: ${data.done} processed, ${skipped} skipped${errors > 0 ? `, ${errors} errors` : ''}. Click to re-check.`);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (genStatus !== 'running') return;
+    const iv = setInterval(pollGenerateStatus, 2000);
+    return () => clearInterval(iv);
+  }, [genStatus, pollGenerateStatus]);
+
+  // Check status on mount
+  useEffect(() => { pollGenerateStatus(); }, [pollGenerateStatus]);
+
+  const handleGenerate = useCallback(async () => {
+    try {
+      setGenStatus('running');
+      setGenProgress(0);
+      setGenTooltip('Starting...');
+      await fetch('/api/images/generate', { method: 'POST' });
+      // Polling will take over
+    } catch {
+      setGenStatus('idle');
+      setGenTooltip('Generate all thumbnails');
+    }
+  }, []);
 
   const fetchPhotos = useCallback(async () => {
     setIsLoading(true);
@@ -178,6 +226,33 @@ export default function GalleryPage() {
                     <SelectItem value="date-desc"><SortDesc className="h-3 w-3 inline mr-1" />Date ↓</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline" size="icon"
+                      onClick={handleGenerate}
+                      disabled={genStatus === 'running'}
+                      className={`relative bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9 ${
+                        genStatus === 'done' ? 'border-green-300 dark:border-green-700' : ''
+                      }`}
+                    >
+                      {genStatus === 'running' ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-bold bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                            {genProgress}
+                          </span>
+                        </>
+                      ) : genStatus === 'done' ? (
+                        <CircleCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <CircleDashed className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{genTooltip}</TooltipContent>
+                </Tooltip>
 
                 <Tooltip>
                   <TooltipTrigger asChild>
