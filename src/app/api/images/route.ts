@@ -234,11 +234,9 @@ async function writeWebDAVColocated(photoPath: string, size: ImageSize, buf: Buf
       }
     }
 
-    // Convert Buffer → Uint8Array so the webdav library receives a clean
-    // ArrayBufferView regardless of any internal Buffer pool offsets.
-    const data = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-
-    const ok = await client.putFileContents(file, data, { overwrite: true });
+    // Pass buf directly — webdav v5 accepts Buffer (which extends Uint8Array).
+    // Buffer.from() creates a clean copy isolated from any shared pool offsets.
+    const ok = await client.putFileContents(file, Buffer.from(buf), { overwrite: true });
     if (!ok) {
       // putFileContents returns false (not an exception) when the server
       // rejects the upload with a non-2xx status.
