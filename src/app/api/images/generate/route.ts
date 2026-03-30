@@ -163,18 +163,35 @@ async function runGeneration() {
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
     const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 
-    // Collect all photo paths (recursive)
+    // Collect all photo paths by walking subdirectories with Depth:1 requests
+    // (Depth:infinity / { deep: true } is rejected by many WebDAV providers)
     let photoPaths: string[] = [];
 
     if (client) {
-      const files = await client.getDirectoryContents(photosDir, { deep: true }) as FileStat[];
-      photoPaths = files
-        .filter(f =>
-          f.type === 'file' &&
-          imageExts.includes(f.basename.toLowerCase().substring(f.basename.lastIndexOf('.'))) &&
-          !f.filename.split('/').includes(thumbsDirName)
-        )
-        .map(f => f.filename);
+      const walkDir = async (dir: string): Promise<void> => {
+        let entries: FileStat[];
+        try {
+          entries = await withTimeout(
+            client.getDirectoryContents(dir) as Promise<FileStat[]>,
+            30_000, `list ${dir}`,
+          );
+        } catch (err) {
+          console.warn(`[Generate] Cannot list ${dir}:`, err instanceof Error ? err.message : err);
+          return;
+        }
+        for (const entry of entries) {
+          if (entry.type === 'directory') {
+            if (entry.basename.startsWith('.')) continue; // skip .thumbs and other hidden dirs
+            await walkDir(entry.filename);
+          } else if (
+            imageExts.includes(entry.basename.toLowerCase().substring(entry.basename.lastIndexOf('.'))) &&
+            !entry.filename.split('/').includes(thumbsDirName)
+          ) {
+            photoPaths.push(entry.filename);
+          }
+        }
+      };
+      await walkDir(photosDir);
     } else {
       const demoDir = path.join(process.cwd(), 'public', 'demo-photos');
       if (fs.existsSync(demoDir)) {
