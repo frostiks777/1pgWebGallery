@@ -126,7 +126,7 @@ export default function GalleryPage() {
   // Thumbnail generation state
   const [genStatus, setGenStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const [genProgress, setGenProgress] = useState(0);
-  const [genTooltip, setGenTooltip] = useState('Generate all thumbnails');
+  const [genTooltip, setGenTooltip] = useState('Сгенерировать миниатюры для текущей папки');
 
   const pollGenerateStatus = useCallback(async () => {
     try {
@@ -159,12 +159,16 @@ export default function GalleryPage() {
       setGenStatus('running');
       setGenProgress(0);
       setGenTooltip('Starting...');
-      await fetch('/api/images/generate', { method: 'POST' });
+      await fetch('/api/images/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: currentPath || undefined }),
+      });
     } catch {
       setGenStatus('idle');
       setGenTooltip('Generate all thumbnails');
     }
-  }, []);
+  }, [currentPath]);
 
   const fetchFolders = useCallback(async (path: string) => {
     setIsFoldersLoading(true);
@@ -267,14 +271,28 @@ export default function GalleryPage() {
   }, []);
 
   const handleShowAll = useCallback(async () => {
-    setHiddenPaths([]);
-    try { await fetch('/api/hidden', { method: 'DELETE' }); } catch {}
-  }, []);
+    const folderPaths = new Set(originalPhotos.map((p) => p.path));
+    const newHidden = hiddenPaths.filter((p) => !folderPaths.has(p));
+    setHiddenPaths(newHidden);
+    try {
+      await fetch('/api/hidden', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: newHidden }),
+      });
+    } catch {}
+  }, [hiddenPaths, originalPhotos]);
 
   // Photos visible to the user (hidden ones filtered out)
   const visiblePhotos = useMemo(
     () => photos.filter((p) => !hiddenPaths.includes(p.path)),
     [photos, hiddenPaths],
+  );
+
+  // Hidden photos that belong to the currently displayed folder only
+  const hiddenInCurrentFolder = useMemo(
+    () => originalPhotos.filter((p) => hiddenPaths.includes(p.path)),
+    [originalPhotos, hiddenPaths],
   );
 
   const renderLayout = useMemo(() => {
@@ -330,7 +348,7 @@ export default function GalleryPage() {
 
               {/* Controls */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {hiddenPaths.length > 0 && (
+                {hiddenInCurrentFolder.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -341,13 +359,13 @@ export default function GalleryPage() {
                       >
                         <Eye className="h-4 w-4" />
                         <span className="hidden sm:inline">Показать все</span>
-                        <span className="inline sm:hidden">{hiddenPaths.length}</span>
+                        <span className="inline sm:hidden">{hiddenInCurrentFolder.length}</span>
                         <span className="hidden sm:inline text-slate-400 dark:text-slate-500">
-                          ({hiddenPaths.length})
+                          ({hiddenInCurrentFolder.length})
                         </span>
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Показать {hiddenPaths.length} скрытых фото</TooltipContent>
+                    <TooltipContent>Показать {hiddenInCurrentFolder.length} скрытых фото</TooltipContent>
                   </Tooltip>
                 )}
                 <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
@@ -545,9 +563,9 @@ export default function GalleryPage() {
                   <Badge variant="secondary" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
                     {visiblePhotos.length} photos
                   </Badge>
-                  {hiddenPaths.length > 0 && (
+                  {hiddenInCurrentFolder.length > 0 && (
                     <Badge variant="outline" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-400 dark:text-slate-500">
-                      {hiddenPaths.length} скрыто
+                      {hiddenInCurrentFolder.length} скрыто
                     </Badge>
                   )}
                 </div>
@@ -572,7 +590,7 @@ export default function GalleryPage() {
             <div className="container mx-auto px-4 py-4">
               <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
                 Photo Gallery{visiblePhotos.length > 0 && ` • ${visiblePhotos.length} photos`}
-                {hiddenPaths.length > 0 && ` • ${hiddenPaths.length} скрыто`}
+                {hiddenInCurrentFolder.length > 0 && ` • ${hiddenInCurrentFolder.length} скрыто`}
               </p>
             </div>
           </footer>

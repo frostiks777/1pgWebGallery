@@ -144,7 +144,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 // Background generation job
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runGeneration() {
+async function runGeneration(scopePath?: string) {
   if (status.running) return;
 
   status.running    = true;
@@ -162,6 +162,9 @@ async function runGeneration() {
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
     const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+
+    // If scopePath provided, scope walk to that sub-directory only
+    const startDir = scopePath ? `${photosDir}/${scopePath}` : photosDir;
 
     // Collect all photo paths by walking subdirectories with Depth:1 requests
     // (Depth:infinity / { deep: true } is rejected by many WebDAV providers)
@@ -191,13 +194,15 @@ async function runGeneration() {
           }
         }
       };
-      await walkDir(photosDir);
+      await walkDir(startDir);
     } else {
-      const demoDir = path.join(process.cwd(), 'public', 'demo-photos');
+      const demoBase = path.join(process.cwd(), 'public', 'demo-photos');
+      const demoDir = scopePath ? path.join(demoBase, scopePath) : demoBase;
+      const demoPrefix = scopePath ? `/demo-photos/${scopePath}` : '/demo-photos';
       if (fs.existsSync(demoDir)) {
         photoPaths = fs.readdirSync(demoDir)
           .filter(f => imageExts.includes(path.extname(f).toLowerCase()))
-          .map(f => `/demo-photos/${f}`);
+          .map(f => `${demoPrefix}/${f}`);
       }
     }
 
@@ -301,7 +306,7 @@ export async function GET() {
   });
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   if (status.running) {
     return NextResponse.json({
       message: 'Generation already in progress',
@@ -310,11 +315,14 @@ export async function POST(_request: NextRequest) {
     });
   }
 
+  const body = await request.json().catch(() => ({})) as { path?: string };
+  const scopePath = body?.path || undefined;
+
   // Fire-and-forget: start the job but respond immediately
-  runGeneration().catch(err => console.error('[Generate] Unhandled:', err));
+  runGeneration(scopePath).catch(err => console.error('[Generate] Unhandled:', err));
 
   return NextResponse.json({
-    message: 'Generation started',
+    message: scopePath ? `Generation started for: ${scopePath}` : 'Generation started',
     ...status,
   });
 }

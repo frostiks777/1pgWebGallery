@@ -46,6 +46,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const paths = body?.paths;
+    if (!Array.isArray(paths)) {
+      return NextResponse.json({ error: 'paths must be an array' }, { status: 400 });
+    }
+    writeHidden(paths.filter((p): p is string => typeof p === 'string'));
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+}
+
 export async function DELETE() {
   writeHidden([]);
   return NextResponse.json({ success: true });

@@ -57,20 +57,7 @@ function LightboxContent({
     scroll();
   }, [index]);
 
-  // Sync isFullscreen state with native fullscreen events
-  useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
-  }, []);
-
-  const toggleFullscreen = useCallback(async () => {
-    if (!document.fullscreenElement) {
-      try { await document.documentElement.requestFullscreen(); } catch {}
-    } else {
-      try { await document.exitFullscreen(); } catch {}
-    }
-  }, []);
+  const toggleExpanded = useCallback(() => setIsFullscreen((v) => !v), []);
 
   const handlePrev = useCallback(() => {
     setIndex((prev) => {
@@ -101,11 +88,11 @@ function LightboxContent({
       case 'ArrowLeft':  handlePrev(); break;
       case 'ArrowRight': handleNext(); break;
       case 'Escape':     onClose();    break;
-      case 'f': case 'F': toggleFullscreen(); break;
+      case 'f': case 'F': toggleExpanded(); break;
       case '+': case '=': setZoom((z) => Math.min(z + 0.5, 3)); break;
       case '-':           setZoom((z) => Math.max(z - 0.5, 0.5)); break;
     }
-  }, [isOpen, onClose, handlePrev, handleNext, toggleFullscreen]);
+  }, [isOpen, onClose, handlePrev, handleNext, toggleExpanded]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -127,9 +114,11 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
 
-  // In fullscreen mode override Radix's centering transforms via tailwind-merge
+  // In expanded mode use CSS inset-0 to fill the viewport without native fullscreen API.
+  // position:fixed + inset:0 stretches the element to all four edges of the viewport,
+  // and tailwind-merge overrides Radix's top-[50%] left-[50%] translate-x/y-[-50%].
   const fullscreenClasses = isFullscreen
-    ? 'inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none rounded-none'
+    ? 'inset-0 translate-x-0 translate-y-0 max-w-none max-h-none rounded-none'
     : 'max-w-[95vw] max-h-[95vh]';
 
   return (
@@ -173,7 +162,7 @@ function LightboxContent({
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleFullscreen}
+            onClick={toggleExpanded}
             className="text-white hover:bg-white/20"
             title={isFullscreen ? 'Компактный режим (F)' : 'Во весь экран (F)'}
           >
@@ -209,7 +198,7 @@ function LightboxContent({
       )}
 
       {/* Image container */}
-      <div className="flex items-center justify-center w-full h-full overflow-hidden" style={{ minHeight: isFullscreen ? '100vh' : '95vh' }}>
+      <div className="flex items-center justify-center w-full h-full overflow-hidden" style={{ minHeight: '95vh' }}>
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-white animate-spin" />
