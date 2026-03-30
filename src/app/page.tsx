@@ -21,6 +21,8 @@ import {
   Folder,
   ChevronRight,
   Frame,
+  ChevronUp,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,11 +96,32 @@ export default function GalleryPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
+  // Hidden photos
+  const [hiddenPaths, setHiddenPaths] = useState<string[]>([]);
+
+  // Scroll-to-top visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   // Folder navigation state
   // currentPath is relative to PHOTOS_DIR, empty string = root
   const [currentPath, setCurrentPath] = useState('');
   const [folders, setFolders] = useState<FolderInfo[]>([]);
   const [isFoldersLoading, setIsFoldersLoading] = useState(false);
+
+  // Fetch hidden photos list on mount
+  useEffect(() => {
+    fetch('/api/hidden')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data.paths)) setHiddenPaths(data.paths); })
+      .catch(() => {});
+  }, []);
+
+  // Scroll-to-top: show button after scrolling 300px
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Thumbnail generation state
   const [genStatus, setGenStatus] = useState<'idle' | 'running' | 'done'>('idle');
@@ -231,18 +254,41 @@ export default function GalleryPage() {
     fetchPhotos(currentPath);
   }, [currentPath, fetchFolders, fetchPhotos]);
 
+  const handleHidePhoto = useCallback(async (photo: Photo) => {
+    setLightboxOpen(false);
+    setHiddenPaths((prev) => (prev.includes(photo.path) ? prev : [...prev, photo.path]));
+    try {
+      await fetch('/api/hidden', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: photo.path }),
+      });
+    } catch {}
+  }, []);
+
+  const handleShowAll = useCallback(async () => {
+    setHiddenPaths([]);
+    try { await fetch('/api/hidden', { method: 'DELETE' }); } catch {}
+  }, []);
+
+  // Photos visible to the user (hidden ones filtered out)
+  const visiblePhotos = useMemo(
+    () => photos.filter((p) => !hiddenPaths.includes(p.path)),
+    [photos, hiddenPaths],
+  );
+
   const renderLayout = useMemo(() => {
     switch (layout) {
-      case 'masonry':    return <MasonryLayout   photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'bento':      return <BentoLayout     photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'honeycomb':  return <HoneycombLayout photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'wave':       return <WaveLayout      photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'empire':     return <EmpireLayout    photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'minimalism': return <MinimalismLayout photos={photos} onPhotoClick={handlePhotoClick} />;
-      case 'album':      return <AlbumLayout     photos={photos} onPhotoClick={handlePhotoClick} />;
-      default:           return <MasonryLayout   photos={photos} onPhotoClick={handlePhotoClick} />;
+      case 'masonry':    return <MasonryLayout   photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'bento':      return <BentoLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'honeycomb':  return <HoneycombLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'wave':       return <WaveLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'empire':     return <EmpireLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'minimalism': return <MinimalismLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'album':      return <AlbumLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      default:           return <MasonryLayout   photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
     }
-  }, [layout, photos, handlePhotoClick]);
+  }, [layout, visiblePhotos, handlePhotoClick]);
 
   const isStyleLayout = useMemo(() => STYLE_LAYOUTS.includes(layout), [layout]);
 
@@ -281,6 +327,26 @@ export default function GalleryPage() {
 
               {/* Controls */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {hiddenPaths.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShowAll}
+                        className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 gap-1.5 text-xs"
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span className="hidden sm:inline">Показать все</span>
+                        <span className="inline sm:hidden">{hiddenPaths.length}</span>
+                        <span className="hidden sm:inline text-slate-400 dark:text-slate-500">
+                          ({hiddenPaths.length})
+                        </span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Показать {hiddenPaths.length} скрытых фото</TooltipContent>
+                  </Tooltip>
+                )}
                 <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
                   <SelectTrigger className="w-[140px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9">
                     <SelectValue placeholder="Sort..." />
@@ -364,7 +430,7 @@ export default function GalleryPage() {
             )}
 
             {/* Layout Selector — only when showing photos */}
-            {photos.length > 0 && (
+            {visiblePhotos.length > 0 && (
               <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
                 {layoutOptions.map((option) => (
                   <Button
@@ -457,7 +523,7 @@ export default function GalleryPage() {
             </motion.div>
           )}
 
-          {!isLoading && !error && photos.length === 0 && folders.length === 0 && (
+          {!isLoading && !error && visiblePhotos.length === 0 && folders.length === 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[30vh]">
               <Card className="max-w-sm w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="pt-6 text-center">
@@ -469,13 +535,18 @@ export default function GalleryPage() {
             </motion.div>
           )}
 
-          {!isLoading && !error && photos.length > 0 && (
+          {!isLoading && !error && visiblePhotos.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               {!isStyleLayout && (
-                <div className="mb-4">
+                <div className="mb-4 flex items-center gap-2">
                   <Badge variant="secondary" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-                    {photos.length} photos
+                    {visiblePhotos.length} photos
                   </Badge>
+                  {hiddenPaths.length > 0 && (
+                    <Badge variant="outline" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-400 dark:text-slate-500">
+                      {hiddenPaths.length} скрыто
+                    </Badge>
+                  )}
                 </div>
               )}
               <AnimatePresence mode="wait">
@@ -497,18 +568,37 @@ export default function GalleryPage() {
           <footer className="mt-auto border-t border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <div className="container mx-auto px-4 py-4">
               <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-                Photo Gallery{photos.length > 0 && ` • ${photos.length} photos`}
+                Photo Gallery{visiblePhotos.length > 0 && ` • ${visiblePhotos.length} photos`}
+                {hiddenPaths.length > 0 && ` • ${hiddenPaths.length} скрыто`}
               </p>
             </div>
           </footer>
         )}
 
         <Lightbox
-          photos={photos}
+          photos={visiblePhotos}
           currentIndex={currentPhotoIndex}
           isOpen={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
+          onHidePhoto={handleHidePhoto}
         />
+
+        {/* Scroll to top button */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full bg-slate-900/80 dark:bg-white/80 text-white dark:text-slate-900 shadow-lg backdrop-blur-sm hover:bg-slate-800 dark:hover:bg-white transition-colors flex items-center justify-center"
+              aria-label="Прокрутить вверх"
+            >
+              <ChevronUp className="h-5 w-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </TooltipProvider>
   );

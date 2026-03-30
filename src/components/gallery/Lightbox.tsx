@@ -3,7 +3,7 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
@@ -11,38 +11,68 @@ interface LightboxProps {
   currentIndex: number;
   isOpen: boolean;
   onClose: () => void;
+  onHidePhoto?: (photo: Photo) => void;
 }
 
 function LightboxContent({ 
   photos, 
   initialIndex, 
   isOpen, 
-  onClose
+  onClose,
+  onHidePhoto,
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
   isOpen: boolean; 
   onClose: () => void;
+  onHidePhoto?: (photo: Photo) => void;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const thumbStripRef = useRef<HTMLDivElement>(null);
   const thumbRefs     = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const dialogRef     = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
 
   const currentPhoto = photos[index];
   const imageUrl     = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
 
-  // Auto-scroll the thumbnail strip so the active thumb is always visible
+  // Auto-scroll the thumbnail strip so the active thumb is always visible.
+  // On initial mount we delay 200ms to let the Dialog entrance animation finish
+  // before scrollIntoView is called; on subsequent index changes scroll immediately.
   useEffect(() => {
-    const el = thumbRefs.current.get(index);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    const scroll = () => {
+      const el = thumbRefs.current.get(index);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    };
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      const t = setTimeout(scroll, 200);
+      return () => clearTimeout(t);
     }
+    scroll();
   }, [index]);
+
+  // Sync isFullscreen state with native fullscreen events
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      const el = dialogRef.current ?? document.documentElement;
+      try { await el.requestFullscreen(); } catch {}
+    } else {
+      try { await document.exitFullscreen(); } catch {}
+    }
+  }, []);
 
   const handlePrev = useCallback(() => {
     setIndex((prev) => {
@@ -73,10 +103,11 @@ function LightboxContent({
       case 'ArrowLeft':  handlePrev(); break;
       case 'ArrowRight': handleNext(); break;
       case 'Escape':     onClose();    break;
+      case 'f': case 'F': toggleFullscreen(); break;
       case '+': case '=': setZoom((z) => Math.min(z + 0.5, 3)); break;
       case '-':           setZoom((z) => Math.max(z - 0.5, 0.5)); break;
     }
-  }, [isOpen, onClose, handlePrev, handleNext]);
+  }, [isOpen, onClose, handlePrev, handleNext, toggleFullscreen]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -98,9 +129,14 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
 
+  const fullscreenClasses = isFullscreen
+    ? 'w-screen h-screen max-w-screen max-h-screen rounded-none'
+    : 'max-w-[95vw] max-h-[95vh]';
+
   return (
     <DialogContent
-      className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none"
+      ref={dialogRef}
+      className={`${fullscreenClasses} p-0 bg-black/95 border-none`}
       showCloseButton={false}
     >
       <DialogTitle className="sr-only">
@@ -124,6 +160,26 @@ function LightboxContent({
           </span>
           <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
             <ZoomIn className="h-5 w-5" />
+          </Button>
+          {onHidePhoto && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onHidePhoto(currentPhoto)}
+              className="text-white hover:bg-white/20"
+              title="Скрыть фото"
+            >
+              <EyeOff className="h-5 w-5" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullscreen}
+            className="text-white hover:bg-white/20"
+            title={isFullscreen ? 'Компактный режим (F)' : 'Во весь экран (F)'}
+          >
+            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
           </Button>
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" title="Download full size">
@@ -155,7 +211,7 @@ function LightboxContent({
       )}
 
       {/* Image container */}
-      <div className="flex items-center justify-center w-full h-[95vh] overflow-hidden">
+      <div className="flex items-center justify-center w-full h-full overflow-hidden" style={{ minHeight: isFullscreen ? '100vh' : '95vh' }}>
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <Loader2 className="w-10 h-10 text-white animate-spin" />
@@ -225,7 +281,7 @@ function LightboxContent({
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProps) {
+export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto }: LightboxProps) {
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
 
   if (!isOpen || photos.length === 0) return null;
@@ -238,6 +294,7 @@ export function Lightbox({ photos, currentIndex, isOpen, onClose }: LightboxProp
         initialIndex={currentIndex}
         isOpen={isOpen}
         onClose={onClose}
+        onHidePhoto={onHidePhoto}
       />
     </Dialog>
   );
