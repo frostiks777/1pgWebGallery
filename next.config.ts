@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 // Derive allowed remote image hostname from WEBDAV_URL if set.
 // Falls back to '**' (any HTTPS) — tighten for production deployments.
-function getRemotePatterns(): NextConfig['images']['remotePatterns'] {
+function getRemotePatterns() {
   const webdavUrl = process.env.WEBDAV_URL;
   if (webdavUrl) {
     try {

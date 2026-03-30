@@ -45,10 +45,10 @@ function checkApiAuth(req: NextRequest): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Middleware entry point
+// Proxy entry point (Next.js 16 — replaces middleware.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
 

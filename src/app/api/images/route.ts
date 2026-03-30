@@ -29,7 +29,7 @@ try {
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_DIR     = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
+const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
@@ -200,7 +200,7 @@ function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
 // Co-located .thumbs/ — LOCAL demo photos
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PUBLIC_ROOT = path.join(process.cwd(), 'public');
+const PUBLIC_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public');
 
 /**
  * Safely resolve a photo path under public/.

@@ -41,7 +41,7 @@ try {
   sharp = require('sharp');
 } catch {}
 
-const CACHE_DIR     = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
+const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
@@ -198,7 +198,7 @@ async function runGeneration(scopePath?: string) {
       };
       await walkDir(startDir);
     } else {
-      const demoBase = path.join(process.cwd(), 'public', 'demo-photos');
+      const demoBase = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', 'demo-photos');
       const demoDir = scopePath ? path.join(demoBase, scopePath) : demoBase;
       const demoPrefix = scopePath ? `/demo-photos/${scopePath}` : '/demo-photos';
       if (fs.existsSync(demoDir)) {
@@ -259,7 +259,7 @@ async function runGeneration(scopePath?: string) {
             );
             original = Buffer.from(ab);
           } else {
-            const publicRoot = path.join(process.cwd(), 'public');
+            const publicRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public');
             const segs = photoPath.split('/').filter(s => s.length > 0 && s !== '..' && s !== '.');
             const fp = path.join(publicRoot, ...segs);
             if (!fp.startsWith(publicRoot + path.sep)) throw new Error('Invalid path');
