@@ -163,8 +163,10 @@ async function runGeneration(scopePath?: string) {
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
     const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 
-    // If scopePath provided, scope walk to that sub-directory only
-    const startDir = scopePath ? `${photosDir}/${scopePath}` : photosDir;
+    // Scope walk to sub-directory; scopePath is already validated by POST handler
+    const startDir = scopePath
+      ? `${photosDir}/${scopePath}`.replace(/\/+/g, '/')
+      : photosDir;
 
     // Collect all photo paths by walking subdirectories with Depth:1 requests
     // (Depth:infinity / { deep: true } is rejected by many WebDAV providers)
@@ -257,8 +259,11 @@ async function runGeneration(scopePath?: string) {
             );
             original = Buffer.from(ab);
           } else {
-            const segs = photoPath.split('/').filter(Boolean);
-            original = fs.readFileSync(path.join(process.cwd(), 'public', ...segs));
+            const publicRoot = path.join(process.cwd(), 'public');
+            const segs = photoPath.split('/').filter(s => s.length > 0 && s !== '..' && s !== '.');
+            const fp = path.join(publicRoot, ...segs);
+            if (!fp.startsWith(publicRoot + path.sep)) throw new Error('Invalid path');
+            original = fs.readFileSync(fp);
           }
 
           const result = await optimizeImage(original, size);
@@ -316,13 +321,28 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({})) as { path?: string };
-  const scopePath = body?.path || undefined;
+  const rawScopePath = body?.path || undefined;
+
+  // Validate scopePath: must be a relative path with no traversal sequences
+  let scopePath: string | undefined;
+  if (rawScopePath !== undefined) {
+    if (
+      typeof rawScopePath !== 'string' ||
+      rawScopePath.includes('..') ||
+      path.isAbsolute(rawScopePath) ||
+      rawScopePath.length > 1024
+    ) {
+      return NextResponse.json({ error: 'Invalid scope path' }, { status: 400 });
+    }
+    scopePath = rawScopePath;
+  }
 
   // Fire-and-forget: start the job but respond immediately
   runGeneration(scopePath).catch(err => console.error('[Generate] Unhandled:', err));
 
   return NextResponse.json({
     message: scopePath ? `Generation started for: ${scopePath}` : 'Generation started',
-    ...status,
+    running: status.running,
+    startedAt: status.startedAt,
   });
 }

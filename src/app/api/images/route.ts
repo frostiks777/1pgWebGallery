@@ -200,20 +200,42 @@ function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
 // Co-located .thumbs/ — LOCAL demo photos
 // ─────────────────────────────────────────────────────────────────────────────
 
-function localThumbPath(photo: string, size: ImageSize): string {
-  const segs = photo.split('/').filter(Boolean);
-  const base = segs.pop()!.replace(/\.[^.]+$/, '');
-  return path.join(process.cwd(), 'public', ...segs, THUMBS_SUBDIR, size, `${base}${thumbExt()}`);
+const PUBLIC_ROOT = path.join(process.cwd(), 'public');
+
+/**
+ * Safely resolve a photo path under public/.
+ * Returns null if the resolved path escapes public/ (path traversal guard).
+ */
+function safePublicPath(photo: string, ...extra: string[]): string | null {
+  const segs = photo.split('/').filter(s => s.length > 0 && s !== '..' && s !== '.');
+  const fp = path.join(PUBLIC_ROOT, ...segs, ...extra);
+  if (fp !== PUBLIC_ROOT && !fp.startsWith(PUBLIC_ROOT + path.sep)) return null;
+  return fp;
+}
+
+function localThumbPath(photo: string, size: ImageSize): string | null {
+  const segs = photo.split('/').filter(s => s.length > 0 && s !== '..' && s !== '.');
+  const filename = segs.pop();
+  if (!filename) return null;
+  const base = filename.replace(/\.[^.]+$/, '');
+  const fp = path.join(PUBLIC_ROOT, ...segs, THUMBS_SUBDIR, size, `${base}${thumbExt()}`);
+  if (!fp.startsWith(PUBLIC_ROOT + path.sep)) return null;
+  return fp;
 }
 
 function readLocalThumb(photo: string, size: ImageSize): Buffer | null {
-  try { const fp = localThumbPath(photo, size); return fs.existsSync(fp) ? fs.readFileSync(fp) : null; }
+  try {
+    const fp = localThumbPath(photo, size);
+    if (!fp) return null;
+    return fs.existsSync(fp) ? fs.readFileSync(fp) : null;
+  }
   catch { return null; }
 }
 
 function writeLocalThumb(photo: string, size: ImageSize, buf: Buffer): void {
   try {
     const fp = localThumbPath(photo, size);
+    if (!fp) return;
     const dir = path.dirname(fp);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(fp, buf);
@@ -347,18 +369,21 @@ export async function GET(request: NextRequest) {
     // ── 3. Fetch original ───────────────────────────────────────────────────
     let original: Buffer;
     if (isDemo) {
-      const segs = decoded.split('/').filter(Boolean);
-      const fp = path.join(process.cwd(), 'public', ...segs);
+      const fp = safePublicPath(decoded);
+      if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       if (!fs.existsSync(fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       original = fs.readFileSync(fp);
     } else {
+      // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
+      const photosDir = process.env.PHOTOS_DIR || '/Photos';
+      const normalizedPhotosDir = photosDir.endsWith('/') ? photosDir : photosDir + '/';
+      if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
       try { original = await fetchOriginal(decoded); }
       catch (err) {
         console.error('[Images] fetch failed:', err);
-        return NextResponse.json(
-          { error: `Fetch: ${err instanceof Error ? err.message : 'Unknown'}` },
-          { status: 500 },
-        );
+        return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
       }
     }
 
@@ -378,9 +403,6 @@ export async function GET(request: NextRequest) {
     return respond(result, 'MISS');
   } catch (err) {
     console.error('[Images] unhandled:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Image processing failed' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Image processing failed' }, { status: 500 });
   }
 }

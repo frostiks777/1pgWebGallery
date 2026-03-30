@@ -5,6 +5,10 @@ import path from 'path';
 const CACHE_DIR    = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
 const DIR_META_DIR = path.join(CACHE_DIR, 'dir-meta');
 
+const MAX_PATH_LENGTH = 1024;
+const MAX_DIR_LENGTH  = 512;
+const MAX_PATHS       = 5000;
+
 function sanitizeDir(dir: string): string {
   if (!dir) return '__root__';
   return dir.replace(/[^a-zA-Z0-9_\-]/g, '_');
@@ -45,20 +49,26 @@ function writeMeta(dir: string, meta: DirMeta): void {
 }
 
 export async function GET(request: NextRequest) {
-  const dir = request.nextUrl.searchParams.get('dir') ?? '';
+  const dir = (request.nextUrl.searchParams.get('dir') ?? '').slice(0, MAX_DIR_LENGTH);
   const meta = readMeta(dir);
   return NextResponse.json({ paths: meta.hidden });
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body      = await request.json();
     const photoPath = body?.path;
-    const dir       = typeof body?.dir === 'string' ? body.dir : '';
+    const dir       = typeof body?.dir === 'string' ? body.dir.slice(0, MAX_DIR_LENGTH) : '';
     if (!photoPath || typeof photoPath !== 'string') {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
+    if (photoPath.length > MAX_PATH_LENGTH) {
+      return NextResponse.json({ error: 'Path too long' }, { status: 400 });
+    }
     const meta = readMeta(dir);
+    if (meta.hidden.length >= MAX_PATHS) {
+      return NextResponse.json({ error: 'Too many hidden items' }, { status: 400 });
+    }
     if (!meta.hidden.includes(photoPath)) {
       meta.hidden = [...meta.hidden, photoPath];
       writeMeta(dir, meta);
@@ -73,12 +83,14 @@ export async function PATCH(request: NextRequest) {
   try {
     const body  = await request.json();
     const paths = body?.paths;
-    const dir   = typeof body?.dir === 'string' ? body.dir : '';
+    const dir   = typeof body?.dir === 'string' ? body.dir.slice(0, MAX_DIR_LENGTH) : '';
     if (!Array.isArray(paths)) {
       return NextResponse.json({ error: 'paths must be an array' }, { status: 400 });
     }
     const meta = readMeta(dir);
-    meta.hidden = paths.filter((p): p is string => typeof p === 'string');
+    meta.hidden = paths
+      .filter((p): p is string => typeof p === 'string' && p.length <= MAX_PATH_LENGTH)
+      .slice(0, MAX_PATHS);
     writeMeta(dir, meta);
     return NextResponse.json({ success: true });
   } catch {
@@ -87,7 +99,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const dir  = request.nextUrl.searchParams.get('dir') ?? '';
+  const dir  = (request.nextUrl.searchParams.get('dir') ?? '').slice(0, MAX_DIR_LENGTH);
   const meta = readMeta(dir);
   meta.hidden = [];
   writeMeta(dir, meta);

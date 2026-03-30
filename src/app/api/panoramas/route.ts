@@ -5,6 +5,10 @@ import path from 'path';
 const CACHE_DIR    = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
 const DIR_META_DIR = path.join(CACHE_DIR, 'dir-meta');
 
+const MAX_PATH_LENGTH = 1024;
+const MAX_DIR_LENGTH  = 512;
+const MAX_PATHS       = 5000;
+
 function sanitizeDir(dir: string): string {
   if (!dir) return '__root__';
   return dir.replace(/[^a-zA-Z0-9_\-]/g, '_');
@@ -45,7 +49,7 @@ function writeMeta(dir: string, meta: DirMeta): void {
 }
 
 export async function GET(request: NextRequest) {
-  const dir  = request.nextUrl.searchParams.get('dir') ?? '';
+  const dir  = (request.nextUrl.searchParams.get('dir') ?? '').slice(0, MAX_DIR_LENGTH);
   const meta = readMeta(dir);
   return NextResponse.json({ paths: meta.panoramas });
 }
@@ -54,11 +58,17 @@ export async function POST(request: NextRequest) {
   try {
     const body      = await request.json();
     const photoPath = body?.path;
-    const dir       = typeof body?.dir === 'string' ? body.dir : '';
+    const dir       = typeof body?.dir === 'string' ? body.dir.slice(0, MAX_DIR_LENGTH) : '';
     if (!photoPath || typeof photoPath !== 'string') {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
+    if (photoPath.length > MAX_PATH_LENGTH) {
+      return NextResponse.json({ error: 'Path too long' }, { status: 400 });
+    }
     const meta = readMeta(dir);
+    if (meta.panoramas.length >= MAX_PATHS) {
+      return NextResponse.json({ error: 'Too many panorama items' }, { status: 400 });
+    }
     if (!meta.panoramas.includes(photoPath)) {
       meta.panoramas = [...meta.panoramas, photoPath];
       writeMeta(dir, meta);
@@ -73,9 +83,12 @@ export async function DELETE(request: NextRequest) {
   try {
     const body      = await request.json();
     const photoPath = body?.path;
-    const dir       = typeof body?.dir === 'string' ? body.dir : '';
+    const dir       = typeof body?.dir === 'string' ? body.dir.slice(0, MAX_DIR_LENGTH) : '';
     if (!photoPath || typeof photoPath !== 'string') {
-      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
+    if (photoPath.length > MAX_PATH_LENGTH) {
+      return NextResponse.json({ error: 'Path too long' }, { status: 400 });
     }
     const meta = readMeta(dir);
     meta.panoramas = meta.panoramas.filter((p) => p !== photoPath);

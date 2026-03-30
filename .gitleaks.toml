@@ -1,0 +1,53 @@
+# Gitleaks configuration for 1pgWebGallery
+# https://github.com/gitleaks/gitleaks
+
+title = "1pgWebGallery Gitleaks Config"
+
+[extend]
+# Extend the default ruleset
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for known-safe patterns in this repo"
+
+paths = [
+  # Lock files — large, no secrets
+  '''bun\.lock''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  # Generated type declarations
+  '''next-env\.d\.ts''',
+  # Example / template files (deliberately contain placeholder names)
+  '''\.env\.example''',
+  # Documentation — examples only
+  '''\.cursor/commands/security-audit\.md''',
+  '''README\.md''',
+  '''DEPLOYMENT\.md''',
+  '''INSTALL\.md''',
+]
+
+regexes = [
+  # CSS / Tailwind colour hex values that look like tokens
+  '''#[0-9a-fA-F]{6,8}''',
+  # Next.js cache hashes in filenames
+  '''[0-9a-f]{32}''',
+  # Placeholder passwords in documentation examples
+  '''your[-_]password[-_]here''',
+  '''<your[-_\w]+>''',
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom rules tuned for this project's stack
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[rules]]
+id          = "webdav-password-env"
+description = "WebDAV password hardcoded (not via env)"
+regex       = '''WEBDAV_PASSWORD\s*=\s*['"][^'"]{4,}['"]'''
+tags        = ["secret", "webdav"]
+
+[[rules]]
+id          = "webdav-url-with-creds"
+description = "WebDAV URL containing embedded credentials"
+regex       = '''https?://[^:@\s]+:[^:@\s]+@'''
+tags        = ["secret", "webdav"]

@@ -19,11 +19,9 @@ export interface ConnectionTestResult {
   success: boolean;
   message: string;
   details?: {
-    url: string;
     photosDir: string;
     directoryExists?: boolean;
     fileCount?: number;
-    samplePaths?: string[];
   };
 }
 
@@ -82,73 +80,53 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
       console.error('[WebDAV] Cannot access root directory:', rootError);
       return {
         success: false,
-        message: `Cannot access WebDAV root directory. Check URL and credentials. Error: ${rootError instanceof Error ? rootError.message : 'Unknown error'}`,
-        details: {
-          url: config.url,
-          photosDir,
-        },
+        message: 'Cannot access WebDAV root directory. Check URL and credentials.',
+        details: { photosDir },
       };
     }
 
     // Try to access the photos directory
     let photosDirExists = false;
     let filesInDir = 0;
-    let samplePaths: string[] = [];
-    
+
     try {
       const dirContents = await client.getDirectoryContents(photosDir);
       photosDirExists = true;
       filesInDir = Array.isArray(dirContents) ? dirContents.length : 0;
-      
-      // Get sample paths for debugging
-      if (Array.isArray(dirContents)) {
-        const imageFiles = dirContents
-          .filter((f: FileStat) => f.type === 'file')
-          .slice(0, 3);
-        samplePaths = imageFiles.map((f: FileStat) => f.filename);
-      }
-      
-      console.log(`[WebDAV] Photos directory "${photosDir}" accessible, found ${filesInDir} items`);
-      console.log(`[WebDAV] Sample paths: ${samplePaths.join(', ')}`);
+      console.log(`[WebDAV] Photos directory accessible, found ${filesInDir} items`);
     } catch (dirError) {
-      console.error(`[WebDAV] Cannot access photos directory "${photosDir}":`, dirError);
-      
-      // List available directories
-      const availableDirs = Array.isArray(rootContents) 
-        ? rootContents.filter((f: FileStat) => f.type === 'directory').map((f: FileStat) => f.filename)
-        : [];
-      
+      console.error(`[WebDAV] Cannot access photos directory:`, dirError);
+
+      // Log available directories server-side only (not returned to client)
+      if (Array.isArray(rootContents)) {
+        const availableDirs = rootContents
+          .filter((f: FileStat) => f.type === 'directory')
+          .map((f: FileStat) => f.filename);
+        console.log(`[WebDAV] Available root dirs: ${availableDirs.slice(0, 5).join(', ')}`);
+      }
+
       return {
         success: false,
-        message: `Photos directory "${photosDir}" not found. Available directories: ${availableDirs.slice(0, 5).join(', ')}${availableDirs.length > 5 ? '...' : ''}. Set PHOTOS_DIR environment variable to the correct path.`,
-        details: {
-          url: config.url,
-          photosDir,
-          directoryExists: false,
-        },
+        message: 'Photos directory not found. Check PHOTOS_DIR environment variable.',
+        details: { photosDir, directoryExists: false },
       };
     }
 
     return {
       success: true,
-      message: `Successfully connected to WebDAV. Found ${filesInDir} items in "${photosDir}".`,
+      message: `Successfully connected to WebDAV. Found ${filesInDir} items in photos directory.`,
       details: {
-        url: config.url,
         photosDir,
         directoryExists: photosDirExists,
         fileCount: filesInDir,
-        samplePaths,
       },
     };
   } catch (error) {
     console.error('[WebDAV] Connection test failed:', error);
     return {
       success: false,
-      message: `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      details: {
-        url: config.url,
-        photosDir,
-      },
+      message: 'WebDAV connection failed.',
+      details: { photosDir },
     };
   }
 }

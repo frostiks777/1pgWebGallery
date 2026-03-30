@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse":           [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "postToolUse":          [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "postToolUseFailure":   [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "beforeShellExecution": [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterShellExecution":  [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "beforeMCPExecution":   [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterMCPExecution":    [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "beforeReadFile":       [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "beforeTabFileRead":    [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterFileEdit":        [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterTabFileEdit":     [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "beforeSubmitPrompt":   [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterAgentResponse":   [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "afterAgentThought":    [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "subagentStart":        [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "subagentStop":         [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "sessionStart":         [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "sessionEnd":           [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "stop":                 [{"command": ".cursor/hooks/gitleaks-hook"}],
+    "preCompact":           [{"command": ".cursor/hooks/gitleaks-hook"}]
+  }
+}

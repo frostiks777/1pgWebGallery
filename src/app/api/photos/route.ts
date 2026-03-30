@@ -83,70 +83,57 @@ export async function GET(request: NextRequest) {
 
       // Test connection first
       const connectionTest = await testWebDAVConnection(photosDir);
-      
+
       if (!connectionTest.success) {
         return NextResponse.json({
           success: false,
           mode: 'webdav',
-          error: connectionTest.message,
-          connectionDetails: connectionTest.details,
+          error: 'Failed to connect to photo storage.',
           photos: [],
         }, { status: 200 });
       }
-      
+
       // Use WebDAV
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
         const photos = await getPhotosFromDirectory(photosDir);
-        
-        // Log sample paths for debugging
-        const samplePaths = photos.slice(0, 3).map(p => p.path);
-        console.log(`[API] Sample photo paths: ${samplePaths.join(', ')}`);
-        
+
+        console.log(`[API] Loaded ${photos.length} photos from WebDAV`);
+
         return NextResponse.json({
           success: true,
           mode: 'webdav',
           photos: photos.map(photo => ({
             name: photo.name,
-            // For WebDAV photos, the path is already full and will be served via /api/photos
             path: photo.path,
             size: photo.size,
             lastModified: photo.lastModified.toISOString(),
             mimeType: photo.mimeType,
           })),
-          connectionDetails: connectionTest.details,
-          debug: {
-            samplePaths,
-            totalPhotos: photos.length,
-          },
         });
       } catch (webdavError) {
+        console.error('[API] WebDAV error:', webdavError);
         return NextResponse.json({
           success: false,
           mode: 'webdav',
-          error: `WebDAV error: ${webdavError instanceof Error ? webdavError.message : 'Unknown error'}`,
+          error: 'Failed to fetch photos from storage.',
           photos: [],
         }, { status: 200 });
       }
     } else {
       // Use local demo photos
       const photos = await getLocalDemoPhotos();
-      
+
       return NextResponse.json({
         success: true,
         mode: 'demo',
         photos: photos,
-        message: 'Using demo mode. Configure WebDAV credentials to use your cloud photos.',
       });
     }
   } catch (error) {
     console.error('Error fetching photos:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch photos',
-        photos: []
-      },
+      { success: false, error: 'Failed to fetch photos.', photos: [] },
       { status: 500 }
     );
   }
