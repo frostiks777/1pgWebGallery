@@ -1,7 +1,5 @@
 import { createClient, WebDAVClient, FileStat } from 'webdav';
 
-let webdavClient: WebDAVClient | null = null;
-
 export interface PhotoInfo {
   name: string;
   path: string;
@@ -42,22 +40,16 @@ export function getWebDAVConfig(): WebDAVConfig | null {
 }
 
 export function getWebDAVClient(): WebDAVClient {
-  if (!webdavClient) {
-    const config = getWebDAVConfig();
+  const config = getWebDAVConfig();
 
-    if (!config) {
-      throw new Error('WebDAV credentials not configured. Please set WEBDAV_URL, WEBDAV_USERNAME, and WEBDAV_PASSWORD in environment variables.');
-    }
-
-    console.log(`[WebDAV] Creating client for URL: ${config.url}`);
-    
-    webdavClient = createClient(config.url, {
-      username: config.username,
-      password: config.password,
-    });
+  if (!config) {
+    throw new Error('WebDAV credentials not configured. Please set WEBDAV_URL, WEBDAV_USERNAME, and WEBDAV_PASSWORD in environment variables.');
   }
 
-  return webdavClient;
+  return createClient(config.url, {
+    username: config.username,
+    password: config.password,
+  });
 }
 
 export async function testWebDAVConnection(photosDir: string = '/'): Promise<ConnectionTestResult> {
