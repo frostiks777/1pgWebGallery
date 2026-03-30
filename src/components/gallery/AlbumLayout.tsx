@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { Photo } from './types';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, RectangleHorizontal } from 'lucide-react';
 
 interface AlbumLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  panoramaPaths?: string[];
+  onTogglePanorama?: (photo: Photo) => void;
 }
 
 // 7-item repeating pattern: one featured 2×2 tile, six regular 1×1 tiles
@@ -28,6 +30,8 @@ function AlbumCard({
   row,
   onClick,
   onHidePhoto,
+  isPanorama,
+  onTogglePanorama,
 }: {
   photo: Photo;
   index: number;
@@ -35,6 +39,8 @@ function AlbumCard({
   row: string;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  isPanorama?: boolean;
+  onTogglePanorama?: (photo: Photo) => void;
 }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -101,16 +107,31 @@ function AlbumCard({
               {String(index + 1).padStart(2, '0')}
             </span>
           </div>
-          {/* Hide button */}
-          {onHidePhoto && (
-            <button
-              className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1 hover:bg-black/70 z-10"
-              title="Скрыть фото"
-              onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-            >
-              <EyeOff className="h-3 w-3" />
-            </button>
-          )}
+          {/* Action buttons */}
+          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
+            {onHidePhoto && (
+              <button
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1 hover:bg-black/70"
+                title="Скрыть фото"
+                onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+              >
+                <EyeOff className="h-3 w-3" />
+              </button>
+            )}
+            {onTogglePanorama && (
+              <button
+                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1 ${
+                  isPanorama
+                    ? 'opacity-100 bg-blue-500/80 hover:bg-blue-600/90'
+                    : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+                }`}
+                title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+                onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+              >
+                <RectangleHorizontal className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
         {/* Caption — inside the mat, below the photo */}
         <p
@@ -125,7 +146,7 @@ function AlbumCard({
   );
 }
 
-export function AlbumLayout({ photos, onPhotoClick, onHidePhoto }: AlbumLayoutProps) {
+export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: AlbumLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = ALBUM_PATTERN[index % ALBUM_PATTERN.length];
@@ -154,6 +175,8 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto }: AlbumLayoutPr
             row={row}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            isPanorama={panoramaPaths?.includes(photo.path)}
+            onTogglePanorama={onTogglePanorama}
           />
         ))}
       </div>

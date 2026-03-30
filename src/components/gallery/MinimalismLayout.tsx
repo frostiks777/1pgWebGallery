@@ -2,19 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, RectangleHorizontal } from 'lucide-react';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  panoramaPaths?: string[];
+  onTogglePanorama?: (photo: Photo) => void;
 }
 
-function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
+function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  isPanorama?: boolean;
+  onTogglePanorama?: (photo: Photo) => void;
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,16 +47,27 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
         <div className="min-overlay">
           <span className="min-index">{String(index + 1).padStart(2, '0')}</span>
         </div>
-        {/* Hide button */}
-        {onHidePhoto && (
-          <button
-            className="min-hide-btn"
-            title="Скрыть фото"
-            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-          >
-            <EyeOff style={{ width: '14px', height: '14px' }} />
-          </button>
-        )}
+        {/* Action buttons */}
+        <div className="min-actions">
+          {onHidePhoto && (
+            <button
+              className="min-hide-btn"
+              title="Скрыть фото"
+              onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+            >
+              <EyeOff style={{ width: '14px', height: '14px' }} />
+            </button>
+          )}
+          {onTogglePanorama && (
+            <button
+              className={isPanorama ? 'min-panorama-btn min-panorama-active' : 'min-panorama-btn'}
+              title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+              onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+            >
+              <RectangleHorizontal style={{ width: '14px', height: '14px' }} />
+            </button>
+          )}
+        </div>
       </div>
       <div className="min-caption">
         <span>{photo.name.replace(/\.[^/.]+$/, '')}</span>
@@ -87,8 +102,11 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
         .min-index { font-family: monospace; font-size: 3rem; font-weight: 200; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); }
         .min-caption { padding: 1rem 0; border-bottom: 1px solid var(--min-border); }
         .min-caption span { font-size: 0.8rem; color: var(--min-text); letter-spacing: 0.02em; text-transform: lowercase; }
-        .min-hide-btn {
+        .min-actions {
           position: absolute; top: 8px; left: 8px;
+          display: flex; gap: 4px; align-items: center;
+        }
+        .min-hide-btn, .min-panorama-btn {
           opacity: 0; transition: opacity 0.2s;
           background: rgba(0,0,0,0.5);
           color: white;
@@ -96,14 +114,20 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
           cursor: pointer; display: flex; align-items: center; justify-content: center;
           backdrop-filter: blur(4px);
         }
-        .min-card:hover .min-hide-btn { opacity: 1; }
-        .min-hide-btn:hover { background: rgba(0,0,0,0.7); }
+        .min-card:hover .min-hide-btn,
+        .min-card:hover .min-panorama-btn { opacity: 1; }
+        .min-hide-btn:hover, .min-panorama-btn:hover { background: rgba(0,0,0,0.7); }
+        .min-panorama-active {
+          opacity: 1 !important;
+          background: rgba(59,130,246,0.8);
+        }
+        .min-panorama-active:hover { background: rgba(37,99,235,0.9) !important; }
       `}</style>
     </div>
   );
 }
 
-export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto }: MinimalismLayoutProps) {
+export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: MinimalismLayoutProps) {
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen py-16 px-8">
       <header className="text-center mb-12">
@@ -120,6 +144,8 @@ export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto }: Minimali
             index={index}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            isPanorama={panoramaPaths?.includes(photo.path)}
+            onTogglePanorama={onTogglePanorama}
           />
         ))}
       </div>

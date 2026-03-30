@@ -2,19 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, RectangleHorizontal } from 'lucide-react';
 
 interface EmpireLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  panoramaPaths?: string[];
+  onTogglePanorama?: (photo: Photo) => void;
 }
 
-function EmpireCard({ photo, index, onClick, onHidePhoto }: {
+function EmpireCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  isPanorama?: boolean;
+  onTogglePanorama?: (photo: Photo) => void;
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,16 +56,31 @@ function EmpireCard({ photo, index, onClick, onHidePhoto }: {
         <p>{new Date(photo.lastModified).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         <span>№ {String(index + 1).padStart(3, '0')}</span>
       </div>
-      {/* Hide button */}
-      {onHidePhoto && (
-        <button
-          className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70 z-10"
-          title="Скрыть фото"
-          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
-      )}
+      {/* Action buttons */}
+      <div className="absolute top-3 left-3 flex items-center gap-1 z-10">
+        {onHidePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
+            title="Скрыть фото"
+            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onTogglePanorama && (
+          <button
+            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
+              isPanorama
+                ? 'opacity-100 bg-blue-500/80 text-white hover:bg-blue-600/90'
+                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+            }`}
+            title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+            onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+          >
+            <RectangleHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
       <style jsx>{`
         .empire-card {
           background: var(--empire-card-bg);
@@ -103,7 +122,7 @@ function EmpireCard({ photo, index, onClick, onHidePhoto }: {
   );
 }
 
-export function EmpireLayout({ photos, onPhotoClick, onHidePhoto }: EmpireLayoutProps) {
+export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: EmpireLayoutProps) {
   return (
     <div className="py-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950">
       <div className="text-center mb-8 text-3xl text-amber-600">⚜</div>
@@ -115,6 +134,8 @@ export function EmpireLayout({ photos, onPhotoClick, onHidePhoto }: EmpireLayout
             index={index}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            isPanorama={panoramaPaths?.includes(photo.path)}
+            onTogglePanorama={onTogglePanorama}
           />
         ))}
       </div>

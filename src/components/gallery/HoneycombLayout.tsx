@@ -2,19 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, RectangleHorizontal } from 'lucide-react';
 
 interface HoneycombLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  panoramaPaths?: string[];
+  onTogglePanorama?: (photo: Photo) => void;
 }
 
-function HexagonCard({ photo, index, onClick, onHidePhoto }: {
+function HexagonCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  isPanorama?: boolean;
+  onTogglePanorama?: (photo: Photo) => void;
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,16 +57,31 @@ function HexagonCard({ photo, index, onClick, onHidePhoto }: {
           #{index + 1}
         </span>
       </div>
-      {/* Hide button — outside clip-path so it stays visible */}
-      {onHidePhoto && (
-        <button
-          className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70 z-10 pointer-events-auto"
-          title="Скрыть фото"
-          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
-      )}
+      {/* Action buttons row — outside clip-path so they stay visible */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+        {onHidePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70 pointer-events-auto"
+            title="Скрыть фото"
+            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onTogglePanorama && (
+          <button
+            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 pointer-events-auto ${
+              isPanorama
+                ? 'opacity-100 bg-blue-500/80 text-white hover:bg-blue-600/90'
+                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+            }`}
+            title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+            onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+          >
+            <RectangleHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
       <style jsx>{`
         .hexagon-container {
           width: 180px;
@@ -78,7 +97,7 @@ function HexagonCard({ photo, index, onClick, onHidePhoto }: {
   );
 }
 
-export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto }: HoneycombLayoutProps) {
+export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: HoneycombLayoutProps) {
   return (
     <div className="overflow-x-auto py-8">
       <div className="flex flex-wrap justify-center gap-1">
@@ -101,6 +120,8 @@ export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto }: Honeycomb
                 index={index}
                 onClick={() => onPhotoClick(photo, index)}
                 onHidePhoto={onHidePhoto}
+                isPanorama={panoramaPaths?.includes(photo.path)}
+                onTogglePanorama={onTogglePanorama}
               />
             </div>
           );

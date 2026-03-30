@@ -40,27 +40,27 @@ function writeMeta(dir: string, meta: DirMeta): void {
     const file = getMetaFile(dir);
     fs.writeFileSync(file, JSON.stringify(meta), 'utf8');
   } catch (err) {
-    console.error('[Hidden] Failed to write dir meta:', err);
+    console.error('[Panoramas] Failed to write dir meta:', err);
   }
 }
 
 export async function GET(request: NextRequest) {
-  const dir = request.nextUrl.searchParams.get('dir') ?? '';
+  const dir  = request.nextUrl.searchParams.get('dir') ?? '';
   const meta = readMeta(dir);
-  return NextResponse.json({ paths: meta.hidden });
+  return NextResponse.json({ paths: meta.panoramas });
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body      = await request.json();
     const photoPath = body?.path;
     const dir       = typeof body?.dir === 'string' ? body.dir : '';
     if (!photoPath || typeof photoPath !== 'string') {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
     const meta = readMeta(dir);
-    if (!meta.hidden.includes(photoPath)) {
-      meta.hidden = [...meta.hidden, photoPath];
+    if (!meta.panoramas.includes(photoPath)) {
+      meta.panoramas = [...meta.panoramas, photoPath];
       writeMeta(dir, meta);
     }
     return NextResponse.json({ success: true });
@@ -69,27 +69,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
-    const body  = await request.json();
-    const paths = body?.paths;
-    const dir   = typeof body?.dir === 'string' ? body.dir : '';
-    if (!Array.isArray(paths)) {
-      return NextResponse.json({ error: 'paths must be an array' }, { status: 400 });
+    const body      = await request.json();
+    const photoPath = body?.path;
+    const dir       = typeof body?.dir === 'string' ? body.dir : '';
+    if (!photoPath || typeof photoPath !== 'string') {
+      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
     const meta = readMeta(dir);
-    meta.hidden = paths.filter((p): p is string => typeof p === 'string');
+    meta.panoramas = meta.panoramas.filter((p) => p !== photoPath);
     writeMeta(dir, meta);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  const dir  = request.nextUrl.searchParams.get('dir') ?? '';
-  const meta = readMeta(dir);
-  meta.hidden = [];
-  writeMeta(dir, meta);
-  return NextResponse.json({ success: true });
 }

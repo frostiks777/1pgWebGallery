@@ -2,13 +2,15 @@
 
 import { Photo } from './types';
 import { memo, useState } from 'react';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, RectangleHorizontal } from 'lucide-react';
 
 interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onTogglePanorama?: (photo: Photo) => void;
+  isPanorama?: boolean;
   className?: string;
   aspectRatio?: string;
   thumbnailSize?: number;
@@ -19,6 +21,8 @@ export const PhotoCard = memo(function PhotoCard({
   index, 
   onClick,
   onHidePhoto,
+  onTogglePanorama,
+  isPanorama = false,
   className = '',
   aspectRatio = 'aspect-square',
   thumbnailSize = 300
@@ -26,7 +30,6 @@ export const PhotoCard = memo(function PhotoCard({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use unified optimized images API
   const imageUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
   
   return (
@@ -42,7 +45,6 @@ export const PhotoCard = memo(function PhotoCard({
         </div>
       ) : (
         <>
-          {/* Skeleton placeholder */}
           {isLoading && (
             <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 animate-pulse">
               <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-300 dark:from-slate-700 dark:to-slate-900" />
@@ -79,16 +81,33 @@ export const PhotoCard = memo(function PhotoCard({
           #{index + 1}
         </span>
       </div>
-      {/* Hide button */}
-      {onHidePhoto && (
-        <button
-          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
-          title="Скрыть фото"
-          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
-      )}
+      {/* Top-left action buttons */}
+      <div className="absolute top-2 left-2 flex items-center gap-1">
+        {/* Hide button — visible on hover only */}
+        {onHidePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
+            title="Скрыть фото"
+            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {/* Panorama toggle — always visible when marked, hover-only when not */}
+        {onTogglePanorama && (
+          <button
+            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
+              isPanorama
+                ? 'opacity-100 bg-blue-500/80 text-white hover:bg-blue-600/90'
+                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+            }`}
+            title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+            onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+          >
+            <RectangleHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 });

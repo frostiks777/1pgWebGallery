@@ -98,8 +98,11 @@ export default function GalleryPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  // Hidden photos
+  // Hidden photos (per-directory)
   const [hiddenPaths, setHiddenPaths] = useState<string[]>([]);
+
+  // Panorama photos (per-directory)
+  const [panoramaPaths, setPanoramaPaths] = useState<string[]>([]);
 
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -133,13 +136,17 @@ export default function GalleryPage() {
   const [folders, setFolders] = useState<FolderInfo[]>([]);
   const [isFoldersLoading, setIsFoldersLoading] = useState(false);
 
-  // Fetch hidden photos list on mount
+  // Fetch per-directory metadata (hidden + panoramas) whenever folder changes
   useEffect(() => {
-    fetch('/api/hidden')
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data.paths)) setHiddenPaths(data.paths); })
-      .catch(() => {});
-  }, []);
+    const dirParam = currentPath ? `?dir=${encodeURIComponent(currentPath)}` : '?dir=';
+    Promise.all([
+      fetch(`/api/hidden${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
+      fetch(`/api/panoramas${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
+    ]).then(([hiddenData, panoramaData]) => {
+      if (Array.isArray(hiddenData.paths))   setHiddenPaths(hiddenData.paths);
+      if (Array.isArray(panoramaData.paths)) setPanoramaPaths(panoramaData.paths);
+    });
+  }, [currentPath]);
 
   // Scroll-to-top: show button after scrolling 300px
   useEffect(() => {
@@ -290,23 +297,35 @@ export default function GalleryPage() {
       await fetch('/api/hidden', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: photo.path }),
+        body: JSON.stringify({ path: photo.path, dir: currentPath }),
       });
     } catch {}
-  }, []);
+  }, [currentPath]);
 
   const handleShowAll = useCallback(async () => {
-    const folderPaths = new Set(originalPhotos.map((p) => p.path));
-    const newHidden = hiddenPaths.filter((p) => !folderPaths.has(p));
-    setHiddenPaths(newHidden);
+    setHiddenPaths([]);
     try {
       await fetch('/api/hidden', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths: newHidden }),
+        body: JSON.stringify({ paths: [], dir: currentPath }),
       });
     } catch {}
-  }, [hiddenPaths, originalPhotos]);
+  }, [currentPath]);
+
+  const handleTogglePanorama = useCallback(async (photo: Photo) => {
+    const isCurrentlyPanorama = panoramaPaths.includes(photo.path);
+    setPanoramaPaths((prev) =>
+      isCurrentlyPanorama ? prev.filter((p) => p !== photo.path) : [...prev, photo.path],
+    );
+    try {
+      await fetch('/api/panoramas', {
+        method: isCurrentlyPanorama ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: photo.path, dir: currentPath }),
+      });
+    } catch {}
+  }, [currentPath, panoramaPaths]);
 
   // Photos visible to the user (hidden ones filtered out)
   const visiblePhotos = useMemo(
@@ -321,17 +340,24 @@ export default function GalleryPage() {
   );
 
   const renderLayout = useMemo(() => {
+    const commonProps = {
+      photos: visiblePhotos,
+      onPhotoClick: handlePhotoClick,
+      onHidePhoto: handleHidePhoto,
+      panoramaPaths,
+      onTogglePanorama: handleTogglePanorama,
+    };
     switch (layout) {
-      case 'masonry':    return <MasonryLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'bento':      return <BentoLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'honeycomb':  return <HoneycombLayout  photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'wave':       return <WaveLayout       photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'empire':     return <EmpireLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'minimalism': return <MinimalismLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      case 'album':      return <AlbumLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
-      default:           return <MasonryLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'masonry':    return <MasonryLayout    {...commonProps} />;
+      case 'bento':      return <BentoLayout      {...commonProps} />;
+      case 'honeycomb':  return <HoneycombLayout  {...commonProps} />;
+      case 'wave':       return <WaveLayout       {...commonProps} />;
+      case 'empire':     return <EmpireLayout     {...commonProps} />;
+      case 'minimalism': return <MinimalismLayout {...commonProps} />;
+      case 'album':      return <AlbumLayout      {...commonProps} />;
+      default:           return <MasonryLayout    {...commonProps} />;
     }
-  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto]);
+  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, panoramaPaths, handleTogglePanorama]);
 
   const isStyleLayout = useMemo(
     () => STYLE_LAYOUTS.includes(layout) && visiblePhotos.length > 0,
