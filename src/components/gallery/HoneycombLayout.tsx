@@ -40,6 +40,7 @@ function HexagonCard({ photo, index, onClick, onHidePhoto }: {
               alt={photo.name}
               className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
               loading="lazy"
+              fetchPriority="high"
               onLoad={() => setIsLoading(false)}
               onError={() => { setHasError(true); setIsLoading(false); }}
             />

@@ -71,6 +71,7 @@ function AlbumCard({
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
                 loading="lazy"
+                fetchPriority="high"
                 onLoad={() => setIsLoading(false)}
                 onError={() => { setHasError(true); setIsLoading(false); }}
               />

@@ -39,6 +39,7 @@ function EmpireCard({ photo, index, onClick, onHidePhoto }: {
                 alt={photo.name}
                 className={`empire-image ${isLoading ? 'opacity-0' : 'opacity-100'}`}
                 loading="lazy"
+                fetchPriority="high"
                 onLoad={() => setIsLoading(false)}
                 onError={() => { setHasError(true); setIsLoading(false); }}
               />

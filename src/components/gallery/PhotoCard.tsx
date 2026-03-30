@@ -56,6 +56,7 @@ export const PhotoCard = memo(function PhotoCard({
             }`}
             loading="lazy"
             decoding="async"
+            fetchPriority="high"
             onLoad={() => setIsLoading(false)}
             onError={() => {
               setHasError(true);

@@ -105,6 +105,7 @@ function LightboxContent({
     const prefetch = (i: number) => {
       if (i >= 0 && i < photos.length) {
         const img = new Image();
+        img.fetchPriority = 'low';
         img.src = `/api/images?path=${encodeURIComponent(photos[i].path)}&size=medium`;
       }
     };
@@ -114,16 +115,22 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
 
-  // In expanded mode use CSS inset-0 to fill the viewport without native fullscreen API.
-  // position:fixed + inset:0 stretches the element to all four edges of the viewport,
-  // and tailwind-merge overrides Radix's top-[50%] left-[50%] translate-x/y-[-50%].
-  const fullscreenClasses = isFullscreen
-    ? 'inset-0 translate-x-0 translate-y-0 max-w-none max-h-none rounded-none'
-    : 'max-w-[95vw] max-h-[95vh]';
-
   return (
     <DialogContent
-      className={`${fullscreenClasses} p-0 bg-black/95 border-none`}
+      className="p-0 bg-black/95 border-none"
+      style={isFullscreen ? {
+        position: 'fixed',
+        inset: 0,
+        transform: 'none',
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        width: '100vw',
+        height: '100vh',
+        borderRadius: 0,
+      } : {
+        maxWidth: '95vw',
+        maxHeight: '95vh',
+      }}
       showCloseButton={false}
     >
       <DialogTitle className="sr-only">
@@ -221,6 +228,7 @@ function LightboxContent({
               isLoading ? 'opacity-0' : 'opacity-100'
             }`}
             style={{ transform: `scale(${zoom})` }}
+            fetchPriority="high"
             onLoad={() => setIsLoading(false)}
             onError={() => { setHasError(true); setIsLoading(false); }}
           />
@@ -259,6 +267,7 @@ function LightboxContent({
                 alt={photo.name}
                 className="w-full h-full object-cover"
                 loading="lazy"
+                fetchPriority="low"
               />
             </button>
           ))}
