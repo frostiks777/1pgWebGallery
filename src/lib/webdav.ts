@@ -159,6 +159,45 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
   }
 }
 
+export interface FolderInfo {
+  name: string;
+  path: string;
+}
+
+export async function getFoldersFromDirectory(directory: string = '/'): Promise<FolderInfo[]> {
+  const client = getWebDAVClient();
+  const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+
+  try {
+    console.log(`[WebDAV] Fetching folders from: ${directory}`);
+    const contents = await client.getDirectoryContents(directory);
+
+    if (!Array.isArray(contents)) {
+      return [];
+    }
+
+    const folders: FolderInfo[] = contents
+      .filter((item: FileStat) => {
+        if (item.type !== 'directory') return false;
+        if (item.basename === thumbsDirName) return false;
+        if (item.basename.startsWith('.')) return false;
+        return true;
+      })
+      .map((item: FileStat) => ({
+        name: item.basename,
+        path: item.filename,
+      }));
+
+    folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    console.log(`[WebDAV] Found ${folders.length} folders in ${directory}`);
+    return folders;
+  } catch (error) {
+    console.error('[WebDAV] Error fetching folders:', error);
+    throw error;
+  }
+}
+
 export async function getPhotosFromDirectory(directory: string = '/'): Promise<PhotoInfo[]> {
   const client = getWebDAVClient();
   

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { testWebDAVConnection } from '@/lib/webdav';
@@ -55,7 +55,17 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
   }
 }
 
-export async function GET() {
+function resolveAndValidatePath(subPath: string | null, baseDir: string): string | null {
+  if (!subPath) return baseDir;
+  // Prevent directory traversal: reject any path containing '..'
+  if (subPath.includes('..')) return null;
+  const resolved = `${baseDir}/${subPath}`.replace(/\/+/g, '/');
+  // Ensure resolved path starts with baseDir
+  if (!resolved.startsWith(baseDir)) return null;
+  return resolved;
+}
+
+export async function GET(request: NextRequest) {
   try {
     // Check if WebDAV is configured
     const webdavUrl = process.env.WEBDAV_URL;
@@ -63,8 +73,15 @@ export async function GET() {
     const webdavPassword = process.env.WEBDAV_PASSWORD;
     
     if (webdavUrl && webdavUsername && webdavPassword) {
+      const baseDir = process.env.PHOTOS_DIR || '/Photos';
+      const subPath = request.nextUrl.searchParams.get('path');
+      const photosDir = resolveAndValidatePath(subPath, baseDir);
+
+      if (!photosDir) {
+        return NextResponse.json({ success: false, mode: 'webdav', error: 'Invalid path', photos: [] }, { status: 400 });
+      }
+
       // Test connection first
-      const photosDir = process.env.PHOTOS_DIR || '/Photos';
       const connectionTest = await testWebDAVConnection(photosDir);
       
       if (!connectionTest.success) {

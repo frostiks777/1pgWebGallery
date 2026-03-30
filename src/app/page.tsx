@@ -16,9 +16,11 @@ import {
   Crown,
   Minus,
   XCircle,
-  Images,
   CircleCheck,
   CircleDashed,
+  Folder,
+  ChevronRight,
+  Frame,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +45,7 @@ import {
   WaveLayout,
   EmpireLayout,
   MinimalismLayout,
+  AlbumLayout,
   Lightbox,
   Photo,
   CollageLayout,
@@ -50,10 +53,21 @@ import {
 
 type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
 
+interface FolderInfo {
+  name: string;
+  path: string;
+}
+
 interface PhotosResponse {
   success: boolean;
   mode: 'demo' | 'webdav';
   photos: Photo[];
+  error?: string;
+}
+
+interface FoldersResponse {
+  success: boolean;
+  folders: FolderInfo[];
   error?: string;
 }
 
@@ -64,9 +78,10 @@ const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNod
   { value: 'wave',       label: 'Wave',     icon: <Waves     className="h-4 w-4" /> },
   { value: 'empire',     label: 'Empire',   icon: <Crown     className="h-4 w-4" /> },
   { value: 'minimalism', label: 'Minimal',  icon: <Minus     className="h-4 w-4" /> },
+  { value: 'album',      label: 'Album',    icon: <Frame     className="h-4 w-4" /> },
 ];
 
-const STYLE_LAYOUTS: CollageLayout[] = ['empire', 'minimalism'];
+const STYLE_LAYOUTS: CollageLayout[] = ['empire', 'minimalism', 'album'];
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -78,6 +93,12 @@ export default function GalleryPage() {
   const [sortOption, setSortOption] = useState<SortOption>('name-asc');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  // Folder navigation state
+  // currentPath is relative to PHOTOS_DIR, empty string = root
+  const [currentPath, setCurrentPath] = useState('');
+  const [folders, setFolders] = useState<FolderInfo[]>([]);
+  const [isFoldersLoading, setIsFoldersLoading] = useState(false);
 
   // Thumbnail generation state
   const [genStatus, setGenStatus] = useState<'idle' | 'running' | 'done'>('idle');
@@ -108,7 +129,6 @@ export default function GalleryPage() {
     return () => clearInterval(iv);
   }, [genStatus, pollGenerateStatus]);
 
-  // Check status on mount
   useEffect(() => { pollGenerateStatus(); }, [pollGenerateStatus]);
 
   const handleGenerate = useCallback(async () => {
@@ -117,18 +137,32 @@ export default function GalleryPage() {
       setGenProgress(0);
       setGenTooltip('Starting...');
       await fetch('/api/images/generate', { method: 'POST' });
-      // Polling will take over
     } catch {
       setGenStatus('idle');
       setGenTooltip('Generate all thumbnails');
     }
   }, []);
 
-  const fetchPhotos = useCallback(async () => {
+  const fetchFolders = useCallback(async (path: string) => {
+    setIsFoldersLoading(true);
+    try {
+      const params = path ? `?path=${encodeURIComponent(path)}` : '';
+      const response = await fetch(`/api/folders${params}`);
+      const data: FoldersResponse = await response.json();
+      setFolders(data.success ? data.folders : []);
+    } catch {
+      setFolders([]);
+    } finally {
+      setIsFoldersLoading(false);
+    }
+  }, []);
+
+  const fetchPhotos = useCallback(async (path: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/photos');
+      const params = path ? `?path=${encodeURIComponent(path)}` : '';
+      const response = await fetch(`/api/photos${params}`);
       const data: PhotosResponse = await response.json();
       setMode(data.mode);
       if (!data.success) {
@@ -148,7 +182,11 @@ export default function GalleryPage() {
     }
   }, []);
 
-  useEffect(() => { fetchPhotos(); }, [fetchPhotos]);
+  // Whenever path changes, fetch both folders and photos for that path
+  useEffect(() => {
+    fetchFolders(currentPath);
+    fetchPhotos(currentPath);
+  }, [currentPath, fetchFolders, fetchPhotos]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {
@@ -168,6 +206,31 @@ export default function GalleryPage() {
     setLightboxOpen(true);
   }, []);
 
+  // folder.path is relative to PHOTOS_DIR (e.g. "Event1" or "Event1/Sub")
+  const navigateInto = useCallback((folder: FolderInfo) => {
+    setCurrentPath(folder.path);
+  }, []);
+
+  // Breadcrumbs: split current absolute path into segments for display.
+  // The first breadcrumb is always "Home" (maps to path="").
+  const breadcrumbs: { label: string; path: string }[] = useMemo(() => {
+    if (!currentPath) return [{ label: 'Home', path: '' }];
+    const segments = currentPath.split('/').filter(Boolean);
+    const crumbs: { label: string; path: string }[] = [{ label: 'Home', path: '' }];
+    segments.forEach((seg, i) => {
+      crumbs.push({
+        label: seg,
+        path: segments.slice(0, i + 1).join('/'),
+      });
+    });
+    return crumbs;
+  }, [currentPath]);
+
+  const handleRefresh = useCallback(() => {
+    fetchFolders(currentPath);
+    fetchPhotos(currentPath);
+  }, [currentPath, fetchFolders, fetchPhotos]);
+
   const renderLayout = useMemo(() => {
     switch (layout) {
       case 'masonry':    return <MasonryLayout   photos={photos} onPhotoClick={handlePhotoClick} />;
@@ -176,11 +239,14 @@ export default function GalleryPage() {
       case 'wave':       return <WaveLayout      photos={photos} onPhotoClick={handlePhotoClick} />;
       case 'empire':     return <EmpireLayout    photos={photos} onPhotoClick={handlePhotoClick} />;
       case 'minimalism': return <MinimalismLayout photos={photos} onPhotoClick={handlePhotoClick} />;
+      case 'album':      return <AlbumLayout     photos={photos} onPhotoClick={handlePhotoClick} />;
       default:           return <MasonryLayout   photos={photos} onPhotoClick={handlePhotoClick} />;
     }
   }, [layout, photos, handlePhotoClick]);
 
   const isStyleLayout = useMemo(() => STYLE_LAYOUTS.includes(layout), [layout]);
+
+  const isAtRoot = currentPath === '';
 
   return (
     <TooltipProvider>
@@ -258,10 +324,11 @@ export default function GalleryPage() {
                   <TooltipTrigger asChild>
                     <Button
                       variant="outline" size="icon"
-                      onClick={fetchPhotos} disabled={isLoading}
+                      onClick={handleRefresh}
+                      disabled={isLoading || isFoldersLoading}
                       className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9"
                     >
-                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-4 w-4 ${(isLoading || isFoldersLoading) ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Refresh</TooltipContent>
@@ -269,33 +336,99 @@ export default function GalleryPage() {
               </div>
             </div>
 
-            {/* Layout Selector */}
-            <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1">
-              {layoutOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  variant={layout === option.value ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setLayout(option.value)}
-                  className={`flex items-center gap-1.5 h-8 px-2.5 transition-all ${
-                    layout === option.value
-                      ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                      : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
-                  }`}
-                >
-                  {option.icon}
-                  <span className="hidden sm:inline text-xs">{option.label}</span>
-                </Button>
-              ))}
-            </div>
+            {/* Breadcrumb bar — Windows Explorer style */}
+            {mode === 'webdav' && (currentPath !== '' || folders.length > 0) && (
+              <nav className="flex items-center gap-0.5 mt-2 mb-1 overflow-x-auto pb-1 scrollbar-none">
+                {breadcrumbs.map((crumb, idx) => {
+                  const isLast = idx === breadcrumbs.length - 1;
+                  return (
+                    <span key={crumb.path + idx} className="flex items-center gap-0.5 shrink-0">
+                      {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />}
+                      <Button
+                        variant={isLast ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => !isLast && setCurrentPath(crumb.path)}
+                        disabled={isLast}
+                        className={`h-7 px-2 text-xs font-medium rounded-md ${
+                          isLast
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-default'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {crumb.label}
+                      </Button>
+                    </span>
+                  );
+                })}
+              </nav>
+            )}
+
+            {/* Layout Selector — only when showing photos */}
+            {photos.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
+                {layoutOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={layout === option.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setLayout(option.value)}
+                    className={`flex items-center gap-1.5 h-8 px-2.5 transition-all ${
+                      layout === option.value
+                        ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
+                        : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
+                    }`}
+                  >
+                    {option.icon}
+                    <span className="hidden sm:inline text-xs">{option.label}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </header>
 
         {/* Main Content */}
         <main className={`flex-1 ${isStyleLayout ? '' : 'container mx-auto px-4 py-6'}`}>
 
+          {/* Folder grid */}
+          {folders.length > 0 && (
+            <div className="mb-8">
+              {isFoldersLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading folders...</span>
+                </div>
+              ) : (
+                <>
+                  {isAtRoot && photos.length === 0 ? null : (
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">
+                      Folders
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {folders.map((folder) => (
+                      <motion.button
+                        key={folder.path}
+                        onClick={() => navigateInto(folder)}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-md transition-all text-left"
+                      >
+                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500 transition-colors" />
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300 text-center leading-snug line-clamp-2 w-full">
+                          {folder.name}
+                        </span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Loading state */}
           {isLoading && (
-            <div className="flex flex-col items-center justify-center min-h-[50vh]">
+            <div className="flex flex-col items-center justify-center min-h-[30vh]">
               <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
                 <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
                 <p className="text-slate-500 dark:text-slate-400">Loading photos...</p>
@@ -304,7 +437,7 @@ export default function GalleryPage() {
           )}
 
           {!isLoading && error && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[50vh]">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[30vh]">
               <Card className="max-w-md w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-red-200 dark:border-red-900">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
@@ -314,7 +447,7 @@ export default function GalleryPage() {
                     <div className="flex-1">
                       <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">Error</h3>
                       <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{error}</p>
-                      <Button size="sm" onClick={fetchPhotos}>
+                      <Button size="sm" onClick={handleRefresh}>
                         <RefreshCw className="h-3 w-3 mr-1" />Retry
                       </Button>
                     </div>
@@ -324,13 +457,13 @@ export default function GalleryPage() {
             </motion.div>
           )}
 
-          {!isLoading && !error && photos.length === 0 && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[50vh]">
+          {!isLoading && !error && photos.length === 0 && folders.length === 0 && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[30vh]">
               <Card className="max-w-sm w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="pt-6 text-center">
                   <ImageOff className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">No Photos</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">The directory is empty.</p>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">Empty Folder</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No photos or subfolders found here.</p>
                 </CardContent>
               </Card>
             </motion.div>

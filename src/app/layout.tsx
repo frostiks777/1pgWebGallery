@@ -18,6 +18,14 @@ export const metadata: Metadata = {
   description: "Beautiful photo gallery with WebDAV cloud integration. View your photos in stunning collage layouts.",
   keywords: ["Photo Gallery", "WebDAV", "Cloud Photos", "Collage", "Next.js"],
   authors: [{ name: "Photo Gallery" }],
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   icons: {
     icon: "/logo.svg",
   },
