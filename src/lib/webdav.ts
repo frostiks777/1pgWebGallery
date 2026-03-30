@@ -1,4 +1,4 @@
-import { createClient, WebDAVClient, FileStat } from 'webdav';
+import { createClient, WebDAVClient, FileStat, AuthType } from 'webdav';
 
 export interface PhotoInfo {
   name: string;
@@ -49,6 +49,7 @@ export function getWebDAVClient(): WebDAVClient {
   return createClient(config.url, {
     username: config.username,
     password: config.password,
+    authType: AuthType.Password,
   });
 }
 
@@ -69,6 +70,7 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
     const client = createClient(config.url, {
       username: config.username,
       password: config.password,
+      authType: AuthType.Password,
     });
 
     // Try to list the root directory first
