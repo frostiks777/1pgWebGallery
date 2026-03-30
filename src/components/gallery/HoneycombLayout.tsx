@@ -2,13 +2,20 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
+import { EyeOff } from 'lucide-react';
 
 interface HoneycombLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  onHidePhoto?: (photo: Photo) => void;
 }
 
-function HexagonCard({ photo, index, onClick }: { photo: Photo; index: number; onClick: () => void }) {
+function HexagonCard({ photo, index, onClick, onHidePhoto }: {
+  photo: Photo;
+  index: number;
+  onClick: () => void;
+  onHidePhoto?: (photo: Photo) => void;
+}) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -45,6 +52,16 @@ function HexagonCard({ photo, index, onClick }: { photo: Photo; index: number; o
           #{index + 1}
         </span>
       </div>
+      {/* Hide button — outside clip-path so it stays visible */}
+      {onHidePhoto && (
+        <button
+          className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70 z-10 pointer-events-auto"
+          title="Скрыть фото"
+          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </button>
+      )}
       <style jsx>{`
         .hexagon-container {
           width: 180px;
@@ -60,7 +77,7 @@ function HexagonCard({ photo, index, onClick }: { photo: Photo; index: number; o
   );
 }
 
-export function HoneycombLayout({ photos, onPhotoClick }: HoneycombLayoutProps) {
+export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto }: HoneycombLayoutProps) {
   return (
     <div className="overflow-x-auto py-8">
       <div className="flex flex-wrap justify-center gap-1">
@@ -82,6 +99,7 @@ export function HoneycombLayout({ photos, onPhotoClick }: HoneycombLayoutProps) 
                 photo={photo}
                 index={index}
                 onClick={() => onPhotoClick(photo, index)}
+                onHidePhoto={onHidePhoto}
               />
             </div>
           );

@@ -2,13 +2,20 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
+import { EyeOff } from 'lucide-react';
 
 interface EmpireLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  onHidePhoto?: (photo: Photo) => void;
 }
 
-function EmpireCard({ photo, index, onClick }: { photo: Photo; index: number; onClick: () => void }) {
+function EmpireCard({ photo, index, onClick, onHidePhoto }: {
+  photo: Photo;
+  index: number;
+  onClick: () => void;
+  onHidePhoto?: (photo: Photo) => void;
+}) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -18,7 +25,7 @@ function EmpireCard({ photo, index, onClick }: { photo: Photo; index: number; on
   const frameStyle = frameStyles[index % frameStyles.length];
 
   return (
-    <div className="empire-card group">
+    <div className="empire-card group relative">
       <div className="empire-ornament">⚜</div>
       <div className={`empire-frame bg-gradient-to-br ${frameStyle}`} onClick={onClick}>
         <div className="empire-inner">
@@ -44,6 +51,16 @@ function EmpireCard({ photo, index, onClick }: { photo: Photo; index: number; on
         <p>{new Date(photo.lastModified).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         <span>№ {String(index + 1).padStart(3, '0')}</span>
       </div>
+      {/* Hide button */}
+      {onHidePhoto && (
+        <button
+          className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70 z-10"
+          title="Скрыть фото"
+          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </button>
+      )}
       <style jsx>{`
         .empire-card {
           background: linear-gradient(135deg, #faf7f2, #f5ebe0);
@@ -85,7 +102,7 @@ function EmpireCard({ photo, index, onClick }: { photo: Photo; index: number; on
   );
 }
 
-export function EmpireLayout({ photos, onPhotoClick }: EmpireLayoutProps) {
+export function EmpireLayout({ photos, onPhotoClick, onHidePhoto }: EmpireLayoutProps) {
   return (
     <div className="py-8 bg-gradient-to-br from-amber-50 to-orange-50">
       <div className="text-center mb-8 text-3xl text-amber-600">⚜</div>
@@ -96,6 +113,7 @@ export function EmpireLayout({ photos, onPhotoClick }: EmpireLayoutProps) {
             photo={photo}
             index={index}
             onClick={() => onPhotoClick(photo, index)}
+            onHidePhoto={onHidePhoto}
           />
         ))}
       </div>

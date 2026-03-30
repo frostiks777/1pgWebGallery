@@ -35,7 +35,6 @@ function LightboxContent({
 
   const thumbStripRef = useRef<HTMLDivElement>(null);
   const thumbRefs     = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const dialogRef     = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
 
   const currentPhoto = photos[index];
@@ -67,8 +66,7 @@ function LightboxContent({
 
   const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
-      const el = dialogRef.current ?? document.documentElement;
-      try { await el.requestFullscreen(); } catch {}
+      try { await document.documentElement.requestFullscreen(); } catch {}
     } else {
       try { await document.exitFullscreen(); } catch {}
     }
@@ -129,13 +127,13 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
 
+  // In fullscreen mode override Radix's centering transforms via tailwind-merge
   const fullscreenClasses = isFullscreen
-    ? 'w-screen h-screen max-w-screen max-h-screen rounded-none'
+    ? 'inset-0 top-0 left-0 translate-x-0 translate-y-0 w-screen h-screen max-w-none max-h-none rounded-none'
     : 'max-w-[95vw] max-h-[95vh]';
 
   return (
     <DialogContent
-      ref={dialogRef}
       className={`${fullscreenClasses} p-0 bg-black/95 border-none`}
       showCloseButton={false}
     >

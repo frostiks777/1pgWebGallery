@@ -2,11 +2,13 @@
 
 import { Photo } from './types';
 import { memo, useState } from 'react';
+import { EyeOff } from 'lucide-react';
 
 interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick: () => void;
+  onHidePhoto?: (photo: Photo) => void;
   className?: string;
   aspectRatio?: string;
   thumbnailSize?: number;
@@ -16,6 +18,7 @@ export const PhotoCard = memo(function PhotoCard({
   photo, 
   index, 
   onClick,
+  onHidePhoto,
   className = '',
   aspectRatio = 'aspect-square',
   thumbnailSize = 300
@@ -75,6 +78,16 @@ export const PhotoCard = memo(function PhotoCard({
           #{index + 1}
         </span>
       </div>
+      {/* Hide button */}
+      {onHidePhoto && (
+        <button
+          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
+          title="Скрыть фото"
+          onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 });

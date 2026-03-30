@@ -7,9 +7,10 @@ import { PhotoCard } from './PhotoCard';
 interface MasonryLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  onHidePhoto?: (photo: Photo) => void;
 }
 
-export function MasonryLayout({ photos, onPhotoClick }: MasonryLayoutProps) {
+export function MasonryLayout({ photos, onPhotoClick, onHidePhoto }: MasonryLayoutProps) {
   // Create 3 columns for masonry layout - memoized to prevent recalculation
   const columns = useMemo(() => {
     const cols: Photo[][] = [[], [], []];
@@ -31,6 +32,7 @@ export function MasonryLayout({ photos, onPhotoClick }: MasonryLayoutProps) {
                 photo={photo}
                 index={originalIndex}
                 onClick={() => onPhotoClick(photo, originalIndex)}
+                onHidePhoto={onHidePhoto}
                 thumbnailSize={400}
               />
             );

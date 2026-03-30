@@ -7,6 +7,7 @@ import { PhotoCard } from './PhotoCard';
 interface BentoLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
+  onHidePhoto?: (photo: Photo) => void;
 }
 
 // Period-10 pattern: tiles perfectly fill a 6-column grid with dense packing
@@ -23,7 +24,7 @@ const BENTO_PATTERN: { col: string; row: string }[] = [
   { col: 'col-span-1', row: 'row-span-1' }, // 9
 ];
 
-export function BentoLayout({ photos, onPhotoClick }: BentoLayoutProps) {
+export function BentoLayout({ photos, onPhotoClick, onHidePhoto }: BentoLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = BENTO_PATTERN[index % BENTO_PATTERN.length];
@@ -39,6 +40,7 @@ export function BentoLayout({ photos, onPhotoClick }: BentoLayoutProps) {
           photo={photo}
           index={index}
           onClick={() => onPhotoClick(photo, index)}
+          onHidePhoto={onHidePhoto}
           className={`${col} ${row}`}
           aspectRatio=""
           thumbnailSize={400}

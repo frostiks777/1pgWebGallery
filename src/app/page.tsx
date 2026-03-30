@@ -279,18 +279,21 @@ export default function GalleryPage() {
 
   const renderLayout = useMemo(() => {
     switch (layout) {
-      case 'masonry':    return <MasonryLayout   photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'bento':      return <BentoLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'honeycomb':  return <HoneycombLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'wave':       return <WaveLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'empire':     return <EmpireLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'minimalism': return <MinimalismLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      case 'album':      return <AlbumLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
-      default:           return <MasonryLayout   photos={visiblePhotos} onPhotoClick={handlePhotoClick} />;
+      case 'masonry':    return <MasonryLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'bento':      return <BentoLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'honeycomb':  return <HoneycombLayout  photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'wave':       return <WaveLayout       photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'empire':     return <EmpireLayout     photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'minimalism': return <MinimalismLayout photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      case 'album':      return <AlbumLayout      photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
+      default:           return <MasonryLayout    photos={visiblePhotos} onPhotoClick={handlePhotoClick} onHidePhoto={handleHidePhoto} />;
     }
-  }, [layout, visiblePhotos, handlePhotoClick]);
+  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto]);
 
-  const isStyleLayout = useMemo(() => STYLE_LAYOUTS.includes(layout), [layout]);
+  const isStyleLayout = useMemo(
+    () => STYLE_LAYOUTS.includes(layout) && visiblePhotos.length > 0,
+    [layout, visiblePhotos.length],
+  );
 
   const isAtRoot = currentPath === '';
 
