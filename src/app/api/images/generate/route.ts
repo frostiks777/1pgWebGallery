@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import type { WebDAVClient, FileStat } from 'webdav';
+import { getWebDAVClient } from '@/lib/webdav';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -55,18 +56,6 @@ const ALL_SIZES: ImageSize[] = ['thumbnail', 'medium', 'full'];
 
 const thumbExt = () => (sharp ? '.webp' : '.jpg');
 
-let _dav: WebDAVClient | null = null;
-function dav(): WebDAVClient | null {
-  if (_dav) return _dav;
-  const { WEBDAV_URL: u, WEBDAV_USERNAME: n, WEBDAV_PASSWORD: p } = process.env;
-  if (!u || !n || !p) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createClient } = require('webdav');
-    _dav = createClient(u, { username: n, password: p }) as WebDAVClient;
-    return _dav;
-  } catch { return null; }
-}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -167,18 +156,24 @@ async function runGeneration() {
   status.finishedAt = null;
 
   try {
-    const client = dav();
+    const client: WebDAVClient | null = (() => {
+      try { return getWebDAVClient(); } catch { return null; }
+    })();
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
+    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 
-    // Collect all photo paths
+    // Collect all photo paths (recursive)
     let photoPaths: string[] = [];
 
     if (client) {
-      const files = await client.getDirectoryContents(photosDir) as FileStat[];
+      const files = await client.getDirectoryContents(photosDir, { deep: true }) as FileStat[];
       photoPaths = files
-        .filter(f => f.type === 'file' && imageExts.includes(
-          f.basename.toLowerCase().substring(f.basename.lastIndexOf('.'))))
+        .filter(f =>
+          f.type === 'file' &&
+          imageExts.includes(f.basename.toLowerCase().substring(f.basename.lastIndexOf('.'))) &&
+          !f.filename.split('/').includes(thumbsDirName)
+        )
         .map(f => f.filename);
     } else {
       const demoDir = path.join(process.cwd(), 'public', 'demo-photos');
