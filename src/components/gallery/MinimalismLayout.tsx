@@ -60,7 +60,7 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
       <style jsx>{`
         .min-card { transition: transform 0.4s ease; }
         .min-card:hover { transform: translateY(-4px); }
-        .min-image-wrapper { position: relative; overflow: hidden; background: #fafafa; aspect-ratio: 1; }
+        .min-image-wrapper { position: relative; overflow: hidden; background: var(--min-card-bg); aspect-ratio: 1; }
         .min-image { width: 100%; height: 100%; object-fit: cover; filter: grayscale(10%); transition: all 0.6s ease; }
         .min-card:hover .min-image { filter: grayscale(0%); transform: scale(1.02); }
         .min-loader {
@@ -70,13 +70,13 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
         .min-loader::after {
           content: '';
           width: 24px; height: 24px;
-          border: 2px solid #e5e5e5;
-          border-top-color: #666;
+          border: 2px solid var(--min-border);
+          border-top-color: var(--min-text);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .min-error { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: #f5f5f5; }
+        .min-error { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: var(--min-card-bg); }
         .min-overlay {
           position: absolute; inset: 0;
           background: rgba(0,0,0,0.02);
@@ -85,8 +85,8 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
         }
         .min-card:hover .min-overlay { opacity: 1; }
         .min-index { font-family: monospace; font-size: 3rem; font-weight: 200; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); }
-        .min-caption { padding: 1rem 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
-        .min-caption span { font-size: 0.8rem; color: #1a1a1a; letter-spacing: 0.02em; text-transform: lowercase; }
+        .min-caption { padding: 1rem 0; border-bottom: 1px solid var(--min-border); }
+        .min-caption span { font-size: 0.8rem; color: var(--min-text); letter-spacing: 0.02em; text-transform: lowercase; }
         .min-hide-btn {
           position: absolute; top: 8px; left: 8px;
           opacity: 0; transition: opacity 0.2s;
@@ -105,12 +105,12 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto }: {
 
 export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto }: MinimalismLayoutProps) {
   return (
-    <div className="bg-white min-h-screen py-16 px-8">
+    <div className="bg-white dark:bg-gray-950 min-h-screen py-16 px-8">
       <header className="text-center mb-12">
-        <div className="w-10 h-px bg-gray-200 mx-auto" />
-        <h1 className="text-xs tracking-[0.3em] uppercase text-gray-800 my-4">gallery</h1>
-        <div className="w-10 h-px bg-gray-200 mx-auto" />
-        <p className="text-xs text-gray-400 tracking-wider mt-4">{photos.length} pieces</p>
+        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
+        <h1 className="text-xs tracking-[0.3em] uppercase text-gray-800 dark:text-gray-200 my-4">gallery</h1>
+        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
+        <p className="text-xs text-gray-400 dark:text-gray-500 tracking-wider mt-4">{photos.length} pieces</p>
       </header>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12 max-w-7xl mx-auto">
         {photos.map((photo, index) => (
@@ -124,8 +124,8 @@ export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto }: Minimali
         ))}
       </div>
       <footer className="text-center mt-16">
-        <div className="w-10 h-px bg-gray-200 mx-auto" />
-        <p className="text-xs text-gray-300 tracking-widest mt-4">© photo gallery</p>
+        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
+        <p className="text-xs text-gray-300 dark:text-gray-600 tracking-widest mt-4">© photo gallery</p>
       </footer>
     </div>
   );

@@ -3,7 +3,7 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
@@ -31,7 +31,6 @@ function LightboxContent({
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const thumbStripRef = useRef<HTMLDivElement>(null);
   const thumbRefs     = useRef<Map<number, HTMLButtonElement>>(new Map());
@@ -42,8 +41,6 @@ function LightboxContent({
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
 
   // Auto-scroll the thumbnail strip so the active thumb is always visible.
-  // On initial mount we delay 200ms to let the Dialog entrance animation finish
-  // before scrollIntoView is called; on subsequent index changes scroll immediately.
   useEffect(() => {
     const scroll = () => {
       const el = thumbRefs.current.get(index);
@@ -56,8 +53,6 @@ function LightboxContent({
     }
     scroll();
   }, [index]);
-
-  const toggleExpanded = useCallback(() => setIsFullscreen((v) => !v), []);
 
   const handlePrev = useCallback(() => {
     setIndex((prev) => {
@@ -88,11 +83,10 @@ function LightboxContent({
       case 'ArrowLeft':  handlePrev(); break;
       case 'ArrowRight': handleNext(); break;
       case 'Escape':     onClose();    break;
-      case 'f': case 'F': toggleExpanded(); break;
       case '+': case '=': setZoom((z) => Math.min(z + 0.5, 3)); break;
       case '-':           setZoom((z) => Math.max(z - 0.5, 0.5)); break;
     }
-  }, [isOpen, onClose, handlePrev, handleNext, toggleExpanded]);
+  }, [isOpen, onClose, handlePrev, handleNext]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -117,19 +111,14 @@ function LightboxContent({
 
   return (
     <DialogContent
-      className="p-0 bg-black/95 border-none"
-      style={isFullscreen ? {
-        position: 'fixed',
-        inset: 0,
-        transform: 'none',
-        maxWidth: '100vw',
-        maxHeight: '100vh',
-        width: '100vw',
-        height: '100vh',
-        borderRadius: 0,
-      } : {
+      className="p-0 bg-black/95 border-none overflow-hidden"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '95vw',
+        height: '95dvh',
         maxWidth: '95vw',
-        maxHeight: '95vh',
+        maxHeight: '95dvh',
       }}
       showCloseButton={false}
     >
@@ -138,84 +127,75 @@ function LightboxContent({
       </DialogTitle>
 
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
-        <div className="text-white">
-          <p className="font-medium">{currentPhoto.name}</p>
-          <p className="text-sm text-white/70">
+      <div className="flex-none flex items-center justify-between px-3 py-2 bg-gradient-to-b from-black/80 to-black/40 z-50 shrink-0">
+        <div className="min-w-0 flex-1 mr-2 text-white">
+          <p className="font-medium text-sm truncate">{currentPhoto.name}</p>
+          <p className="text-xs text-white/60">
             {index + 1} / {photos.length} &bull; {new Date(currentPhoto.lastModified).toLocaleDateString()}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={handleZoomOut} className="text-white hover:bg-white/20">
-            <ZoomOut className="h-5 w-5" />
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" onClick={handleZoomOut} className="text-white hover:bg-white/20 h-8 w-8">
+            <ZoomOut className="h-4 w-4" />
           </Button>
-          <span className="text-white text-sm min-w-[3rem] text-center">
+          <span className="text-white text-xs min-w-[2.5rem] text-center tabular-nums">
             {Math.round(zoom * 100)}%
           </span>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20">
-            <ZoomIn className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20 h-8 w-8">
+            <ZoomIn className="h-4 w-4" />
           </Button>
           {onHidePhoto && (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onHidePhoto(currentPhoto)}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-8 w-8"
               title="Скрыть фото"
             >
-              <EyeOff className="h-5 w-5" />
+              <EyeOff className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleExpanded}
-            className="text-white hover:bg-white/20"
-            title={isFullscreen ? 'Компактный режим (F)' : 'Во весь экран (F)'}
-          >
-            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-          </Button>
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" title="Download full size">
-              <Download className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8" title="Download full size">
+              <Download className="h-4 w-4" />
             </Button>
           </a>
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 h-8 w-8">
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Navigation buttons */}
-      {photos.length > 1 && (
-        <>
-          <Button
-            variant="ghost" size="icon" onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-12 w-12"
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </Button>
-          <Button
-            variant="ghost" size="icon" onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-12 w-12"
-          >
-            <ChevronRight className="h-8 w-8" />
-          </Button>
-        </>
-      )}
+      {/* Image container — fills remaining space between header and thumbnail strip */}
+      <div className="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+        {/* Navigation buttons */}
+        {photos.length > 1 && (
+          <>
+            <Button
+              variant="ghost" size="icon" onClick={handlePrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-10 w-10"
+            >
+              <ChevronLeft className="h-7 w-7" />
+            </Button>
+            <Button
+              variant="ghost" size="icon" onClick={handleNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-10 w-10"
+            >
+              <ChevronRight className="h-7 w-7" />
+            </Button>
+          </>
+        )}
 
-      {/* Image container */}
-      <div className="flex items-center justify-center w-full h-full overflow-hidden" style={{ minHeight: '95vh' }}>
         {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <Loader2 className="w-10 h-10 text-white animate-spin" />
-            <p className="text-white/70 text-sm">Loading image...</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+            <p className="text-white/60 text-sm">Loading image...</p>
           </div>
         )}
         {hasError ? (
           <div className="flex flex-col items-center justify-center gap-4 text-white">
-            <X className="w-16 h-16 text-red-400" />
-            <p className="text-lg">Failed to load image</p>
+            <X className="w-12 h-12 text-red-400" />
+            <p className="text-base">Failed to load image</p>
             <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
               Retry
             </Button>
@@ -235,11 +215,11 @@ function LightboxContent({
         )}
       </div>
 
-      {/* Thumbnail strip — ALL photos, scrollable, auto-scrolls to active */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/70 to-transparent">
+      {/* Thumbnail strip */}
+      <div className="flex-none bg-gradient-to-t from-black/80 to-black/40 px-3 py-2 shrink-0">
         <div
           ref={thumbStripRef}
-          className="flex gap-2 overflow-x-auto max-w-full pb-2 scrollbar-thin px-[calc(50%-24px)]"
+          className="flex gap-2 overflow-x-auto max-w-full pb-1 scrollbar-lightbox px-[calc(50%-24px)]"
         >
           {photos.map((photo, i) => (
             <button
@@ -256,7 +236,7 @@ function LightboxContent({
                   setIndex(i);
                 }
               }}
-              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden transition-all duration-200 ${
+              className={`flex-shrink-0 w-10 h-10 rounded-md overflow-hidden transition-all duration-200 ${
                 i === index
                   ? 'ring-2 ring-white scale-110'
                   : 'opacity-50 hover:opacity-80'

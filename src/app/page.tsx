@@ -23,6 +23,8 @@ import {
   Frame,
   ChevronUp,
   Eye,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -101,6 +103,29 @@ export default function GalleryPage() {
 
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Dark / light theme
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initial = saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light';
+    setTheme(initial);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      if (next === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('theme', next);
+      return next;
+    });
+  }, []);
 
   // Folder navigation state
   // currentPath is relative to PHOTOS_DIR, empty string = root
@@ -419,6 +444,21 @@ export default function GalleryPage() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Refresh</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline" size="icon"
+                      onClick={toggleTheme}
+                      className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9"
+                    >
+                      {theme === 'dark'
+                        ? <Sun className="h-4 w-4" />
+                        : <Moon className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</TooltipContent>
                 </Tooltip>
               </div>
             </div>

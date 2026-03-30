@@ -50,17 +50,27 @@ function AlbumCard({
       className={`${col} ${row} group cursor-pointer flex flex-col`}
       onClick={onClick}
     >
-      {/* White mat / print frame */}
-      <div className="flex-1 bg-white p-2 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col min-h-0">
+      {/* Mat / print frame */}
+      <div
+        className="flex-1 p-2 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col min-h-0"
+        style={{ background: 'var(--album-mat-bg)' }}
+      >
         {/* Photo area */}
-        <div className="flex-1 overflow-hidden bg-[#ede8e0] relative min-h-0">
+        <div
+          className="flex-1 overflow-hidden relative min-h-0"
+          style={{ background: 'var(--album-photo-bg)' }}
+        >
           {!hasError && (
             <>
               {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-content-center">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div
-                    className="w-5 h-5 rounded-full border-2 border-[#d0c8bc] border-t-[#8a7d6e] mx-auto"
-                    style={{ animation: 'album-spin 0.8s linear infinite' }}
+                    className="w-5 h-5 rounded-full mx-auto"
+                    style={{
+                      border: '2px solid var(--album-spin-border)',
+                      borderTopColor: 'var(--album-spin-top)',
+                      animation: 'album-spin 0.8s linear infinite',
+                    }}
                   />
                 </div>
               )}
@@ -78,7 +88,10 @@ function AlbumCard({
             </>
           )}
           {hasError && (
-            <div className="absolute inset-0 flex items-center justify-center text-[#b0a898] text-2xl">
+            <div
+              className="absolute inset-0 flex items-center justify-center text-2xl"
+              style={{ color: 'var(--album-caption)' }}
+            >
               ✕
             </div>
           )}
@@ -100,7 +113,10 @@ function AlbumCard({
           )}
         </div>
         {/* Caption — inside the mat, below the photo */}
-        <p className="mt-1.5 text-[10px] tracking-wider text-[#6b5e52] lowercase truncate leading-tight shrink-0">
+        <p
+          className="mt-1.5 text-[10px] tracking-wider lowercase truncate leading-tight shrink-0"
+          style={{ color: 'var(--album-caption)' }}
+        >
           {caption}
         </p>
       </div>
@@ -118,13 +134,13 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto }: AlbumLayoutPr
   }, [photos]);
 
   return (
-    <div className="min-h-screen bg-[#f0ebe3] py-10 px-4 sm:px-8">
+    <div className="min-h-screen py-10 px-4 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
       {/* Minimal header */}
       <header className="text-center mb-10">
-        <div className="w-8 h-px bg-[#c8b89a] mx-auto" />
-        <p className="text-[10px] tracking-[0.35em] uppercase text-[#9a8878] my-3">album</p>
-        <div className="w-8 h-px bg-[#c8b89a] mx-auto" />
-        <p className="text-[10px] text-[#b0a090] tracking-wider mt-3">{photos.length} photos</p>
+        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
+        <p className="text-[10px] tracking-[0.35em] uppercase my-3" style={{ color: 'var(--album-meta)' }}>album</p>
+        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
+        <p className="text-[10px] tracking-wider mt-3" style={{ color: 'var(--album-footer)' }}>{photos.length} photos</p>
       </header>
 
       {/* Grid */}
@@ -144,8 +160,8 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto }: AlbumLayoutPr
 
       {/* Minimal footer */}
       <footer className="text-center mt-10">
-        <div className="w-8 h-px bg-[#c8b89a] mx-auto" />
-        <p className="text-[10px] text-[#c0b0a0] tracking-widest mt-3">© photo gallery</p>
+        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
+        <p className="text-[10px] tracking-widest mt-3" style={{ color: 'var(--album-footer)' }}>© photo gallery</p>
       </footer>
     </div>
   );

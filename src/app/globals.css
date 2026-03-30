@@ -45,6 +45,32 @@
 
 :root {
   --radius: 0.625rem;
+
+  /* ── Empire layout ─────────────────────────────────────────────────── */
+  --empire-card-bg: linear-gradient(135deg, #faf7f2, #f5ebe0);
+  --empire-inner-bg: #faf7f2;
+  --empire-loader-bg: #faf7f2;
+  --empire-text-h: #5c4033;
+  --empire-text-sub: #8b7355;
+  --empire-text-num: #c9a959;
+
+  /* ── Minimalism layout ─────────────────────────────────────────────── */
+  --min-card-bg: #fafafa;
+  --min-text: #1a1a1a;
+  --min-border: rgba(0, 0, 0, 0.06);
+  --min-heading: #1a1a1a;
+  --min-footer: rgba(0, 0, 0, 0.08);
+
+  /* ── Album layout ──────────────────────────────────────────────────── */
+  --album-page-bg: #f0ebe3;
+  --album-mat-bg: #ffffff;
+  --album-photo-bg: #ede8e0;
+  --album-caption: #6b5e52;
+  --album-meta: #9a8878;
+  --album-rule: #c8b89a;
+  --album-footer: #c0b0a0;
+  --album-spin-border: #d0c8bc;
+  --album-spin-top: #8a7d6e;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -80,6 +106,32 @@
 
 .dark {
   --background: oklch(0.145 0 0);
+
+  /* ── Empire layout ─────────────────────────────────────────────────── */
+  --empire-card-bg: linear-gradient(135deg, #1e1810, #2a1e14);
+  --empire-inner-bg: #181208;
+  --empire-loader-bg: #181208;
+  --empire-text-h: #d4b896;
+  --empire-text-sub: #a08060;
+  --empire-text-num: #c9a959;
+
+  /* ── Minimalism layout ─────────────────────────────────────────────── */
+  --min-card-bg: #1a1a1a;
+  --min-text: #e5e5e5;
+  --min-border: rgba(255, 255, 255, 0.06);
+  --min-heading: #e5e5e5;
+  --min-footer: rgba(255, 255, 255, 0.05);
+
+  /* ── Album layout ──────────────────────────────────────────────────── */
+  --album-page-bg: #1a1812;
+  --album-mat-bg: #252018;
+  --album-photo-bg: #1e1a14;
+  --album-caption: #a09080;
+  --album-meta: #7a6858;
+  --album-rule: #4a3828;
+  --album-footer: #5a4838;
+  --album-spin-border: #3a3028;
+  --album-spin-top: #6a5848;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -120,3 +172,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Lightbox thumbnail scrollbar ─────────────────────────────────────────── */
+.scrollbar-lightbox { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.25) transparent; }
+.scrollbar-lightbox::-webkit-scrollbar        { height: 3px; }
+.scrollbar-lightbox::-webkit-scrollbar-track  { background: transparent; }
+.scrollbar-lightbox::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.25); border-radius: 3px; }
+.scrollbar-lightbox::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
