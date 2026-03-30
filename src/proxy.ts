@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const rateMap = new Map<string, { count: number; ts: number }>();
-const RATE_LIMIT  = parseInt(process.env.API_RATE_LIMIT  || '60',    10); // requests per window
+const RATE_LIMIT  = parseInt(process.env.API_RATE_LIMIT  || '300',   10); // requests per window
 const RATE_WINDOW = parseInt(process.env.API_RATE_WINDOW || '60000', 10); // ms (default: 1 min)
 
 function checkRateLimit(ip: string): boolean {
@@ -53,17 +53,17 @@ export function proxy(req: NextRequest) {
   const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
 
   if (!checkRateLimit(ip)) {
-    return new NextResponse('Too Many Requests', {
-      status: 429,
-      headers: { 'Retry-After': '60' },
-    });
+    return NextResponse.json(
+      { error: 'Too Many Requests' },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
   }
 
   if (!checkApiAuth(req)) {
-    return new NextResponse('Unauthorized', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Bearer' },
-    });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } },
+    );
   }
 
   return NextResponse.next();
