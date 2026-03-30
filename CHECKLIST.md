@@ -64,15 +64,6 @@ ls -la .cache/images/
 # {hash}.webp
 ```
 
-### 5. Удаление старых файлов (опционально)
-После проверки что все работает, можно удалить старые API:
-```bash
-rm -rf src/app/api/photos/[...path]/
-rm -rf src/app/api/thumbnail/
-rm -rf src/app/api/medium/
-rm -rf src/app/api/photo-file/
-```
-
 ## 📊 Ожидаемые результаты
 
 ### Network Tab должен показывать:
@@ -129,7 +120,7 @@ rm -rf .cache/images/*
    - WEBDAV_PASSWORD
    - PHOTOS_DIR
 2. Проверить логи в консоли сервера
-3. Попробовать `/api/photos` в браузере
+3. Попробовать `/api/images?path=...&size=thumbnail` в браузере
 
 ## 📁 Важные файлы
 

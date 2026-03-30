@@ -4,13 +4,13 @@
 
 ### API Endpoints
 
-**Устаревшие (удалить после миграции):**
-- ❌ `/api/photos/[...path]` 
-- ❌ `/api/thumbnail`
-- ❌ `/api/medium`
-- ❌ `/api/photo-file`
+**Удалённые старые эндпоинты:**
+- ❌ `/api/photos/[...path]` — удалён
+- ❌ `/api/thumbnail` — удалён
+- ❌ `/api/medium` — удалён
+- ❌ `/api/photo-file` — удалён
 
-**Новый унифицированный эндпоинт:**
+**Унифицированный эндпоинт:**
 - ✅ `/api/images?path={path}&size={thumbnail|medium|full}`
 
 ### Изменения в коде
@@ -60,24 +60,6 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
 ### Уровень 1 — Co-located кэш (рядом с оригиналами, постоянный)
 
 Миниатюры сохраняются в папку `.thumbs/{size}/` **в той же директории**, что и оригинальные фото.
-
-**Для локальных demo-фото:**
-```
-public/
-  demo-photos/
-    photo1.jpg
-    photo2.jpg
-    .thumbs/
-      thumbnail/
-        photo1.webp
-        photo2.webp
-      medium/
-        photo1.webp
-        photo2.webp
-      full/
-        photo1.webp
-        photo2.webp
-```
 
 **Для WebDAV фото** (сохраняется прямо на сервере WebDAV):
 ```
@@ -163,15 +145,6 @@ npm run start
 bun run start
 ```
 
-### 5. Удалить старые API файлы (опционально, после проверки)
-После того как убедитесь что все работает:
-```bash
-rm -rf src/app/api/photos/[...path]/
-rm -rf src/app/api/thumbnail/
-rm -rf src/app/api/medium/
-rm -rf src/app/api/photo-file/
-```
-
 ## 🧪 Тестирование
 
 ### 1. Проверить загрузку галереи
@@ -255,11 +228,7 @@ npm run build
 # Проверить /tmp кэш
 ls -la /tmp/photo-gallery-cache/
 
-# Проверить co-located кэш для demo фото
-ls -la public/demo-photos/.thumbs/
-
 # Проверить логи сервера — должны быть сообщения вида:
-# [Images API] Co-located cache saved (local): .../public/demo-photos/.thumbs/thumbnail/photo.webp
 # [Images API] Co-located cache HIT (WebDAV): /Photos/.thumbs/thumbnail/photo.webp
 # [Images API] WebDAV co-located write failed; falling back to /tmp cache only.
 ```
@@ -337,7 +306,8 @@ npm run start
 
 ## ✅ Checklist миграции
 
-- [ ] Код обновлен
+- [x] Код обновлен
+- [x] Старые API файлы удалены
 - [ ] Старый кэш очищен
 - [ ] Проект пересобран
 - [ ] Галерея загружается корректно
@@ -345,7 +315,6 @@ npm run start
 - [ ] Кэширование работает (X-Cache: HIT)
 - [ ] Все layouts работают
 - [ ] Performance Score > 90
-- [ ] Старые API файлы удалены (опционально)
 
 ## 🆘 Поддержка
 

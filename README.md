@@ -36,7 +36,7 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
   **Style Layouts:**
   - **Empire (Ампир)** - Classic luxury style with golden frames, ornate decorations, and elegant typography
   - **Minimalism (Минимализм)** - Clean, pure design with minimal elements and sophisticated simplicity
-  - **Mediterranean (Средиземноморское побережье)** - Sea-inspired theme with turquoise accents, shutters, and coastal atmosphere
+  - **Album** - Print-inspired layout with warm paper tones, mat frames, and a repeating featured-tile grid pattern
 
 - **🔍 Full-Featured Lightbox**
   - Zoom in/out functionality
@@ -146,18 +146,22 @@ WEBDAV_URL=https://dav.box.com/dav/
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   └── photos/   # WebDAV API routes
+│   │   │   ├── images/   # Unified image API (WebP, Sharp, 3 sizes)
+│   │   │   ├── folders/  # WebDAV folder listing
+│   │   │   ├── hidden/   # Hidden photos management
+│   │   │   ├── photos/   # Photo metadata
+│   │   │   └── webdav/   # WebDAV connectivity test
 │   │   ├── layout.tsx    # Root layout
 │   │   ├── page.tsx      # Main gallery page
 │   │   └── globals.css   # Global styles
 │   ├── components/
 │   │   ├── gallery/      # Gallery components
+│   │   │   ├── AlbumLayout.tsx
 │   │   │   ├── BentoLayout.tsx
 │   │   │   ├── EmpireLayout.tsx
 │   │   │   ├── HoneycombLayout.tsx
 │   │   │   ├── Lightbox.tsx
 │   │   │   ├── MasonryLayout.tsx
-│   │   │   ├── MediterraneanLayout.tsx
 │   │   │   ├── MinimalismLayout.tsx
 │   │   │   ├── WaveLayout.tsx
 │   │   │   ├── index.ts
@@ -167,7 +171,6 @@ WEBDAV_URL=https://dav.box.com/dav/
 │       ├── utils.ts      # Utility functions
 │       └── webdav.ts     # WebDAV client
 ├── public/               # Static assets
-│   └── demo-photos/      # Demo images for testing
 └── package.json
 ```
 
@@ -209,15 +212,14 @@ Clean, pure design philosophy:
 - Clean lines and plenty of whitespace
 - Perfect for modern photography portfolios
 
-#### Mediterranean (Средиземноморское побережье) 🌴
-Sea-inspired coastal theme:
-- Turquoise and teal accent colors
-- Sandy beige backgrounds
-- Decorative window shutters that open on hover
-- Flower boxes and sea shell decorations
-- Wave animations in the background
-- Arch-shaped photo frames
-- Perfect for travel and vacation photos
+#### Album
+Print-inspired photo album layout:
+- Warm paper and linen background tones
+- White mat / print frames for each photo
+- Repeating 7-tile pattern: one featured 2×2 tile among six standard tiles
+- Subtle hover scale and number overlay
+- Clean lowercase captions beneath each photo
+- Perfect for personal collections and analog-style portfolios
 
 ## 🔒 Security Best Practices
 
@@ -272,8 +274,6 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for complete optimization details.
 
 Detailed deployment instructions for Ubuntu Server are available in [DEPLOYMENT.md](./DEPLOYMENT.md).
 
-For migrating from older versions, see [MIGRATION.md](./MIGRATION.md).
-
 ### Quick Deploy
 
 ```bash
@@ -300,8 +300,6 @@ See [CHECKLIST.md](./CHECKLIST.md) for step-by-step verification guide.
 ## 📚 Documentation
 
 - **[PERFORMANCE.md](./PERFORMANCE.md)** - Detailed performance optimization report
-- **[MIGRATION.md](./MIGRATION.md)** - Migration guide from older versions
-- **[OPTIMIZATION_SUMMARY.md](./OPTIMIZATION_SUMMARY.md)** - Summary of changes and improvements
 - **[CHECKLIST.md](./CHECKLIST.md)** - Post-deployment verification checklist
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Ubuntu Server deployment guide
 
