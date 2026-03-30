@@ -58,5 +58,6 @@ mini-services/
 Caddyfile
 upload/
 
-# Thumbnail cache
+# Thumbnail cache & app data
 .cache/
+.data/

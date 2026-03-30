@@ -29,7 +29,7 @@ try {
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_DIR     = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
+const CACHE_DIR     = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
@@ -170,7 +170,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// /tmp cache
+// Local disk cache
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpPath(photo: string, size: ImageSize): string {
@@ -330,7 +330,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-    // ── 1. /tmp cache ───────────────────────────────────────────────────────
+    // ── 1. Local disk cache ────────────────────────────────────────────────
     const tmpHit = readTmpCache(decoded, size);
     if (tmpHit) return respond(tmpHit, 'HIT');
 
@@ -365,7 +365,7 @@ export async function GET(request: NextRequest) {
     // ── 4. Optimise ─────────────────────────────────────────────────────────
     const result = await optimizeImage(original, size);
 
-    // ── 5. /tmp cache (sync, fast) ──────────────────────────────────────────
+    // ── 5. Local disk cache (sync, fast) ────────────────────────────────────
     writeTmpCache(decoded, size, result);
 
     // ── 6. .thumbs/ (fire-and-forget — never blocks the response) ───────────

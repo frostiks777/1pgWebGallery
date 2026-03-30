@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const CACHE_DIR    = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
+const CACHE_DIR    = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
 const DIR_META_DIR = path.join(CACHE_DIR, 'dir-meta');
 
 function sanitizeDir(dir: string): string {

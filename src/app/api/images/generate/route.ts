@@ -41,7 +41,7 @@ try {
   sharp = require('sharp');
 } catch {}
 
-const CACHE_DIR     = process.env.CACHE_DIR || path.join('/tmp', 'photo-gallery-cache');
+const CACHE_DIR     = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
@@ -209,10 +209,10 @@ async function runGeneration(scopePath?: string) {
     status.total = photoPaths.length * ALL_SIZES.length;
     console.info(`[Generate] Starting: ${photoPaths.length} photos × ${ALL_SIZES.length} sizes = ${status.total} tasks`);
 
-    for (const photoPath of photoPaths) {
-      for (const size of ALL_SIZES) {
+    for (const size of ALL_SIZES) {
+      for (const photoPath of photoPaths) {
         try {
-          // Check if already exists in /tmp cache
+          // Check if already exists in local disk cache
           if (tmpCacheExists(photoPath, size)) {
             // Also check WebDAV co-located if enabled
             if (client && WEBDAV_COLOCATED_ENABLED) {
@@ -222,7 +222,7 @@ async function runGeneration(scopePath?: string) {
                 status.done++;
                 continue;
               }
-              // DAV thumb missing — read from /tmp and upload
+              // DAV thumb missing — read from local cache and upload
               const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v2`).digest('hex');
               const tmpFile = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
               const cached = fs.readFileSync(tmpFile);
@@ -263,7 +263,7 @@ async function runGeneration(scopePath?: string) {
 
           const result = await optimizeImage(original, size);
 
-          // Save to /tmp
+          // Save to local disk cache
           writeTmpCache(photoPath, size, result);
 
           // Save to WebDAV co-located
