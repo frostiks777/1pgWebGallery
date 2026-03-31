@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Photo } from './types';
-import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 
 interface AlbumLayoutProps {
   photos: Photo[];
@@ -11,17 +11,18 @@ interface AlbumLayoutProps {
   onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
-// 7-item repeating pattern: one featured 2×2 tile, six regular 1×1 tiles
 const ALBUM_PATTERN: { col: string; row: string }[] = [
-  { col: 'col-span-2', row: 'row-span-2' }, // 0 — featured
-  { col: 'col-span-1', row: 'row-span-1' }, // 1
-  { col: 'col-span-1', row: 'row-span-1' }, // 2
-  { col: 'col-span-1', row: 'row-span-1' }, // 3
-  { col: 'col-span-1', row: 'row-span-1' }, // 4
-  { col: 'col-span-1', row: 'row-span-1' }, // 5
-  { col: 'col-span-1', row: 'row-span-1' }, // 6
+  { col: 'col-span-2', row: 'row-span-2' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
 ];
 
 function AlbumCard({
@@ -34,6 +35,8 @@ function AlbumCard({
   onDeletePhoto,
   isPanorama,
   onTogglePanorama,
+  isCover,
+  onToggleCover,
 }: {
   photo: Photo;
   index: number;
@@ -44,6 +47,8 @@ function AlbumCard({
   onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
+  isCover?: boolean;
+  onToggleCover?: (photo: Photo) => void;
 }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -59,12 +64,10 @@ function AlbumCard({
       className={`${col} ${row} group cursor-pointer flex flex-col`}
       onClick={onClick}
     >
-      {/* Mat / print frame */}
       <div
         className="flex-1 p-2 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col min-h-0"
         style={{ background: 'var(--album-mat-bg)' }}
       >
-        {/* Photo area */}
         <div
           className="flex-1 overflow-hidden relative min-h-0"
           style={{ background: 'var(--album-photo-bg)' }}
@@ -104,13 +107,11 @@ function AlbumCard({
               ✕
             </div>
           )}
-          {/* Subtle number overlay on hover */}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-end justify-end p-1.5 opacity-0 group-hover:opacity-100">
             <span className="text-[10px] font-mono text-white/80">
               {String(index + 1).padStart(2, '0')}
             </span>
           </div>
-          {/* Action buttons */}
           <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
             {onHidePhoto && (
               <button
@@ -143,9 +144,21 @@ function AlbumCard({
                 <RectangleHorizontal className="h-3 w-3" />
               </button>
             )}
+            {onToggleCover && (
+              <button
+                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1 ${
+                  isCover
+                    ? 'opacity-100 bg-amber-500/80 hover:bg-amber-600/90'
+                    : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+                }`}
+                title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+                onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
+              >
+                <Star className={`h-3 w-3 ${isCover ? 'fill-current' : ''}`} />
+              </button>
+            )}
           </div>
         </div>
-        {/* Caption — inside the mat, below the photo */}
         <p
           className="mt-1.5 text-[10px] tracking-wider lowercase truncate leading-tight shrink-0"
           style={{ color: 'var(--album-caption)' }}
@@ -158,7 +171,7 @@ function AlbumCard({
   );
 }
 
-export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: AlbumLayoutProps) {
+export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: AlbumLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = ALBUM_PATTERN[index % ALBUM_PATTERN.length];
@@ -168,7 +181,6 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
-      {/* Minimal header */}
       <header className="text-center mb-10">
         <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
         <p className="text-[10px] tracking-[0.35em] uppercase my-3" style={{ color: 'var(--album-meta)' }}>album</p>
@@ -176,7 +188,6 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
         <p className="text-[10px] tracking-wider mt-3" style={{ color: 'var(--album-footer)' }}>{photos.length} photos</p>
       </header>
 
-      {/* Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-[120px] sm:auto-rows-[140px] md:auto-rows-[160px] [grid-auto-flow:dense] max-w-7xl mx-auto">
         {photoConfigs.map(({ photo, index, col, row }) => (
           <AlbumCard
@@ -190,11 +201,12 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
             onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
+            isCover={coverPaths?.includes(photo.path)}
+            onToggleCover={onToggleCover}
           />
         ))}
       </div>
 
-      {/* Minimal footer */}
       <footer className="text-center mt-10">
         <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
         <p className="text-[10px] tracking-widest mt-3" style={{ color: 'var(--album-footer)' }}>© photo gallery</p>

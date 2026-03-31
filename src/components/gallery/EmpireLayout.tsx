@@ -2,7 +2,7 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 
 interface EmpireLayoutProps {
   photos: Photo[];
@@ -11,9 +11,11 @@ interface EmpireLayoutProps {
   onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
-function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama }: {
+function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama, isCover, onToggleCover }: {
   photo: Photo;
   index: number;
   onClick: () => void;
@@ -21,6 +23,8 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanor
   onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
+  isCover?: boolean;
+  onToggleCover?: (photo: Photo) => void;
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +62,6 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanor
         <p>{new Date(photo.lastModified).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         <span>№ {String(index + 1).padStart(3, '0')}</span>
       </div>
-      {/* Action buttons */}
       <div className="absolute top-3 left-3 flex items-center gap-1 z-10">
         {onHidePhoto && (
           <button
@@ -89,6 +92,19 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanor
             onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
           >
             <RectangleHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onToggleCover && (
+          <button
+            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
+              isCover
+                ? 'opacity-100 bg-amber-500/80 text-white hover:bg-amber-600/90'
+                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+            }`}
+            title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+            onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
+          >
+            <Star className={`h-3.5 w-3.5 ${isCover ? 'fill-current' : ''}`} />
           </button>
         )}
       </div>
@@ -133,7 +149,7 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanor
   );
 }
 
-export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: EmpireLayoutProps) {
+export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: EmpireLayoutProps) {
   return (
     <div className="py-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950">
       <div className="text-center mb-8 text-3xl text-amber-600">⚜</div>
@@ -148,6 +164,8 @@ export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto,
             onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
+            isCover={coverPaths?.includes(photo.path)}
+            onToggleCover={onToggleCover}
           />
         ))}
       </div>

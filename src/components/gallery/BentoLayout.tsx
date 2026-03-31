@@ -11,23 +11,24 @@ interface BentoLayoutProps {
   onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
-// Period-10 pattern: tiles perfectly fill a 6-column grid with dense packing
 const BENTO_PATTERN: { col: string; row: string }[] = [
-  { col: 'col-span-2', row: 'row-span-2' }, // 0 — big square
-  { col: 'col-span-1', row: 'row-span-1' }, // 1
-  { col: 'col-span-1', row: 'row-span-1' }, // 2
-  { col: 'col-span-1', row: 'row-span-2' }, // 3 — tall
-  { col: 'col-span-1', row: 'row-span-1' }, // 4
-  { col: 'col-span-3', row: 'row-span-1' }, // 5 — wide
-  { col: 'col-span-1', row: 'row-span-1' }, // 6
-  { col: 'col-span-1', row: 'row-span-1' }, // 7
-  { col: 'col-span-2', row: 'row-span-1' }, // 8 — medium wide
-  { col: 'col-span-1', row: 'row-span-1' }, // 9
+  { col: 'col-span-2', row: 'row-span-2' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-2' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-3', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
+  { col: 'col-span-2', row: 'row-span-1' },
+  { col: 'col-span-1', row: 'row-span-1' },
 ];
 
-export function BentoLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: BentoLayoutProps) {
+export function BentoLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: BentoLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = BENTO_PATTERN[index % BENTO_PATTERN.length];
@@ -47,6 +48,8 @@ export function BentoLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
           onDeletePhoto={onDeletePhoto}
           onTogglePanorama={onTogglePanorama}
           isPanorama={panoramaPaths?.includes(photo.path)}
+          onToggleCover={onToggleCover}
+          isCover={coverPaths?.includes(photo.path)}
           className={`${col} ${row}`}
           aspectRatio=""
           thumbnailSize={400}

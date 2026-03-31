@@ -112,6 +112,11 @@ export default function GalleryPage() {
   // Panorama photos (per-directory)
   const [panoramaPaths, setPanoramaPaths] = useState<string[]>([]);
 
+  // Cover photos for the current folder (shown as folder preview in parent)
+  const [coverPaths, setCoverPaths] = useState<string[]>([]);
+  const [coversInitialized, setCoversInitialized] = useState(false);
+  const MAX_COVERS = 3;
+
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -163,17 +168,33 @@ export default function GalleryPage() {
   const [folders, setFolders] = useState<FolderInfo[]>([]);
   const [isFoldersLoading, setIsFoldersLoading] = useState(false);
 
-  // Fetch per-directory metadata (hidden + panoramas) whenever folder changes
+  // Fetch per-directory metadata (hidden + panoramas + covers) whenever folder changes
   useEffect(() => {
+    setCoversInitialized(false);
     const dirParam = currentPath ? `?dir=${encodeURIComponent(currentPath)}` : '?dir=';
     Promise.all([
       fetch(`/api/hidden${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
       fetch(`/api/panoramas${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
-    ]).then(([hiddenData, panoramaData]) => {
+      fetch(`/api/covers${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
+    ]).then(([hiddenData, panoramaData, coverData]) => {
       if (Array.isArray(hiddenData.paths))   setHiddenPaths(hiddenData.paths);
       if (Array.isArray(panoramaData.paths)) setPanoramaPaths(panoramaData.paths);
+      if (Array.isArray(coverData.paths))    setCoverPaths(coverData.paths);
+      setCoversInitialized(true);
     });
   }, [currentPath]);
+
+  // Auto-populate covers on first visit to a folder that has none yet
+  useEffect(() => {
+    if (!coversInitialized || coverPaths.length > 0 || isLoading || photos.length === 0) return;
+    const firstN = photos.slice(0, MAX_COVERS).map((p) => p.path);
+    setCoverPaths(firstN);
+    fetch('/api/covers', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths: firstN, dir: currentPath }),
+    }).catch(() => {});
+  }, [coversInitialized, coverPaths.length, isLoading, photos, currentPath, MAX_COVERS]);
 
   // Scroll-to-top: show button after scrolling 300px
   useEffect(() => {
@@ -457,6 +478,32 @@ export default function GalleryPage() {
     } catch {}
   }, [currentPath, panoramaPaths]);
 
+  const handleToggleCover = useCallback(async (photo: Photo) => {
+    const isCurrentlyCover = coverPaths.includes(photo.path);
+    if (isCurrentlyCover) {
+      setCoverPaths((prev) => prev.filter((p) => p !== photo.path));
+      try {
+        await fetch('/api/covers', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: photo.path, dir: currentPath }),
+        });
+      } catch {}
+    } else {
+      setCoverPaths((prev) => {
+        if (prev.length >= MAX_COVERS) return [...prev.slice(1), photo.path];
+        return [...prev, photo.path];
+      });
+      try {
+        await fetch('/api/covers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: photo.path, dir: currentPath }),
+        });
+      } catch {}
+    }
+  }, [currentPath, coverPaths, MAX_COVERS]);
+
   // Photos visible to the user (hidden ones filtered out)
   const visiblePhotos = useMemo(
     () => photos.filter((p) => !hiddenPaths.includes(p.path)),
@@ -482,6 +529,8 @@ export default function GalleryPage() {
       onDeletePhoto: handleDeletePhoto,
       panoramaPaths,
       onTogglePanorama: handleTogglePanorama,
+      coverPaths,
+      onToggleCover: handleToggleCover,
     };
     switch (layout) {
       case 'masonry':    return <MasonryLayout    {...commonProps} />;
@@ -493,7 +542,7 @@ export default function GalleryPage() {
       case 'album':      return <AlbumLayout      {...commonProps} />;
       default:           return <MasonryLayout    {...commonProps} />;
     }
-  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, handleDeletePhoto, panoramaPaths, handleTogglePanorama]);
+  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, handleDeletePhoto, panoramaPaths, handleTogglePanorama, coverPaths, handleToggleCover]);
 
   const isStyleLayout = useMemo(
     () => STYLE_LAYOUTS.includes(layout) && visiblePhotos.length > 0,
@@ -926,6 +975,8 @@ export default function GalleryPage() {
           onClose={() => setLightboxOpen(false)}
           onHidePhoto={handleHidePhoto}
           onDeletePhoto={handleDeletePhoto}
+          coverPaths={coverPaths}
+          onToggleCover={handleToggleCover}
         />
 
         {/* Scroll to top button */}

@@ -10,9 +10,11 @@ interface WaveLayoutProps {
   onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
-export function WaveLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: WaveLayoutProps) {
+export function WaveLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: WaveLayoutProps) {
   return (
     <div className="flex flex-wrap justify-center gap-4 pt-12 pb-12">
       {photos.map((photo, index) => {
@@ -31,6 +33,8 @@ export function WaveLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, p
               onDeletePhoto={onDeletePhoto}
               onTogglePanorama={onTogglePanorama}
               isPanorama={panoramaPaths?.includes(photo.path)}
+              onToggleCover={onToggleCover}
+              isCover={coverPaths?.includes(photo.path)}
               aspectRatio=""
               className="h-64"
               thumbnailSize={250}

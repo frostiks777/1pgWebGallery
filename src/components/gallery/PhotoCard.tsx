@@ -2,7 +2,7 @@
 
 import { Photo } from './types';
 import { memo, useState } from 'react';
-import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -12,6 +12,8 @@ interface PhotoCardProps {
   onDeletePhoto?: (photo: Photo) => void;
   onTogglePanorama?: (photo: Photo) => void;
   isPanorama?: boolean;
+  onToggleCover?: (photo: Photo) => void;
+  isCover?: boolean;
   className?: string;
   aspectRatio?: string;
   thumbnailSize?: number;
@@ -25,6 +27,8 @@ export const PhotoCard = memo(function PhotoCard({
   onDeletePhoto,
   onTogglePanorama,
   isPanorama = false,
+  onToggleCover,
+  isCover = false,
   className = '',
   aspectRatio = 'aspect-square',
   thumbnailSize = 300
@@ -85,7 +89,6 @@ export const PhotoCard = memo(function PhotoCard({
       </div>
       {/* Top-left action buttons */}
       <div className="absolute top-2 left-2 flex items-center gap-1">
-        {/* Hide button — visible on hover only */}
         {onHidePhoto && (
           <button
             className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
@@ -104,7 +107,6 @@ export const PhotoCard = memo(function PhotoCard({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
-        {/* Panorama toggle — always visible when marked, hover-only when not */}
         {onTogglePanorama && (
           <button
             className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
@@ -116,6 +118,19 @@ export const PhotoCard = memo(function PhotoCard({
             onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
           >
             <RectangleHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onToggleCover && (
+          <button
+            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
+              isCover
+                ? 'opacity-100 bg-amber-500/80 text-white hover:bg-amber-600/90'
+                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
+            }`}
+            title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+            onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
+          >
+            <Star className={`h-3.5 w-3.5 ${isCover ? 'fill-current' : ''}`} />
           </button>
         )}
       </div>

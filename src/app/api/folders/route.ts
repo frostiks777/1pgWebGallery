@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWebDAVConfig, getFoldersFromDirectory } from '@/lib/webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
+import { readMeta } from '@/lib/dir-meta';
 
 function resolveAndValidatePath(subPath: string | null, baseDir: string): string | null {
   if (!subPath) return baseDir;
@@ -39,14 +40,17 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      folders: folders.map(f => ({
-        name: f.name,
-        // Return path relative to baseDir so the client never deals with absolute WebDAV paths
-        path: f.path.startsWith(baseDir)
+      folders: folders.map(f => {
+        const relativePath = f.path.startsWith(baseDir)
           ? f.path.slice(baseDir.length).replace(/^\/+/, '')
-          : f.name,
-        previewPhotos: f.previewPhotos,
-      })),
+          : f.name;
+        const meta = readMeta(relativePath);
+        return {
+          name: f.name,
+          path: relativePath,
+          previewPhotos: meta.covers,
+        };
+      }),
     });
   } catch (error) {
     console.error('[API/folders] Error:', error);

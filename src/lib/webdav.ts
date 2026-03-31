@@ -182,16 +182,10 @@ export async function getFoldersFromDirectory(directory: string = '/'): Promise<
 
     baseFolders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-    const results = await Promise.allSettled(
-      baseFolders.map(async (f) => ({
-        ...f,
-        previewPhotos: await getFirstPhotosFromDirectory(f.path, 3),
-      })),
-    );
-
-    const folders: FolderInfo[] = results.map((r, i) =>
-      r.status === 'fulfilled' ? r.value : { ...baseFolders[i], previewPhotos: [] },
-    );
+    const folders: FolderInfo[] = baseFolders.map((f) => ({
+      ...f,
+      previewPhotos: [],
+    }));
 
     console.log(`[WebDAV] Found ${folders.length} folders in ${directory}`);
     return folders;

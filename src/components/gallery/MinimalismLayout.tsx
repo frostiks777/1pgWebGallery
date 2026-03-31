@@ -2,7 +2,7 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
@@ -11,9 +11,11 @@ interface MinimalismLayoutProps {
   onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
-function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama }: {
+function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama, isCover, onToggleCover }: {
   photo: Photo;
   index: number;
   onClick: () => void;
@@ -21,6 +23,8 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isP
   onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
+  isCover?: boolean;
+  onToggleCover?: (photo: Photo) => void;
 }) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +53,6 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isP
         <div className="min-overlay">
           <span className="min-index">{String(index + 1).padStart(2, '0')}</span>
         </div>
-        {/* Action buttons */}
         <div className="min-actions">
           {onHidePhoto && (
             <button
@@ -76,6 +79,15 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isP
               onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
             >
               <RectangleHorizontal style={{ width: '14px', height: '14px' }} />
+            </button>
+          )}
+          {onToggleCover && (
+            <button
+              className={isCover ? 'min-cover-btn min-cover-active' : 'min-cover-btn'}
+              title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+              onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
+            >
+              <Star style={{ width: '14px', height: '14px', fill: isCover ? 'currentColor' : 'none' }} />
             </button>
           )}
         </div>
@@ -117,7 +129,7 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isP
           position: absolute; top: 8px; left: 8px;
           display: flex; gap: 4px; align-items: center;
         }
-        .min-hide-btn, .min-delete-btn, .min-panorama-btn {
+        .min-hide-btn, .min-delete-btn, .min-panorama-btn, .min-cover-btn {
           opacity: 0; transition: opacity 0.2s;
           background: rgba(0,0,0,0.5);
           color: white;
@@ -128,20 +140,26 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isP
         .min-delete-btn { background: rgba(239,68,68,0.7); }
         .min-card:hover .min-hide-btn,
         .min-card:hover .min-delete-btn,
-        .min-card:hover .min-panorama-btn { opacity: 1; }
-        .min-hide-btn:hover, .min-panorama-btn:hover { background: rgba(0,0,0,0.7); }
+        .min-card:hover .min-panorama-btn,
+        .min-card:hover .min-cover-btn { opacity: 1; }
+        .min-hide-btn:hover, .min-panorama-btn:hover, .min-cover-btn:hover { background: rgba(0,0,0,0.7); }
         .min-delete-btn:hover { background: rgba(220,38,38,0.9); }
         .min-panorama-active {
           opacity: 1 !important;
           background: rgba(59,130,246,0.8);
         }
         .min-panorama-active:hover { background: rgba(37,99,235,0.9) !important; }
+        .min-cover-active {
+          opacity: 1 !important;
+          background: rgba(245,158,11,0.8);
+        }
+        .min-cover-active:hover { background: rgba(217,119,6,0.9) !important; }
       `}</style>
     </div>
   );
 }
 
-export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: MinimalismLayoutProps) {
+export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: MinimalismLayoutProps) {
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen py-16 px-8">
       <header className="text-center mb-12">
@@ -161,6 +179,8 @@ export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, onDeletePh
             onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
+            isCover={coverPaths?.includes(photo.path)}
+            onToggleCover={onToggleCover}
           />
         ))}
       </div>

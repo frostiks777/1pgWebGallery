@@ -3,7 +3,7 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Trash2, Star } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
@@ -13,6 +13,8 @@ interface LightboxProps {
   onClose: () => void;
   onHidePhoto?: (photo: Photo) => void;
   onDeletePhoto?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }
 
 function LightboxContent({ 
@@ -22,6 +24,8 @@ function LightboxContent({
   onClose,
   onHidePhoto,
   onDeletePhoto,
+  coverPaths,
+  onToggleCover,
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
@@ -29,6 +33,8 @@ function LightboxContent({
   onClose: () => void;
   onHidePhoto?: (photo: Photo) => void;
   onDeletePhoto?: (photo: Photo) => void;
+  coverPaths?: string[];
+  onToggleCover?: (photo: Photo) => void;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -42,17 +48,16 @@ function LightboxContent({
   const currentPhoto = photos[index];
   const imageUrl     = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
+  const isCover      = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
 
   const expectedUrl = useRef(imageUrl);
 
-  // Reset loading/error state whenever the target image URL changes
   useEffect(() => {
     expectedUrl.current = imageUrl;
     setHasError(false);
     setIsLoading(true);
   }, [imageUrl]);
 
-  // Auto-scroll the thumbnail strip so the active thumb is always visible.
   useEffect(() => {
     const scroll = () => {
       const el = thumbRefs.current.get(index);
@@ -95,7 +100,6 @@ function LightboxContent({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Prefetch adjacent images
   useEffect(() => {
     if (!isOpen || !currentPhoto) return;
     const prefetch = (i: number) => {
@@ -168,6 +172,20 @@ function LightboxContent({
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
+          {onToggleCover && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onToggleCover(currentPhoto)}
+              className={isCover
+                ? 'text-amber-400 hover:bg-amber-500/30 h-8 w-8'
+                : 'text-white hover:bg-white/20 h-8 w-8'
+              }
+              title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+            >
+              <Star className={`h-4 w-4 ${isCover ? 'fill-current' : ''}`} />
+            </Button>
+          )}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8" title="Download full size">
               <Download className="h-4 w-4" />
@@ -179,9 +197,8 @@ function LightboxContent({
         </div>
       </div>
 
-      {/* Image container — fills remaining space between header and thumbnail strip */}
+      {/* Image container */}
       <div className="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-        {/* Navigation buttons */}
         {photos.length > 1 && (
           <>
             <Button
@@ -267,7 +284,7 @@ function LightboxContent({
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto, onDeletePhoto }: LightboxProps) {
+export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto, onDeletePhoto, coverPaths, onToggleCover }: LightboxProps) {
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}-${photos.length}`, [isOpen, currentIndex, photos.length]);
 
   if (!isOpen || photos.length === 0) return null;
@@ -282,6 +299,8 @@ export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto, o
         onClose={onClose}
         onHidePhoto={onHidePhoto}
         onDeletePhoto={onDeletePhoto}
+        coverPaths={coverPaths}
+        onToggleCover={onToggleCover}
       />
     </Dialog>
   );
