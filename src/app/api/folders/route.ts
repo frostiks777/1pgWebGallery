@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWebDAVConfig, getFoldersFromDirectory } from '@/lib/webdav';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 
 function resolveAndValidatePath(subPath: string | null, baseDir: string): string | null {
   if (!subPath) return baseDir;
@@ -11,6 +12,10 @@ function resolveAndValidatePath(subPath: string | null, baseDir: string): string
 
 export async function GET(request: NextRequest) {
   try {
+    if (isAuthRequired() && !validateAuthCookie(request)) {
+      return NextResponse.json({ success: true, folders: [] });
+    }
+
     const config = getWebDAVConfig();
     if (!config) {
       return NextResponse.json(

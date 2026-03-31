@@ -25,6 +25,8 @@ import {
   Eye,
   Sun,
   Moon,
+  Lock,
+  LogIn,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -107,6 +109,13 @@ export default function GalleryPage() {
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // Auth state
+  const [authRequired, setAuthRequired] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(false);
+
   // Dark / light theme
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -128,6 +137,17 @@ export default function GalleryPage() {
       localStorage.setItem('theme', next);
       return next;
     });
+  }, []);
+
+  // Check auth status on mount
+  useEffect(() => {
+    fetch('/api/auth')
+      .then((r) => r.json())
+      .then((data: { authenticated: boolean; required: boolean }) => {
+        setAuthRequired(data.required);
+        setIsAuthenticated(data.authenticated);
+      })
+      .catch(() => {});
   }, []);
 
   // Folder navigation state
@@ -153,6 +173,15 @@ export default function GalleryPage() {
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Confirm before leaving / closing the page
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
   // Thumbnail generation state
@@ -246,6 +275,33 @@ export default function GalleryPage() {
     fetchFolders(currentPath);
     fetchPhotos(currentPath);
   }, [currentPath, fetchFolders, fetchPhotos]);
+
+  const handleAuthSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(false);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: authPassword }),
+      });
+      if (res.ok) {
+        setIsAuthenticated(true);
+        setAuthPassword('');
+        fetchFolders('');
+        fetchPhotos('');
+      } else {
+        setAuthError(true);
+        setTimeout(() => setAuthError(false), 2000);
+      }
+    } catch {
+      setAuthError(true);
+      setTimeout(() => setAuthError(false), 2000);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [authPassword, fetchFolders, fetchPhotos]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {
@@ -410,6 +466,39 @@ export default function GalleryPage() {
 
               {/* Controls */}
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {/* Password field — visible only when auth is required and not yet authenticated */}
+                {authRequired && !isAuthenticated && (
+                  <form onSubmit={handleAuthSubmit} className="flex items-center gap-1.5">
+                    <div className="relative">
+                      <Lock className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="password"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder="Пароль"
+                        className={`h-9 pl-7 pr-3 text-sm rounded-md border bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm outline-none focus:ring-2 transition-colors w-32
+                          ${authError
+                            ? 'border-red-400 dark:border-red-500 focus:ring-red-300'
+                            : 'border-slate-200 dark:border-slate-700 focus:ring-violet-300 dark:focus:ring-violet-700'
+                          }
+                          text-slate-900 dark:text-slate-100 placeholder:text-slate-400`}
+                        autoComplete="current-password"
+                        disabled={authLoading}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      disabled={authLoading || !authPassword}
+                      className="h-9 px-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
+                    >
+                      {authLoading
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <LogIn className="h-4 w-4" />}
+                    </Button>
+                  </form>
+                )}
                 {hiddenInCurrentFolder.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>

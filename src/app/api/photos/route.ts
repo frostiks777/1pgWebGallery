@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { testWebDAVConnection } from '@/lib/webdav';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 
 interface LocalPhoto {
   name: string;
@@ -67,6 +68,12 @@ function resolveAndValidatePath(subPath: string | null, baseDir: string): string
 
 export async function GET(request: NextRequest) {
   try {
+    // If auth is required but cookie is missing/invalid, serve demo photos
+    if (isAuthRequired() && !validateAuthCookie(request)) {
+      const photos = await getLocalDemoPhotos();
+      return NextResponse.json({ success: true, mode: 'demo', photos });
+    }
+
     // Check if WebDAV is configured
     const webdavUrl = process.env.WEBDAV_URL;
     const webdavUsername = process.env.WEBDAV_USERNAME;
