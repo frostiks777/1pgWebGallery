@@ -291,7 +291,17 @@ export default function GalleryPage() {
   }, [currentPath, fetchFolders, fetchPhotos]);
 
   const handleHidePhoto = useCallback(async (photo: Photo) => {
-    setLightboxOpen(false);
+    const newVisiblePhotos = visiblePhotos.filter((p) => p.path !== photo.path);
+
+    if (lightboxOpen) {
+      if (newVisiblePhotos.length === 0) {
+        setLightboxOpen(false);
+      } else {
+        const newIndex = Math.min(currentPhotoIndex, newVisiblePhotos.length - 1);
+        setCurrentPhotoIndex(newIndex);
+      }
+    }
+
     setHiddenPaths((prev) => (prev.includes(photo.path) ? prev : [...prev, photo.path]));
     try {
       await fetch('/api/hidden', {
@@ -300,7 +310,7 @@ export default function GalleryPage() {
         body: JSON.stringify({ path: photo.path, dir: currentPath }),
       });
     } catch {}
-  }, [currentPath]);
+  }, [currentPath, lightboxOpen, visiblePhotos, currentPhotoIndex]);
 
   const handleShowAll = useCallback(async () => {
     setHiddenPaths([]);
