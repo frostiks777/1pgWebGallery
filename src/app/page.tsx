@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Grid3X3, 
@@ -115,6 +115,7 @@ export default function GalleryPage() {
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const skipBeforeUnload = useRef(false);
 
   // Dark / light theme
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -175,9 +176,10 @@ export default function GalleryPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Confirm before leaving / closing the page
+  // Confirm before leaving / closing the page (skip on planned reloads)
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
+      if (skipBeforeUnload.current) return;
       e.preventDefault();
     };
     window.addEventListener('beforeunload', handler);
@@ -287,6 +289,7 @@ export default function GalleryPage() {
         body: JSON.stringify({ password: authPassword }),
       });
       if (res.ok) {
+        skipBeforeUnload.current = true;
         window.location.reload();
         return;
       } else {
