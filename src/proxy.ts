@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const rateMap = new Map<string, { count: number; ts: number }>();
-const RATE_LIMIT  = parseInt(process.env.API_RATE_LIMIT  || '300',   10); // requests per window
+const RATE_LIMIT  = parseInt(process.env.API_RATE_LIMIT  || '3000',  10); // requests per window
 const RATE_WINDOW = parseInt(process.env.API_RATE_WINDOW || '60000', 10); // ms (default: 1 min)
 
 function checkRateLimit(ip: string): boolean {
@@ -52,7 +52,9 @@ export function proxy(req: NextRequest) {
   const forwarded = req.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
 
-  if (!checkRateLimit(ip)) {
+  const isImageRequest = req.nextUrl.pathname.startsWith('/api/images');
+
+  if (!isImageRequest && !checkRateLimit(ip)) {
     return NextResponse.json(
       { error: 'Too Many Requests' },
       { status: 429, headers: { 'Retry-After': '60' } },
