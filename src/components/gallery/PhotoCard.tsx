@@ -2,13 +2,14 @@
 
 import { Photo } from './types';
 import { memo, useState } from 'react';
-import { EyeOff, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
 
 interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   onTogglePanorama?: (photo: Photo) => void;
   isPanorama?: boolean;
   className?: string;
@@ -21,6 +22,7 @@ export const PhotoCard = memo(function PhotoCard({
   index, 
   onClick,
   onHidePhoto,
+  onDeletePhoto,
   onTogglePanorama,
   isPanorama = false,
   className = '',
@@ -91,6 +93,15 @@ export const PhotoCard = memo(function PhotoCard({
             onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
           >
             <EyeOff className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDeletePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90"
+            title="Удалить фото"
+            onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
         {/* Panorama toggle — always visible when marked, hover-only when not */}

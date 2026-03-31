@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { Photo } from './types';
-import { EyeOff, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
 
 interface AlbumLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
@@ -30,6 +31,7 @@ function AlbumCard({
   row,
   onClick,
   onHidePhoto,
+  onDeletePhoto,
   isPanorama,
   onTogglePanorama,
 }: {
@@ -39,6 +41,7 @@ function AlbumCard({
   row: string;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
 }) {
@@ -118,6 +121,15 @@ function AlbumCard({
                 <EyeOff className="h-3 w-3" />
               </button>
             )}
+            {onDeletePhoto && (
+              <button
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1 hover:bg-red-600/90"
+                title="Удалить фото"
+                onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
             {onTogglePanorama && (
               <button
                 className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1 ${
@@ -146,7 +158,7 @@ function AlbumCard({
   );
 }
 
-export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: AlbumLayoutProps) {
+export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: AlbumLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = ALBUM_PATTERN[index % ALBUM_PATTERN.length];
@@ -175,6 +187,7 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, 
             row={row}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
           />

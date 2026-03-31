@@ -2,21 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
 
 interface HoneycombLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
 
-function HexagonCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
+function HexagonCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
 }) {
@@ -68,6 +70,15 @@ function HexagonCard({ photo, index, onClick, onHidePhoto, isPanorama, onToggleP
             <EyeOff className="h-3.5 w-3.5" />
           </button>
         )}
+        {onDeletePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90 pointer-events-auto"
+            title="Удалить фото"
+            onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
         {onTogglePanorama && (
           <button
             className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 pointer-events-auto ${
@@ -97,7 +108,7 @@ function HexagonCard({ photo, index, onClick, onHidePhoto, isPanorama, onToggleP
   );
 }
 
-export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: HoneycombLayoutProps) {
+export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: HoneycombLayoutProps) {
   return (
     <div className="overflow-x-auto py-8">
       <div className="flex flex-wrap justify-center gap-1">
@@ -120,6 +131,7 @@ export function HoneycombLayout({ photos, onPhotoClick, onHidePhoto, panoramaPat
                 index={index}
                 onClick={() => onPhotoClick(photo, index)}
                 onHidePhoto={onHidePhoto}
+                onDeletePhoto={onDeletePhoto}
                 isPanorama={panoramaPaths?.includes(photo.path)}
                 onTogglePanorama={onTogglePanorama}
               />

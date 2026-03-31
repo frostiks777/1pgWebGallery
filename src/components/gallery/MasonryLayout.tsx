@@ -8,11 +8,12 @@ interface MasonryLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
 
-export function MasonryLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: MasonryLayoutProps) {
+export function MasonryLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: MasonryLayoutProps) {
   // Create 3 columns for masonry layout - memoized to prevent recalculation
   const columns = useMemo(() => {
     const cols: Photo[][] = [[], [], []];
@@ -35,6 +36,7 @@ export function MasonryLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths
                 index={originalIndex}
                 onClick={() => onPhotoClick(photo, originalIndex)}
                 onHidePhoto={onHidePhoto}
+                onDeletePhoto={onDeletePhoto}
                 onTogglePanorama={onTogglePanorama}
                 isPanorama={panoramaPaths?.includes(photo.path)}
                 thumbnailSize={400}

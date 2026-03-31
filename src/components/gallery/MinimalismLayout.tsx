@@ -2,21 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
 
-function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
+function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
 }) {
@@ -56,6 +58,15 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogg
               onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
             >
               <EyeOff style={{ width: '14px', height: '14px' }} />
+            </button>
+          )}
+          {onDeletePhoto && (
+            <button
+              className="min-delete-btn"
+              title="Удалить фото"
+              onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+            >
+              <Trash2 style={{ width: '14px', height: '14px' }} />
             </button>
           )}
           {onTogglePanorama && (
@@ -106,7 +117,7 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogg
           position: absolute; top: 8px; left: 8px;
           display: flex; gap: 4px; align-items: center;
         }
-        .min-hide-btn, .min-panorama-btn {
+        .min-hide-btn, .min-delete-btn, .min-panorama-btn {
           opacity: 0; transition: opacity 0.2s;
           background: rgba(0,0,0,0.5);
           color: white;
@@ -114,9 +125,12 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogg
           cursor: pointer; display: flex; align-items: center; justify-content: center;
           backdrop-filter: blur(4px);
         }
+        .min-delete-btn { background: rgba(239,68,68,0.7); }
         .min-card:hover .min-hide-btn,
+        .min-card:hover .min-delete-btn,
         .min-card:hover .min-panorama-btn { opacity: 1; }
         .min-hide-btn:hover, .min-panorama-btn:hover { background: rgba(0,0,0,0.7); }
+        .min-delete-btn:hover { background: rgba(220,38,38,0.9); }
         .min-panorama-active {
           opacity: 1 !important;
           background: rgba(59,130,246,0.8);
@@ -127,7 +141,7 @@ function MinimalistCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogg
   );
 }
 
-export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: MinimalismLayoutProps) {
+export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: MinimalismLayoutProps) {
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen py-16 px-8">
       <header className="text-center mb-12">
@@ -144,6 +158,7 @@ export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, panoramaPa
             index={index}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
           />

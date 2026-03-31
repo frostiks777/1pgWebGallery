@@ -8,6 +8,7 @@ interface BentoLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
@@ -26,7 +27,7 @@ const BENTO_PATTERN: { col: string; row: string }[] = [
   { col: 'col-span-1', row: 'row-span-1' }, // 9
 ];
 
-export function BentoLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: BentoLayoutProps) {
+export function BentoLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: BentoLayoutProps) {
   const photoConfigs = useMemo(() => {
     return photos.map((photo, index) => {
       const pattern = BENTO_PATTERN[index % BENTO_PATTERN.length];
@@ -43,6 +44,7 @@ export function BentoLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, 
           index={index}
           onClick={() => onPhotoClick(photo, index)}
           onHidePhoto={onHidePhoto}
+          onDeletePhoto={onDeletePhoto}
           onTogglePanorama={onTogglePanorama}
           isPanorama={panoramaPaths?.includes(photo.path)}
           className={`${col} ${row}`}

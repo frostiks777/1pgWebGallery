@@ -2,21 +2,23 @@
 
 import { Photo } from './types';
 import { useState } from 'react';
-import { EyeOff, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, Trash2, RectangleHorizontal } from 'lucide-react';
 
 interface EmpireLayoutProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo, index: number) => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   panoramaPaths?: string[];
   onTogglePanorama?: (photo: Photo) => void;
 }
 
-function EmpireCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePanorama }: {
+function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama }: {
   photo: Photo;
   index: number;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
   isPanorama?: boolean;
   onTogglePanorama?: (photo: Photo) => void;
 }) {
@@ -65,6 +67,15 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePa
             onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
           >
             <EyeOff className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDeletePhoto && (
+          <button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90"
+            title="Удалить фото"
+            onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
         {onTogglePanorama && (
@@ -122,7 +133,7 @@ function EmpireCard({ photo, index, onClick, onHidePhoto, isPanorama, onTogglePa
   );
 }
 
-export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths, onTogglePanorama }: EmpireLayoutProps) {
+export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama }: EmpireLayoutProps) {
   return (
     <div className="py-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950">
       <div className="text-center mb-8 text-3xl text-amber-600">⚜</div>
@@ -134,6 +145,7 @@ export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, panoramaPaths,
             index={index}
             onClick={() => onPhotoClick(photo, index)}
             onHidePhoto={onHidePhoto}
+            onDeletePhoto={onDeletePhoto}
             isPanorama={panoramaPaths?.includes(photo.path)}
             onTogglePanorama={onTogglePanorama}
           />

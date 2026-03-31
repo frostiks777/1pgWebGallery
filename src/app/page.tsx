@@ -27,6 +27,8 @@ import {
   Moon,
   Lock,
   LogIn,
+  Trash2,
+  Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -102,6 +104,9 @@ export default function GalleryPage() {
 
   // Hidden photos (per-directory)
   const [hiddenPaths, setHiddenPaths] = useState<string[]>([]);
+
+  // Photos marked for deletion (client-side pending list)
+  const [deletePendingPaths, setDeletePendingPaths] = useState<string[]>([]);
 
   // Panorama photos (per-directory)
   const [panoramaPaths, setPanoramaPaths] = useState<string[]>([]);
@@ -347,6 +352,20 @@ export default function GalleryPage() {
     fetchPhotos(currentPath);
   }, [currentPath, fetchFolders, fetchPhotos]);
 
+  const scrollToTop = useCallback(() => {
+    const start = window.scrollY;
+    if (start === 0) return;
+    const duration = 1000;
+    const startTime = performance.now();
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = (now: number) => {
+      const p = Math.min((now - startTime) / duration, 1);
+      window.scrollTo(0, start * (1 - ease(p)));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, []);
+
   const handleHidePhoto = useCallback(async (photo: Photo) => {
     const currentVisible = photos.filter((p) => !hiddenPaths.includes(p.path));
     const hiddenIdx = currentVisible.findIndex((p) => p.path === photo.path);
@@ -381,6 +400,48 @@ export default function GalleryPage() {
     } catch {}
   }, [currentPath]);
 
+  const handleDeletePhoto = useCallback((photo: Photo) => {
+    const currentVisible = photos.filter(
+      (p) => !hiddenPaths.includes(p.path) && !deletePendingPaths.includes(p.path),
+    );
+    const idx = currentVisible.findIndex((p) => p.path === photo.path);
+    const newVisible = currentVisible.filter((p) => p.path !== photo.path);
+
+    if (lightboxOpen) {
+      if (newVisible.length === 0) {
+        setLightboxOpen(false);
+      } else {
+        setCurrentPhotoIndex(Math.min(idx, newVisible.length - 1));
+      }
+    }
+
+    setDeletePendingPaths((prev) => (prev.includes(photo.path) ? prev : [...prev, photo.path]));
+    setHiddenPaths((prev) => (prev.includes(photo.path) ? prev : [...prev, photo.path]));
+  }, [photos, hiddenPaths, deletePendingPaths, lightboxOpen]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (deletePendingPaths.length === 0) return;
+    if (!window.confirm(`Удалить ${deletePendingPaths.length} фото без возможности восстановления?`)) return;
+
+    try {
+      await fetch('/api/photos/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: deletePendingPaths, dir: currentPath }),
+      });
+    } catch {}
+
+    setPhotos((prev) => prev.filter((p) => !deletePendingPaths.includes(p.path)));
+    setOriginalPhotos((prev) => prev.filter((p) => !deletePendingPaths.includes(p.path)));
+    setHiddenPaths((prev) => prev.filter((p) => !deletePendingPaths.includes(p)));
+    setDeletePendingPaths([]);
+  }, [deletePendingPaths, currentPath]);
+
+  const handleRestoreDeleted = useCallback(() => {
+    setHiddenPaths((prev) => prev.filter((p) => !deletePendingPaths.includes(p)));
+    setDeletePendingPaths([]);
+  }, [deletePendingPaths]);
+
   const handleTogglePanorama = useCallback(async (photo: Photo) => {
     const isCurrentlyPanorama = panoramaPaths.includes(photo.path);
     setPanoramaPaths((prev) =>
@@ -407,11 +468,17 @@ export default function GalleryPage() {
     [originalPhotos, hiddenPaths],
   );
 
+  const deletePendingInFolder = useMemo(
+    () => originalPhotos.filter((p) => deletePendingPaths.includes(p.path)),
+    [originalPhotos, deletePendingPaths],
+  );
+
   const renderLayout = useMemo(() => {
     const commonProps = {
       photos: visiblePhotos,
       onPhotoClick: handlePhotoClick,
       onHidePhoto: handleHidePhoto,
+      onDeletePhoto: handleDeletePhoto,
       panoramaPaths,
       onTogglePanorama: handleTogglePanorama,
     };
@@ -425,7 +492,7 @@ export default function GalleryPage() {
       case 'album':      return <AlbumLayout      {...commonProps} />;
       default:           return <MasonryLayout    {...commonProps} />;
     }
-  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, panoramaPaths, handleTogglePanorama]);
+  }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, handleDeletePhoto, panoramaPaths, handleTogglePanorama]);
 
   const isStyleLayout = useMemo(
     () => STYLE_LAYOUTS.includes(layout) && visiblePhotos.length > 0,
@@ -519,6 +586,39 @@ export default function GalleryPage() {
                     </TooltipTrigger>
                     <TooltipContent>Показать {hiddenInCurrentFolder.length} скрытых фото</TooltipContent>
                   </Tooltip>
+                )}
+                {deletePendingInFolder.length > 0 && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRestoreDeleted}
+                          className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 gap-1.5 text-xs"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Восстановить</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Восстановить {deletePendingInFolder.length} фото</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleConfirmDelete}
+                          className="bg-red-500/90 hover:bg-red-600 text-white border-red-500 backdrop-blur-sm h-9 gap-1.5 text-xs"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Удалить</span>
+                          <span>({deletePendingInFolder.length})</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Удалить {deletePendingInFolder.length} фото навсегда</TooltipContent>
+                    </Tooltip>
+                  </>
                 )}
                 <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
                   <SelectTrigger className="w-[140px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9">
@@ -716,7 +816,7 @@ export default function GalleryPage() {
             </motion.div>
           )}
 
-          {!isLoading && !error && visiblePhotos.length === 0 && folders.length === 0 && (
+          {!isLoading && !isFoldersLoading && !error && visiblePhotos.length === 0 && folders.length === 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center min-h-[30vh]">
               <Card className="max-w-sm w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="pt-6 text-center">
@@ -774,6 +874,7 @@ export default function GalleryPage() {
           isOpen={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
           onHidePhoto={handleHidePhoto}
+          onDeletePhoto={handleDeletePhoto}
         />
 
         {/* Scroll to top button */}
@@ -784,7 +885,7 @@ export default function GalleryPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              onClick={scrollToTop}
               className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full bg-slate-900/80 dark:bg-white/80 text-white dark:text-slate-900 shadow-lg backdrop-blur-sm hover:bg-slate-800 dark:hover:bg-white transition-colors flex items-center justify-center"
               aria-label="Прокрутить вверх"
             >

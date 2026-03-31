@@ -15,6 +15,7 @@ interface GenerateStatus {
   done: number;
   skipped: number;
   errors: number;
+  cleaned: number;
   lastPhoto: string;
   startedAt: number | null;
   finishedAt: number | null;
@@ -26,6 +27,7 @@ const status: GenerateStatus = {
   done: 0,
   skipped: 0,
   errors: 0,
+  cleaned: 0,
   lastPhoto: '',
   startedAt: null,
   finishedAt: null,
@@ -151,6 +153,7 @@ async function runGeneration(scopePath?: string) {
   status.done       = 0;
   status.skipped    = 0;
   status.errors     = 0;
+  status.cleaned    = 0;
   status.lastPhoto  = '';
   status.startedAt  = Date.now();
   status.finishedAt = null;
@@ -171,9 +174,11 @@ async function runGeneration(scopePath?: string) {
     // Collect all photo paths by walking subdirectories with Depth:1 requests
     // (Depth:infinity / { deep: true } is rejected by many WebDAV providers)
     let photoPaths: string[] = [];
+    const visitedDirs: string[] = [];
 
     if (client) {
       const walkDir = async (dir: string): Promise<void> => {
+        visitedDirs.push(dir);
         let entries: FileStat[];
         try {
           entries = await withTimeout(
@@ -287,9 +292,85 @@ async function runGeneration(scopePath?: string) {
       }
     }
 
+    // ── Cleanup orphaned thumbnails ──────────────────────────────────────────
+
+    // Local disk cache: only for full (non-scoped) generation
+    if (!scopePath && photoPaths.length > 0) {
+      try {
+        const expectedFiles = new Set<string>();
+        for (const pp of photoPaths) {
+          for (const sz of ALL_SIZES) {
+            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v2`).digest('hex');
+            expectedFiles.add(`${hash}${thumbExt()}`);
+          }
+        }
+        const cacheEntries = fs.readdirSync(CACHE_DIR, { withFileTypes: true });
+        for (const entry of cacheEntries) {
+          if (!entry.isFile()) continue;
+          if (expectedFiles.has(entry.name)) continue;
+          // Only clean thumbnail files (.webp / .jpg), skip metadata
+          const ext = path.extname(entry.name).toLowerCase();
+          if (ext !== '.webp' && ext !== '.jpg' && ext !== '.jpeg') continue;
+          try {
+            fs.unlinkSync(path.join(CACHE_DIR, entry.name));
+            status.cleaned++;
+          } catch {}
+        }
+        if (status.cleaned > 0) {
+          console.info(`[Generate] Local cache cleanup: removed ${status.cleaned} orphaned files`);
+        }
+      } catch (err) {
+        console.warn('[Generate] Local cache cleanup failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    // WebDAV .thumbs cleanup: remove thumbs for photos that no longer exist
+    if (client && WEBDAV_COLOCATED_ENABLED && visitedDirs.length > 0) {
+      const photoBasenames = new Map<string, Set<string>>();
+      for (const pp of photoPaths) {
+        const slash = pp.lastIndexOf('/');
+        const dir = slash >= 0 ? (pp.slice(0, slash) || '/') : '/';
+        const fname = slash >= 0 ? pp.slice(slash + 1) : pp;
+        const dot = fname.lastIndexOf('.');
+        const base = dot >= 0 ? fname.slice(0, dot) : fname;
+        if (!photoBasenames.has(dir)) photoBasenames.set(dir, new Set());
+        photoBasenames.get(dir)!.add(base);
+      }
+
+      for (const dir of visitedDirs) {
+        const validBases = photoBasenames.get(dir) ?? new Set();
+        for (const size of ALL_SIZES) {
+          const thumbDir = `${dir}/${thumbsDirName}/${size}`;
+          let thumbEntries: FileStat[];
+          try {
+            thumbEntries = await withTimeout(
+              client.getDirectoryContents(thumbDir) as Promise<FileStat[]>,
+              15_000, `list ${thumbDir}`,
+            );
+          } catch {
+            continue;
+          }
+          for (const te of thumbEntries) {
+            if (te.type !== 'file') continue;
+            const tDot = te.basename.lastIndexOf('.');
+            const tBase = tDot >= 0 ? te.basename.slice(0, tDot) : te.basename;
+            if (validBases.has(tBase)) continue;
+            try {
+              await client.deleteFile(te.filename);
+              status.cleaned++;
+            } catch {}
+          }
+        }
+      }
+
+      if (status.cleaned > 0) {
+        console.info(`[Generate] Total cleanup: removed ${status.cleaned} orphaned thumbnails`);
+      }
+    }
+
     status.finishedAt = Date.now();
     const elapsed = ((status.finishedAt - status.startedAt!) / 1000).toFixed(1);
-    console.info(`[Generate] Done in ${elapsed}s: ${status.done} total, ${status.skipped} skipped, ${status.errors} errors`);
+    console.info(`[Generate] Done in ${elapsed}s: ${status.done} total, ${status.skipped} skipped, ${status.errors} errors, ${status.cleaned} cleaned`);
   } catch (err) {
     console.error('[Generate] Job failed:', err);
     status.finishedAt = Date.now();

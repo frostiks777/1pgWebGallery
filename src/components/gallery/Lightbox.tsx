@@ -3,7 +3,7 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 interface LightboxProps {
@@ -12,6 +12,7 @@ interface LightboxProps {
   isOpen: boolean;
   onClose: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
 }
 
 function LightboxContent({ 
@@ -20,12 +21,14 @@ function LightboxContent({
   isOpen, 
   onClose,
   onHidePhoto,
+  onDeletePhoto,
 }: { 
   photos: Photo[]; 
   initialIndex: number; 
   isOpen: boolean; 
   onClose: () => void;
   onHidePhoto?: (photo: Photo) => void;
+  onDeletePhoto?: (photo: Photo) => void;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -154,6 +157,17 @@ function LightboxContent({
               <EyeOff className="h-4 w-4" />
             </Button>
           )}
+          {onDeletePhoto && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDeletePhoto(currentPhoto)}
+              className="text-red-400 hover:bg-red-500/30 h-8 w-8"
+              title="Удалить фото"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8" title="Download full size">
               <Download className="h-4 w-4" />
@@ -253,7 +267,7 @@ function LightboxContent({
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto }: LightboxProps) {
+export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto, onDeletePhoto }: LightboxProps) {
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}-${photos.length}`, [isOpen, currentIndex, photos.length]);
 
   if (!isOpen || photos.length === 0) return null;
@@ -267,6 +281,7 @@ export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto }:
         isOpen={isOpen}
         onClose={onClose}
         onHidePhoto={onHidePhoto}
+        onDeletePhoto={onDeletePhoto}
       />
     </Dialog>
   );
