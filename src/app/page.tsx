@@ -64,6 +64,7 @@ type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
 interface FolderInfo {
   name: string;
   path: string;
+  previewPhotos?: string[];
 }
 
 interface PhotosResponse {
@@ -765,20 +766,70 @@ export default function GalleryPage() {
                     </p>
                   )}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                    {folders.map((folder) => (
-                      <motion.button
-                        key={folder.path}
-                        onClick={() => navigateInto(folder)}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-md transition-all text-left"
-                      >
-                        <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500 transition-colors" />
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300 text-center leading-snug line-clamp-2 w-full">
-                          {folder.name}
-                        </span>
-                      </motion.button>
-                    ))}
+                    {folders.map((folder) => {
+                      const previews = folder.previewPhotos ?? [];
+                      return (
+                        <motion.button
+                          key={folder.path}
+                          onClick={() => navigateInto(folder)}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-md transition-all text-left"
+                        >
+                          {previews.length === 0 ? (
+                            <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500 transition-colors my-2" />
+                          ) : previews.length === 1 ? (
+                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : previews.length === 2 ? (
+                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 grid grid-cols-2 gap-0.5">
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[1])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 grid grid-cols-[2fr_1fr] grid-rows-2 gap-0.5">
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover row-span-2"
+                                loading="lazy"
+                              />
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[1])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                              <img
+                                src={`/api/images?path=${encodeURIComponent(previews[2])}&size=thumbnail`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 text-center leading-snug line-clamp-2 w-full">
+                            {folder.name}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </>
               )}

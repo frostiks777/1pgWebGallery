@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         path: f.path.startsWith(baseDir)
           ? f.path.slice(baseDir.length).replace(/^\/+/, '')
           : f.name,
+        previewPhotos: f.previewPhotos,
       })),
     });
   } catch (error) {

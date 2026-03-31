@@ -134,6 +134,26 @@ export async function testWebDAVConnection(photosDir: string = '/'): Promise<Con
 export interface FolderInfo {
   name: string;
   path: string;
+  previewPhotos: string[];
+}
+
+export async function getFirstPhotosFromDirectory(
+  directory: string,
+  limit: number = 3,
+): Promise<string[]> {
+  const client = getWebDAVClient();
+  const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
+  try {
+    const contents = await client.getDirectoryContents(directory);
+    if (!Array.isArray(contents)) return [];
+    return contents
+      .filter((f: FileStat) =>
+        f.type === 'file' &&
+        imageExts.includes(f.basename.toLowerCase().substring(f.basename.lastIndexOf('.')))
+      )
+      .slice(0, limit)
+      .map((f: FileStat) => f.filename);
+  } catch { return []; }
 }
 
 export async function getFoldersFromDirectory(directory: string = '/'): Promise<FolderInfo[]> {
@@ -148,7 +168,7 @@ export async function getFoldersFromDirectory(directory: string = '/'): Promise<
       return [];
     }
 
-    const folders: FolderInfo[] = contents
+    const baseFolders = contents
       .filter((item: FileStat) => {
         if (item.type !== 'directory') return false;
         if (item.basename === thumbsDirName) return false;
@@ -160,7 +180,18 @@ export async function getFoldersFromDirectory(directory: string = '/'): Promise<
         path: item.filename,
       }));
 
-    folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    baseFolders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    const results = await Promise.allSettled(
+      baseFolders.map(async (f) => ({
+        ...f,
+        previewPhotos: await getFirstPhotosFromDirectory(f.path, 3),
+      })),
+    );
+
+    const folders: FolderInfo[] = results.map((r, i) =>
+      r.status === 'fulfilled' ? r.value : { ...baseFolders[i], previewPhotos: [] },
+    );
 
     console.log(`[WebDAV] Found ${folders.length} folders in ${directory}`);
     return folders;
