@@ -40,6 +40,15 @@ function LightboxContent({
   const imageUrl     = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
 
+  const expectedUrl = useRef(imageUrl);
+
+  // Reset loading/error state whenever the target image URL changes
+  useEffect(() => {
+    expectedUrl.current = imageUrl;
+    setHasError(false);
+    setIsLoading(true);
+  }, [imageUrl]);
+
   // Auto-scroll the thumbnail strip so the active thumb is always visible.
   useEffect(() => {
     const scroll = () => {
@@ -55,23 +64,13 @@ function LightboxContent({
   }, [index]);
 
   const handlePrev = useCallback(() => {
-    setIndex((prev) => {
-      const next = (prev - 1 + photos.length) % photos.length;
-      setIsLoading(true);
-      setHasError(false);
-      setZoom(1);
-      return next;
-    });
+    setIndex((prev) => (prev - 1 + photos.length) % photos.length);
+    setZoom(1);
   }, [photos.length]);
 
   const handleNext = useCallback(() => {
-    setIndex((prev) => {
-      const next = (prev + 1) % photos.length;
-      setIsLoading(true);
-      setHasError(false);
-      setZoom(1);
-      return next;
-    });
+    setIndex((prev) => (prev + 1) % photos.length);
+    setZoom(1);
   }, [photos.length]);
 
   const handleZoomIn  = () => setZoom((z) => Math.min(z + 0.5, 3));
@@ -192,27 +191,26 @@ function LightboxContent({
             <p className="text-white/60 text-sm">Loading image...</p>
           </div>
         )}
-        {hasError ? (
-          <div className="flex flex-col items-center justify-center gap-4 text-white">
+        {hasError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white z-10">
             <X className="w-12 h-12 text-red-400" />
             <p className="text-base">Failed to load image</p>
             <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
               Retry
             </Button>
           </div>
-        ) : (
-          <img
-            src={imageUrl}
-            alt={currentPhoto.name}
-            className={`max-w-full max-h-full object-contain transition-all duration-300 ${
-              isLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            style={{ transform: `scale(${zoom})` }}
-            fetchPriority="high"
-            onLoad={() => setIsLoading(false)}
-            onError={() => { setHasError(true); setIsLoading(false); }}
-          />
         )}
+        <img
+          src={imageUrl}
+          alt={currentPhoto.name}
+          className={`max-w-full max-h-full object-contain transition-all duration-300 ${
+            isLoading || hasError ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ transform: `scale(${zoom})` }}
+          fetchPriority="high"
+          onLoad={() => { if (expectedUrl.current === imageUrl) setIsLoading(false); }}
+          onError={() => { if (expectedUrl.current === imageUrl) { setHasError(true); setIsLoading(false); } }}
+        />
       </div>
 
       {/* Thumbnail strip */}
@@ -230,8 +228,6 @@ function LightboxContent({
               }}
               onClick={() => {
                 if (i !== index) {
-                  setIsLoading(true);
-                  setHasError(false);
                   setZoom(1);
                   setIndex(i);
                 }
