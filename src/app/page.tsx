@@ -291,14 +291,15 @@ export default function GalleryPage() {
   }, [currentPath, fetchFolders, fetchPhotos]);
 
   const handleHidePhoto = useCallback(async (photo: Photo) => {
-    const newVisiblePhotos = photos.filter((p) => !hiddenPaths.includes(p.path) && p.path !== photo.path);
+    const currentVisible = photos.filter((p) => !hiddenPaths.includes(p.path));
+    const hiddenIdx = currentVisible.findIndex((p) => p.path === photo.path);
+    const newVisible = currentVisible.filter((p) => p.path !== photo.path);
 
     if (lightboxOpen) {
-      if (newVisiblePhotos.length === 0) {
+      if (newVisible.length === 0) {
         setLightboxOpen(false);
       } else {
-        const newIndex = Math.min(currentPhotoIndex, newVisiblePhotos.length - 1);
-        setCurrentPhotoIndex(newIndex);
+        setCurrentPhotoIndex(Math.min(hiddenIdx, newVisible.length - 1));
       }
     }
 
@@ -310,7 +311,7 @@ export default function GalleryPage() {
         body: JSON.stringify({ path: photo.path, dir: currentPath }),
       });
     } catch {}
-  }, [currentPath, lightboxOpen, photos, hiddenPaths, currentPhotoIndex]);
+  }, [currentPath, lightboxOpen, photos, hiddenPaths]);
 
   const handleShowAll = useCallback(async () => {
     setHiddenPaths([]);
