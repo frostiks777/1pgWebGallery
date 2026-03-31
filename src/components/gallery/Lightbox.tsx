@@ -258,7 +258,7 @@ function LightboxContent({
 }
 
 export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto }: LightboxProps) {
-  const contentKey = useMemo(() => `${isOpen}-${currentIndex}`, [isOpen, currentIndex]);
+  const contentKey = useMemo(() => `${isOpen}-${currentIndex}-${photos.length}`, [isOpen, currentIndex, photos.length]);
 
   if (!isOpen || photos.length === 0) return null;
 
