@@ -289,8 +289,7 @@ export default function GalleryPage() {
       if (res.ok) {
         setIsAuthenticated(true);
         setAuthPassword('');
-        fetchFolders('');
-        fetchPhotos('');
+        setCurrentPath('');
       } else {
         setAuthError(true);
         setTimeout(() => setAuthError(false), 2000);
@@ -301,7 +300,7 @@ export default function GalleryPage() {
     } finally {
       setAuthLoading(false);
     }
-  }, [authPassword, fetchFolders, fetchPhotos]);
+  }, [authPassword]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {
