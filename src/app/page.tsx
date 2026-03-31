@@ -288,7 +288,6 @@ export default function GalleryPage() {
         setOriginalPhotos([]);
       } else {
         setOriginalPhotos(data.photos);
-        setPhotos(data.photos);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load photos');
@@ -520,6 +519,16 @@ export default function GalleryPage() {
     () => originalPhotos.filter((p) => deletePendingPaths.includes(p.path)),
     [originalPhotos, deletePendingPaths],
   );
+
+  const sortedFolders = useMemo(() => {
+    return [...folders].sort((a, b) => {
+      switch (sortOption) {
+        case 'name-asc':  return a.name.localeCompare(b.name, undefined, { numeric: true });
+        case 'name-desc': return b.name.localeCompare(a.name, undefined, { numeric: true });
+        default:          return a.name.localeCompare(b.name, undefined, { numeric: true });
+      }
+    });
+  }, [folders, sortOption]);
 
   const renderLayout = useMemo(() => {
     const commonProps = {
@@ -815,7 +824,7 @@ export default function GalleryPage() {
                     </p>
                   )}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                    {folders.map((folder) => {
+                    {sortedFolders.map((folder) => {
                       const previews = folder.previewPhotos ?? [];
                       return (
                         <motion.button
