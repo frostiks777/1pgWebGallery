@@ -38,14 +38,14 @@ export function checkPassword(password: string): boolean {
   return diff === 0;
 }
 
-export function buildAuthCookie(): { name: string; value: string; options: Record<string, unknown> } {
+export function buildAuthCookie(isSecure: boolean): { name: string; value: string; options: Record<string, unknown> } {
   return {
     name: COOKIE_NAME,
     value: computeExpectedToken(),
     options: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite: 'lax' as const,
       path: '/',
       maxAge: COOKIE_MAX_AGE,
     },

@@ -287,11 +287,8 @@ export default function GalleryPage() {
         body: JSON.stringify({ password: authPassword }),
       });
       if (res.ok) {
-        setIsAuthenticated(true);
-        setAuthPassword('');
-        setCurrentPath('');
-        fetchFolders('');
-        fetchPhotos('');
+        window.location.reload();
+        return;
       } else {
         setAuthError(true);
         setTimeout(() => setAuthError(false), 2000);
@@ -302,7 +299,7 @@ export default function GalleryPage() {
     } finally {
       setAuthLoading(false);
     }
-  }, [authPassword, fetchFolders, fetchPhotos]);
+  }, [authPassword]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {

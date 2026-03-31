@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
 
   if (ok) {
     console.info(`[AUTH SUCCESS] IP: ${ip} | UA: ${ua} | ${timestamp}`);
-    const cookie = buildAuthCookie();
+    const proto = req.headers.get('x-forwarded-proto');
+    const isSecure = proto === 'https' || req.url.startsWith('https');
+    const cookie = buildAuthCookie(isSecure);
     const res = NextResponse.json({ success: true });
     res.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof res.cookies.set>[2]);
     return res;
