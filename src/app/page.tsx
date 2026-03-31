@@ -77,14 +77,14 @@ interface FoldersResponse {
   error?: string;
 }
 
-const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode }[] = [
+const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode; isNew?: boolean }[] = [
   { value: 'masonry',    label: 'Masonry',  icon: <Grid3X3   className="h-4 w-4" /> },
   { value: 'bento',      label: 'Bento',    icon: <LayoutGrid className="h-4 w-4" /> },
   { value: 'honeycomb',  label: 'Honeycomb',icon: <Hexagon   className="h-4 w-4" /> },
   { value: 'wave',       label: 'Wave',     icon: <Waves     className="h-4 w-4" /> },
   { value: 'empire',     label: 'Empire',   icon: <Crown     className="h-4 w-4" /> },
   { value: 'minimalism', label: 'Minimal',  icon: <Minus     className="h-4 w-4" /> },
-  { value: 'album',      label: 'Album',    icon: <Frame     className="h-4 w-4" /> },
+  { value: 'album',      label: 'Album',    icon: <Frame     className="h-4 w-4" />, isNew: true },
 ];
 
 const STYLE_LAYOUTS: CollageLayout[] = ['empire', 'minimalism', 'album'];
@@ -290,6 +290,8 @@ export default function GalleryPage() {
         setIsAuthenticated(true);
         setAuthPassword('');
         setCurrentPath('');
+        fetchFolders('');
+        fetchPhotos('');
       } else {
         setAuthError(true);
         setTimeout(() => setAuthError(false), 2000);
@@ -300,7 +302,7 @@ export default function GalleryPage() {
     } finally {
       setAuthLoading(false);
     }
-  }, [authPassword]);
+  }, [authPassword, fetchFolders, fetchPhotos]);
 
   useEffect(() => {
     const sorted = [...originalPhotos].sort((a, b) => {
@@ -632,6 +634,11 @@ export default function GalleryPage() {
                   >
                     {option.icon}
                     <span className="hidden sm:inline text-xs">{option.label}</span>
+                    {option.isNew && (
+                      <span className="text-[9px] font-bold uppercase leading-none px-1 py-0.5 rounded bg-violet-500 text-white">
+                        new
+                      </span>
+                    )}
                   </Button>
                 ))}
               </div>
