@@ -291,7 +291,7 @@ export default function GalleryPage() {
   }, [currentPath, fetchFolders, fetchPhotos]);
 
   const handleHidePhoto = useCallback(async (photo: Photo) => {
-    const newVisiblePhotos = visiblePhotos.filter((p) => p.path !== photo.path);
+    const newVisiblePhotos = photos.filter((p) => !hiddenPaths.includes(p.path) && p.path !== photo.path);
 
     if (lightboxOpen) {
       if (newVisiblePhotos.length === 0) {
@@ -310,7 +310,7 @@ export default function GalleryPage() {
         body: JSON.stringify({ path: photo.path, dir: currentPath }),
       });
     } catch {}
-  }, [currentPath, lightboxOpen, visiblePhotos, currentPhotoIndex]);
+  }, [currentPath, lightboxOpen, photos, hiddenPaths, currentPhotoIndex]);
 
   const handleShowAll = useCallback(async () => {
     setHiddenPaths([]);
