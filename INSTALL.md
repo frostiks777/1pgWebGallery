@@ -110,6 +110,9 @@ WEBDAV_URL=https://your-nextcloud.com/remote.php/dav/files/username/
 WEBDAV_USERNAME=your-username
 WEBDAV_PASSWORD=your-app-password
 PHOTOS_DIR=/Photos
+
+# Пароль для доступа к галерее (необязательно, без него галерея открыта)
+WEBDAV_LOGON_PASSWORD=your-gallery-access-password
 ```
 
 > 💡 Для Nextcloud создайте App Password в Settings → Security

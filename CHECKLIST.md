@@ -126,8 +126,8 @@ rm -rf .cache/images/*
 
 - `PERFORMANCE.md` - детальный отчет по оптимизациям
 - `MIGRATION.md` - инструкции по миграции и troubleshooting
-- `OPTIMIZATION_SUMMARY.md` - краткое резюме изменений
-- `DEPLOYMENT.md` - обновленные инструкции по развертыванию
+- `DEPLOYMENT.md` - инструкции по развертыванию
+- `INSTALL.md` - пошаговая установка на Ubuntu 22
 
 ## 🚀 Для production
 

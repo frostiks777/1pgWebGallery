@@ -86,6 +86,9 @@ WEBDAV_URL=https://your-cloud.com/remote.php/dav/files/username/
 WEBDAV_USERNAME=your-username
 WEBDAV_PASSWORD=your-password-or-app-token
 PHOTOS_DIR=/Photos
+
+# Gallery access password (optional, gallery is open if not set)
+WEBDAV_LOGON_PASSWORD=your-gallery-access-password
 ```
 
 ### 3.6 Сборка проекта

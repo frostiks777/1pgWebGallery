@@ -7,23 +7,24 @@ A beautiful, modern, **highly optimized** single-page photo gallery application 
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?style=flat-square&logo=tailwind-css)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
-## ⚡ Performance Optimizations (NEW)
+## ⚡ Performance Optimizations
 
 This gallery has been **heavily optimized** for maximum performance:
 
 - **🚀 70-75% faster** image loading with WebP optimization
 - **📦 70% smaller** file sizes using Sharp image processing
-- **💾 Intelligent caching** with 30-day browser cache
+- **💾 Intelligent caching** with 30-day browser cache + co-located WebDAV thumbnails
 - **🔄 Smart prefetching** for instant navigation in Lightbox
 - **⚛️ React optimizations** with memo, useMemo, useCallback
 - **🎯 Lazy loading** and async decoding for smooth scrolling
 - **📊 Performance Score > 90** in Lighthouse
+- **📂 Fast folder navigation** via local dir-meta covers (no extra WebDAV requests)
 
 See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
 
 ## ✨ Features
 
-- **🖼️ Multiple Gallery Layouts**
+- **🖼️ 7 Gallery Layouts**
 
   **Grid Layouts:**
   - **Masonry** - Pinterest-style staggered grid
@@ -34,30 +35,50 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
   - **Wave** - Dynamic wavy arrangement
 
   **Style Layouts:**
-  - **Empire (Ампир)** - Classic luxury style with golden frames, ornate decorations, and elegant typography
-  - **Minimalism (Минимализм)** - Clean, pure design with minimal elements and sophisticated simplicity
-  - **Album** - Print-inspired layout with warm paper tones, mat frames, and a repeating featured-tile grid pattern
+  - **Empire (Ампир)** - Classic luxury style with golden frames and ornate decorations
+  - **Minimalism (Минимализм)** - Clean, pure design with minimal elements
+  - **Album** - Print-inspired layout with warm paper tones and mat frames
 
 - **🔍 Full-Featured Lightbox**
   - Zoom in/out functionality
   - Keyboard navigation (← →)
   - Thumbnail strip for quick navigation
   - Photo download option
+  - Hide / delete / cover / panorama controls inside lightbox
+
+- **📁 Folder Navigation**
+  - Breadcrumb navigation with Home button
+  - Folder preview thumbnails (up to 3 cover photos per folder)
+  - Automatic cover auto-populate on first visit
+
+- **⭐ Photo Management**
+  - **Hide photos** - hide from gallery, show all with one click
+  - **Delete photos** - two-stage workflow: pending deletion with restore, then permanent removal
+  - **Cover photos** - select up to 3 photos as folder cover (star icon)
+  - **Panorama marking** - mark wide photos for special display
 
 - **⚡ Smart Sorting**
   - Sort by name (A-Z, Z-A)
   - Sort by date (oldest/newest first)
-  - Automatic sorting on load
+  - Applies to both photos and folders
 
 - **☁️ WebDAV Integration**
   - Connect to any WebDAV-compatible cloud provider
   - Supports Nextcloud, ownCloud, Yandex.Disk, and more
-  - Secure credential handling
+  - Demo mode with sample photos when WebDAV is not configured
 
-- **🔒 Security First**
+- **🔒 Security**
+  - Password-protected access via `WEBDAV_LOGON_PASSWORD`
   - Environment variables for sensitive data
-  - `.env.example` template provided
-  - Credentials excluded from version control
+  - Leave-page confirmation dialog
+  - Session persists within browser tab
+
+- **🎨 UI / UX**
+  - Dark / light theme toggle
+  - Smooth scroll-to-top button (~1s animation)
+  - Batch thumbnail generation with progress indicator
+  - Responsive design for mobile and desktop
+  - Framer Motion animations
 
 ## 🚀 Quick Start
 
@@ -70,8 +91,8 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
-   cd photo-gallery
+   git clone https://github.com/frostiks777/1pgWebGallery.git
+   cd 1pgWebGallery
    ```
 
 2. **Install dependencies**
@@ -86,12 +107,13 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
    cp .env.example .env.local
    ```
 
-4. **Edit `.env.local` with your WebDAV credentials**
+4. **Edit `.env.local` with your credentials**
    ```env
    WEBDAV_URL=https://your-cloud.com/remote.php/dav/files/username/
    WEBDAV_USERNAME=your-username
    WEBDAV_PASSWORD=your-password-or-app-token
    PHOTOS_DIR=/Photos
+   WEBDAV_LOGON_PASSWORD=your-gallery-access-password
    ```
 
 5. **Start the development server**
@@ -101,7 +123,7 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
    npm run dev
    ```
 
-6. Open your browser and navigate to the preview panel
+6. Open `http://localhost:3000` in your browser
 
 ## ⚙️ Configuration
 
@@ -136,26 +158,39 @@ WEBDAV_URL=https://dav.box.com/dav/
 | `WEBDAV_USERNAME` | Your WebDAV username | ✅ Yes |
 | `WEBDAV_PASSWORD` | Password or App Token | ✅ Yes |
 | `PHOTOS_DIR` | Directory path for photos | No (default: `/Photos`) |
+| `WEBDAV_LOGON_PASSWORD` | Gallery access password | No (gallery is open if not set) |
+| `WEBDAV_COLOCATED_CACHE` | Write thumbnails to WebDAV `.thumbs/` folders | No (default: `true`) |
+| `COLOCATED_THUMBS_DIR` | Name of the co-located thumbs folder | No (default: `.thumbs`) |
+| `CACHE_DIR` | Local disk cache directory | No (default: `/tmp/photo-gallery-cache`) |
 
 ## 📁 Project Structure
 
 ```
 ├── .env.example          # Environment template
-├── .gitignore            # Git ignore rules
 ├── README.md             # This file
+├── DEPLOYMENT.md         # Ubuntu Server deployment guide
+├── INSTALL.md            # Step-by-step installation guide
+├── PERFORMANCE.md        # Performance optimization report
+├── MIGRATION.md          # API migration guide
+├── CHECKLIST.md          # Post-deployment checklist
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── images/   # Unified image API (WebP, Sharp, 3 sizes)
-│   │   │   ├── folders/  # WebDAV folder listing
-│   │   │   ├── hidden/   # Hidden photos management
-│   │   │   ├── photos/   # Photo metadata
-│   │   │   └── webdav/   # WebDAV connectivity test
-│   │   ├── layout.tsx    # Root layout
-│   │   ├── page.tsx      # Main gallery page
-│   │   └── globals.css   # Global styles
+│   │   │   ├── auth/           # Password authentication
+│   │   │   ├── images/         # Unified image API (WebP, Sharp, 3 sizes)
+│   │   │   │   └── generate/   # Batch thumbnail generation
+│   │   │   ├── folders/        # WebDAV folder listing
+│   │   │   ├── photos/         # Photo metadata
+│   │   │   │   └── delete/     # Photo deletion
+│   │   │   ├── hidden/         # Hidden photos management
+│   │   │   ├── panoramas/      # Panorama photos management
+│   │   │   ├── covers/         # Folder cover photos management
+│   │   │   └── webdav/         # WebDAV connectivity test
+│   │   ├── layout.tsx          # Root layout
+│   │   ├── page.tsx            # Main gallery page (client)
+│   │   └── globals.css         # Global styles
 │   ├── components/
-│   │   ├── gallery/      # Gallery components
+│   │   ├── gallery/            # Gallery components
 │   │   │   ├── AlbumLayout.tsx
 │   │   │   ├── BentoLayout.tsx
 │   │   │   ├── EmpireLayout.tsx
@@ -163,14 +198,17 @@ WEBDAV_URL=https://dav.box.com/dav/
 │   │   │   ├── Lightbox.tsx
 │   │   │   ├── MasonryLayout.tsx
 │   │   │   ├── MinimalismLayout.tsx
+│   │   │   ├── PhotoCard.tsx
 │   │   │   ├── WaveLayout.tsx
 │   │   │   ├── index.ts
 │   │   │   └── types.ts
-│   │   └── ui/           # shadcn/ui components
+│   │   └── ui/                 # shadcn/ui components
 │   └── lib/
-│       ├── utils.ts      # Utility functions
-│       └── webdav.ts     # WebDAV client
-├── public/               # Static assets
+│       ├── auth.ts             # Authentication utilities
+│       ├── dir-meta.ts         # Directory metadata (hidden, panoramas, covers)
+│       ├── utils.ts            # Utility functions
+│       └── webdav.ts           # WebDAV client
+├── public/                     # Static assets & demo photos
 └── package.json
 ```
 
@@ -197,11 +235,9 @@ Dynamic wavy arrangement with varying rotations and heights. Creates an artistic
 #### Empire (Ампир) 👑
 Classic luxury style inspired by French Empire aesthetics:
 - Elegant golden and bronze frames
-- Ornamental decorations (❧ symbols)
+- Ornamental decorations
 - Classic serif typography
-- Decorative corners and patterns
 - Cream and gold color palette
-- Perfect for elegant portfolios and classic art displays
 
 #### Minimalism (Минимализм) ➖
 Clean, pure design philosophy:
@@ -209,35 +245,34 @@ Clean, pure design philosophy:
 - Minimal borders and decorations
 - Subtle grayscale effects
 - Monospace typography for numbers
-- Clean lines and plenty of whitespace
-- Perfect for modern photography portfolios
 
 #### Album
 Print-inspired photo album layout:
 - Warm paper and linen background tones
 - White mat / print frames for each photo
 - Repeating 7-tile pattern: one featured 2×2 tile among six standard tiles
-- Subtle hover scale and number overlay
 - Clean lowercase captions beneath each photo
-- Perfect for personal collections and analog-style portfolios
 
 ## 🔒 Security Best Practices
 
 1. **Never commit `.env.local`** - Already excluded in `.gitignore`
 2. **Use App Passwords** - Most cloud providers support generating app-specific passwords
-3. **Limit Permissions** - Create a dedicated folder for gallery photos
-4. **Use HTTPS** - Always use secure WebDAV endpoints
+3. **Set `WEBDAV_LOGON_PASSWORD`** - Protect gallery access with a password
+4. **Limit Permissions** - Create a dedicated folder for gallery photos
+5. **Use HTTPS** - Always use secure WebDAV endpoints
 
 ## 🛠️ Tech Stack
 
 - **Framework**: [Next.js 16](https://nextjs.org/) with App Router
 - **Language**: [TypeScript 5](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
-- **Components**: [shadcn/ui](https://ui.shadcn.com/)
+- **Components**: [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/)
 - **Animations**: [Framer Motion](https://www.framer.com/motion/)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **WebDAV**: [webdav](https://github.com/perry-mitchell/webdav-client)
-- **Image Optimization**: [Sharp](https://sharp.pixelplumbing.com/) - High performance image processing
+- **Image Optimization**: [Sharp](https://sharp.pixelplumbing.com/)
+- **Validation**: [Zod](https://zod.dev/)
+- **Notifications**: [Sonner](https://sonner.emilkowal.dev/)
 
 ## 🎨 Image Optimization Features
 
@@ -246,9 +281,10 @@ Print-inspired photo album layout:
   - Thumbnail: 400×400px (for gallery grid)
   - Medium: 1200×1200px (for Lightbox viewing)
   - Full: 2400×2400px (for downloads)
-- **Smart caching** with 30-day expiration
+- **Two-level caching**: local disk + co-located WebDAV `.thumbs/`
 - **Prefetching** adjacent images in Lightbox for instant navigation
 - **Lazy loading** with async decoding for smooth performance
+- **Batch generation** button for pre-generating all thumbnails
 
 ## 📝 Scripts
 
@@ -272,23 +308,20 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for complete optimization details.
 
 ## 🚀 Deployment
 
-Detailed deployment instructions for Ubuntu Server are available in [DEPLOYMENT.md](./DEPLOYMENT.md).
+Detailed deployment instructions for Ubuntu Server are available in [DEPLOYMENT.md](./DEPLOYMENT.md).  
+Step-by-step installation guide: [INSTALL.md](./INSTALL.md).
 
 ### Quick Deploy
 
 ```bash
-# Clone repository
 git clone https://github.com/frostiks777/1pgWebGallery.git
 cd 1pgWebGallery
 
-# Install dependencies
 bun install
 
-# Configure environment
 cp .env.example .env.local
 # Edit .env.local with your WebDAV credentials
 
-# Build and start
 bun run build
 bun run start
 ```
@@ -299,9 +332,11 @@ See [CHECKLIST.md](./CHECKLIST.md) for step-by-step verification guide.
 
 ## 📚 Documentation
 
+- **[INSTALL.md](./INSTALL.md)** - Step-by-step installation guide (Ubuntu 22)
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Ubuntu Server deployment with Nginx + SSL
 - **[PERFORMANCE.md](./PERFORMANCE.md)** - Detailed performance optimization report
+- **[MIGRATION.md](./MIGRATION.md)** - API migration guide (old → unified endpoint)
 - **[CHECKLIST.md](./CHECKLIST.md)** - Post-deployment verification checklist
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Ubuntu Server deployment guide
 
 ## 🤝 Contributing
 
@@ -310,6 +345,25 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🇷🇺 Краткое описание
+
+**Photo Gallery** — одностраничная веб-галерея фотографий с подключением к облачному хранилищу через WebDAV.
+
+- **7 макетов** отображения: Masonry, Bento, Honeycomb, Wave, Empire, Minimalism, Album
+- **Лайтбокс** с зумом, навигацией по клавиатуре, полоской миниатюр и скачиванием
+- **Управление фото**: скрытие, удаление (с восстановлением), выбор обложек папок, пометка панорам
+- **Навигация по папкам** с хлебными крошками и превью-обложками
+- **Сортировка** по имени и дате (для фото и папок)
+- **Защита паролем** через переменную `WEBDAV_LOGON_PASSWORD`
+- **Демо-режим** с примерами фото при отсутствии WebDAV
+- **Тёмная / светлая тема**
+- **Оптимизация**: WebP через Sharp, двухуровневый кеш, ленивая загрузка, предзагрузка в лайтбоксе
+- **Деплой**: Next.js 16 + TypeScript + Tailwind CSS 4 + Bun
+
+Подробнее: [DEPLOYMENT.md](./DEPLOYMENT.md) (развертывание), [INSTALL.md](./INSTALL.md) (установка), [PERFORMANCE.md](./PERFORMANCE.md) (оптимизация).
 
 ---
 
