@@ -44,16 +44,17 @@ export function MasonryLayout({
   onToggleCover,
 }: MasonryLayoutProps) {
   const cols = useMasonryCols();
-  const rowHeight = cols >= 5 ? 92 : cols === 4 ? 88 : cols === 3 ? 84 : 78;
+  const rowHeight = cols >= 5 ? 90 : cols === 4 ? 86 : cols === 3 ? 82 : 76;
 
   const pattern = useMemo(() => masonryPatternForCols(cols), [cols]);
 
   return (
     <div
-      className="grid w-full gap-2"
+      className="grid w-full gap-1.5"
       style={{
         gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gridAutoRows: `${rowHeight}px`,
+        gridAutoFlow: 'dense',
       }}
     >
       {photos.map((photo, index) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent, ReactNode } from 'react';
-import { Loader2, CircleDashed, EyeOff, Undo2, Trash2, LogIn } from 'lucide-react';
+import { Loader2, CircleDashed, EyeOff, Undo2, Trash2, LogIn, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -15,6 +15,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { CollageLayout } from './types';
 import {
   IconAperture,
@@ -51,10 +60,10 @@ function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
     }
   })();
   return (
-    <span className="inline-flex shrink-0 items-center leading-none" title={title}>
+    <span className="inline-flex shrink-0 items-center justify-center" title={title}>
       <span
         className={cn(
-          'inline-block size-[6px] shrink-0 -translate-y-px rounded-full align-middle',
+          'inline-block size-[6px] shrink-0 rounded-full',
           colorClass,
           pulse && 'motion-safe:animate-pulse',
         )}
@@ -89,12 +98,6 @@ function sortLabel(opt: SortOption): { line: string; arrow: string } {
     case 'date-desc':
       return { line: 'DATE', arrow: '↓' };
   }
-}
-
-function cycleSort(prev: SortOption): SortOption {
-  const order: SortOption[] = ['name-asc', 'name-desc', 'date-asc', 'date-desc'];
-  const i = order.indexOf(prev);
-  return order[(i + 1) % order.length];
 }
 
 function iconBtnClass(active?: boolean) {
@@ -198,19 +201,47 @@ function ToolbarSortGenRefreshTheme({
   const genActive = genStatus === 'running' || genStatus === 'done';
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onSortChange(cycleSort(sortOption))}
-        className={cn(
-          'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2.5',
-          'font-mono text-[11px] leading-none text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] transition-all duration-[180ms] max-md:min-h-11',
-        )}
-        aria-label="Сортировка: переключить режим"
-      >
-        <IconSort className="size-[14px] shrink-0 self-center opacity-80" />
-        <span className="self-center tracking-wide leading-none">{sl.line}</span>
-        <span className="self-center tabular-nums leading-none text-[var(--amber)]">{sl.arrow}</span>
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'inline-flex h-[30px] min-h-[30px] items-center justify-center gap-1 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2',
+              'font-mono text-[11px] leading-none text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] data-[state=open]:bg-[var(--accent-tint-soft)]',
+              'transition-all duration-[180ms] max-md:min-h-11 max-md:min-w-0',
+            )}
+            aria-label="Сортировка"
+          >
+            <IconSort className="size-[13px] shrink-0 opacity-80" />
+            <span className="tracking-wide">{sl.line}</span>
+            <span className="tabular-nums text-[var(--amber)]">{sl.arrow}</span>
+            <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="z-[100] min-w-[11rem] font-mono text-xs"
+        >
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.14em] text-[var(--obs-muted)]">
+            Сортировка
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioGroup value={sortOption} onValueChange={(v) => onSortChange(v as SortOption)}>
+            <DropdownMenuRadioItem value="name-asc" className="text-[11px]">
+              Имя · по возрастанию
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="name-desc" className="text-[11px]">
+              Имя · по убыванию
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="date-asc" className="text-[11px]">
+              Дата · старые сначала
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="date-desc" className="text-[11px]">
+              Дата · новые сначала
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -447,20 +478,20 @@ export function GalleryChrome({
     >
       <div className="mx-auto max-w-[1440px] px-6 pt-[14px] pb-0 max-sm:px-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3 min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
             <div
               className="gallery-logo-box flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[var(--r-lg)] text-[var(--amber)]"
               aria-hidden
             >
               <IconAperture />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[var(--fg)] truncate">
+            <div className="flex min-w-0 flex-col justify-center gap-0.5">
+              <h1 className="text-lg font-semibold leading-tight tracking-tight text-[var(--fg)] sm:text-xl truncate">
                 Photo Gallery
               </h1>
               <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-[var(--obs-muted)] truncate">
                 <WebDavStatusDot status={webDavIndicator} />
-                <span className="truncate leading-none" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
+                <span className="truncate" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
                   {mode === 'webdav' ? 'webdav' : 'demo'}
                 </span>
               </p>

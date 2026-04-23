@@ -195,7 +195,7 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
         </p>
       </header>
 
-      <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-3 [grid-auto-flow:dense] sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-[14px] auto-rows-[88px] sm:auto-rows-[88px] md:auto-rows-[88px]">
+      <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-3 [grid-auto-flow:dense] sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-[14px] auto-rows-[102px] sm:auto-rows-[104px] md:auto-rows-[108px]">
         {photoConfigs.map(({ photo, index, col, row }) => (
           <AlbumCard
             key={photo.path}

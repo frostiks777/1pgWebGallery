@@ -664,7 +664,7 @@ export default function GalleryPage() {
         <main className="flex-1">
           {/* Folder grid */}
           {folders.length > 0 && (
-            <div className="gallery-grid-shell mb-8">
+            <div className="gallery-grid-shell mb-8 mt-8 pt-1">
               {isFoldersLoading ? (
                 <div className="flex items-center gap-2 text-[var(--obs-muted)] py-4 font-mono text-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-[var(--amber)]" />
