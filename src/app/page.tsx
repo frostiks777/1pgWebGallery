@@ -30,6 +30,7 @@ import {
   GalleryCountRow,
   GalleryFooter,
   type GallerySortOption,
+  type WebDavIndicator,
 } from '@/components/gallery';
 
 type SortOption = GallerySortOption;
@@ -606,11 +607,19 @@ export default function GalleryPage() {
 
   const sortParts = sortCountParts(sortOption);
 
+  const webDavIndicator = useMemo<WebDavIndicator>(() => {
+    if (isLoading) return 'pending';
+    if (mode === 'demo') return 'demo';
+    if (error) return 'disconnected';
+    return 'connected';
+  }, [isLoading, mode, error]);
+
   return (
     <TooltipProvider>
       <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--fg)]">
         <GalleryChrome
           mode={mode}
+          webDavIndicator={webDavIndicator}
           layout={layout}
           onLayoutChange={setLayout}
           visiblePhotoCount={visiblePhotos.length}
@@ -649,6 +658,7 @@ export default function GalleryPage() {
             layoutLabel={layoutCountLabel(layout)}
             sortLine={sortParts.line}
             sortArrow={sortParts.arrow}
+            webDavIndicator={webDavIndicator}
           />
         )}
 

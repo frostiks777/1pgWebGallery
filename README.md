@@ -75,10 +75,15 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
 
 - **🎨 UI / UX**
   - Dark / light theme toggle
+  - WebDAV connection indicator in the header and photo count row (green when the server responds successfully, red on load errors, gray for demo mode, pulse while loading)
   - Smooth scroll-to-top button (~1s animation)
   - Batch thumbnail generation with progress indicator
   - Responsive design for mobile and desktop
   - Framer Motion animations
+  - **Bento** layout uses a four-column rhythm on large screens (dense CSS grid) for clearer alignment; narrower breakpoints fall back to 6- and 3-column patterns
+  - **Empire** layout shows every photo: the classic hero block for the first six, then a responsive grid for the rest
+  - **Minimal** layout lists each file with a thumbnail next to the name
+  - **Album** layout uses tighter spacing below the global header for a print-style flow
 
 ## 🚀 Quick Start
 

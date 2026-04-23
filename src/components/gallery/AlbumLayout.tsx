@@ -180,8 +180,8 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
   }, [photos]);
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
-      <header className="mb-10 text-center">
+    <div className="min-h-screen px-4 pb-10 pt-3 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
+      <header className="mb-4 text-center">
         <p
           className="font-mono text-[10px] uppercase tracking-[0.4em] text-[var(--obs-muted)]"
         >

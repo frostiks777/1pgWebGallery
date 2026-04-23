@@ -16,6 +16,12 @@ interface MinimalismLayoutProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
+function thumbUrl(photo: Photo): string {
+  return photo.path.startsWith('/demo-photos/')
+    ? photo.path
+    : `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+}
+
 export function MinimalismLayout({
   photos,
   onPhotoClick,
@@ -27,7 +33,7 @@ export function MinimalismLayout({
   onToggleCover,
 }: MinimalismLayoutProps) {
   return (
-    <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1 px-2">
+    <div className="mx-auto flex w-full max-w-[920px] flex-col gap-1 px-2">
       {photos.map((photo, i) => (
         <div
           key={photo.path}
@@ -40,13 +46,21 @@ export function MinimalismLayout({
             }
           }}
           className={cn(
-            'group grid cursor-pointer items-center gap-4 border-b border-[var(--rule)] py-2.5 font-mono text-[11px]',
+            'group grid cursor-pointer items-center gap-3 border-b border-[var(--rule)] py-2 font-mono text-[11px]',
             'text-[var(--obs-muted)] transition-colors hover:text-[var(--amber)]',
-            'grid-cols-[60px_1fr] md:grid-cols-[60px_1fr_140px]',
+            'grid-cols-[56px_48px_1fr] md:grid-cols-[56px_64px_1fr_140px]',
           )}
           onClick={() => onPhotoClick(photo, i)}
         >
           <span className="tracking-[0.16em] opacity-55">{String(i + 1).padStart(2, '0')}</span>
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[var(--r-sm)] border border-[var(--surface-border)] bg-black/20 md:h-14 md:w-14">
+            <img
+              src={thumbUrl(photo)}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="min-w-0 flex-1 tracking-[0.04em]">
               {photo.name}

@@ -17,14 +17,13 @@ interface BentoLayoutProps {
 }
 
 function useBentoCols(): number {
-  const [cols, setCols] = useState(9);
+  const [cols, setCols] = useState(4);
   useEffect(() => {
     const mq = () => {
       const w = window.innerWidth;
       if (w < 640) setCols(3);
-      else if (w < 960) setCols(6);
       else if (w < 1280) setCols(6);
-      else setCols(9);
+      else setCols(4);
     };
     mq();
     window.addEventListener('resize', mq, { passive: true });
@@ -44,7 +43,7 @@ export function BentoLayout({
   onToggleCover,
 }: BentoLayoutProps) {
   const cols = useBentoCols();
-  const rowPx = cols >= 9 ? 62 : cols >= 6 ? 58 : 52;
+  const rowPx = cols === 4 ? 80 : cols >= 6 ? 58 : 52;
 
   const pattern = useMemo(() => bentoPatternForCols(cols), [cols]);
 
@@ -54,6 +53,7 @@ export function BentoLayout({
       style={{
         gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gridAutoRows: `${rowPx}px`,
+        gridAutoFlow: 'dense',
       }}
     >
       {photos.map((photo, index) => {

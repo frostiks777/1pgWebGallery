@@ -12,6 +12,7 @@ export {
   GalleryFooter,
   type GalleryChromeProps,
   type SortOption as GallerySortOption,
+  type WebDavIndicator,
 } from './GalleryChrome';
 export { PhotoCard } from './PhotoCard';
 export type { Photo, CollageLayout } from './types';

@@ -47,6 +47,15 @@ export function masonryPatternForCols(cols: number): SpanSpec[] {
   return MASONRY_SPANS_2;
 }
 
+/** 4-column bento: hero 2×2 + four 1×1 tiles (repeats every 5 photos, use dense auto-flow). */
+export const BENTO_SPANS_4: SpanSpec[] = [
+  { col: 2, row: 2 },
+  { col: 1, row: 1 },
+  { col: 1, row: 1 },
+  { col: 1, row: 1 },
+  { col: 1, row: 1 },
+];
+
 /** 9-column bento (Obsidian reference) */
 export const BENTO_SPANS_9: SpanSpec[] = [
   { col: 3, row: 3 },
@@ -81,6 +90,7 @@ export const BENTO_SPANS_3: SpanSpec[] = [
 ];
 
 export function bentoPatternForCols(cols: number): SpanSpec[] {
+  if (cols === 4) return BENTO_SPANS_4;
   if (cols >= 9) return BENTO_SPANS_9;
   if (cols >= 6) return BENTO_SPANS_6;
   return BENTO_SPANS_3;

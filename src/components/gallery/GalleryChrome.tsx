@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent, ReactNode } from 'react';
-import { Loader2, CircleDashed, EyeOff, Undo2, Trash2 } from 'lucide-react';
+import { Loader2, CircleDashed, EyeOff, Undo2, Trash2, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -25,7 +25,6 @@ import {
   IconEmpire,
   IconMinimal,
   IconAlbum,
-  IconLogin,
   IconSort,
   IconCheck,
   IconRefresh,
@@ -35,6 +34,39 @@ import {
 } from './obsidian-icons';
 
 export type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
+
+/** WebDAV / source indicator for header and count row */
+export type WebDavIndicator = 'demo' | 'connected' | 'disconnected' | 'pending';
+
+function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
+  const { colorClass, title, pulse } = (() => {
+    switch (status) {
+      case 'connected':
+        return { colorClass: 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.55)]', title: 'WebDAV: подключено', pulse: false };
+      case 'disconnected':
+        return { colorClass: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.45)]', title: 'WebDAV: ошибка подключения', pulse: false };
+      case 'pending':
+        return { colorClass: 'bg-[var(--obs-muted)]', title: 'Проверка подключения…', pulse: true };
+      default:
+        return { colorClass: 'bg-zinc-400 dark:bg-zinc-500', title: 'Локальные демо-фото', pulse: false };
+    }
+  })();
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 shrink-0"
+      title={title}
+    >
+      <span
+        className={cn(
+          'inline-block h-2 w-2 rounded-full shrink-0',
+          colorClass,
+          pulse && 'motion-safe:animate-pulse',
+        )}
+        aria-hidden
+      />
+    </span>
+  );
+}
 
 const LAYOUT_CHIPS: {
   value: CollageLayout;
@@ -242,6 +274,7 @@ function ToolbarSortGenRefreshTheme({
 
 export interface GalleryChromeProps {
   mode: 'demo' | 'webdav';
+  webDavIndicator: WebDavIndicator;
   layout: CollageLayout;
   onLayoutChange: (layout: CollageLayout) => void;
   visiblePhotoCount: number;
@@ -276,6 +309,7 @@ export interface GalleryChromeProps {
 
 export function GalleryChrome({
   mode,
+  webDavIndicator,
   layout,
   onLayoutChange,
   visiblePhotoCount,
@@ -324,9 +358,9 @@ export function GalleryChrome({
   const passwordBlock =
     authRequired && !isAuthenticated ? (
       <form onSubmit={onAuthSubmit} className="flex items-center gap-1.5 shrink-0">
-        <label className="relative flex items-center w-[180px] max-w-[min(180px,50vw)] h-[30px] rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2 max-md:w-full max-md:max-w-none max-md:min-h-11">
+        <label className="relative flex h-[30px] w-[180px] max-w-[min(180px,50vw)] items-stretch gap-1.5 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2 max-md:h-11 max-md:w-full max-md:max-w-none max-md:min-h-11">
           <span
-            className="font-mono text-[10px] tracking-[0.12em] text-[var(--pass-label-color)] shrink-0 mr-1.5"
+            className="flex shrink-0 items-center font-mono text-[10px] leading-none tracking-[0.12em] text-[var(--pass-label-color)]"
             aria-hidden
           >
             PASS
@@ -336,7 +370,7 @@ export function GalleryChrome({
             value={authPassword}
             onChange={(e) => onAuthPasswordChange(e.target.value)}
             className={cn(
-              'flex-1 min-w-0 bg-transparent border-0 outline-none font-mono text-sm tracking-[0.2em] text-[var(--fg)] placeholder:text-[var(--obs-muted-dim)]',
+              'min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 font-mono text-[13px] leading-none tracking-[0.18em] text-[var(--fg)] outline-none placeholder:text-[var(--obs-muted-dim)]',
               authError && 'text-red-400',
             )}
             placeholder=""
@@ -351,7 +385,7 @@ export function GalleryChrome({
           className={cn(iconBtnClass(), 'max-md:min-h-11 max-md:min-w-11')}
           aria-label="Войти"
         >
-          {authLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IconLogin />}
+          {authLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" strokeWidth={1.75} />}
         </button>
       </form>
     ) : null;
@@ -429,11 +463,11 @@ export function GalleryChrome({
               <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[var(--fg)] truncate">
                 Photo Gallery
               </h1>
-              <p
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--obs-muted)] truncate"
-                title={mode === 'webdav' ? 'WebDAV' : 'Demo'}
-              >
-                {mode === 'webdav' ? 'obsidian · webdav' : 'obsidian · demo'}
+              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--obs-muted)] truncate">
+                <WebDavStatusDot status={webDavIndicator} />
+                <span className="truncate" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
+                  {mode === 'webdav' ? 'webdav' : 'demo'}
+                </span>
               </p>
             </div>
           </div>
@@ -518,11 +552,13 @@ export function GalleryCountRow({
   layoutLabel,
   sortLine,
   sortArrow,
+  webDavIndicator,
 }: {
   photoCount: number;
   layoutLabel: string;
   sortLine: string;
   sortArrow: string;
+  webDavIndicator: WebDavIndicator;
 }): ReactNode {
   return (
     <div className="gallery-grid-shell pt-2 pb-1">
@@ -531,7 +567,10 @@ export function GalleryCountRow({
           {photoCount} photos · {layoutLabel} · {sortLine} {sortArrow}
         </span>
         <span className="h-px flex-1 bg-[var(--rule)] min-w-[2rem]" aria-hidden />
-        <span className="shrink-0 whitespace-nowrap">obsidian · v1</span>
+        <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+          <WebDavStatusDot status={webDavIndicator} />
+          <span>· v1</span>
+        </span>
       </div>
     </div>
   );
