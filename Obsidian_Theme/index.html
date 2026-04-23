@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Photo Gallery — 3 концепции</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#f0eee9; }
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="gallery.jsx"></script>
+
+<script type="text/babel">
+// ────────────────────────────────────────────────────────────
+// 3 color concepts. Dark-primary, compact, monospace accent.
+// Each concept is a full theme token set.
+// ────────────────────────────────────────────────────────────
+
+// Concept A — "OBSIDIAN"
+// Rich black with warm amber accent. Museum-grade, low-chroma.
+// Logo: aperture. The photo is the subject; UI recedes.
+const OBSIDIAN = {
+  name: 'Obsidian',
+  // fonts
+  uiFont:   "'Inter', system-ui, sans-serif",
+  monoFont: "'JetBrains Mono', ui-monospace, monospace",
+  brandFont:"'Inter', system-ui, sans-serif",
+  brandTracking: '-0.01em',
+  uiTracking: '0',
+  // page
+  pageBg:  '#0b0b0d',
+  fg:      '#e9e4d9',
+  muted:   'rgba(233,228,217,0.55)',
+  mutedDim:'rgba(233,228,217,0.3)',
+  rule:    'rgba(233,228,217,0.14)',
+  // brand
+  brandName: 'Photo Gallery',
+  brandSub:  'obsidian · demo',
+  // header
+  headerBg: 'linear-gradient(180deg, #121214 0%, #0b0b0d 100%)',
+  headerBorder: '1px solid rgba(255,255,255,0.06)',
+  headerBlur: 'none',
+  // logo
+  logoRadius: 10,
+  logoBg:     'linear-gradient(145deg, #2a1d0e, #15100a)',
+  logoFg:     '#e6a85a',
+  logoShadow: '0 0 0 1px rgba(230,168,90,0.25), 0 6px 16px rgba(230,168,90,0.12)',
+  // chips
+  chipRadius: 8,
+  chipBg: 'rgba(255,255,255,0.03)',
+  chipFg: 'rgba(233,228,217,0.75)',
+  chipBorder: '1px solid rgba(255,255,255,0.06)',
+  chipActiveBg: 'linear-gradient(180deg, #e6a85a 0%, #c88a3e 100%)',
+  chipActiveFg: '#1a0f05',
+  chipActiveBorder: '1px solid rgba(230,168,90,0.6)',
+  chipActiveShadow: '0 4px 14px rgba(230,168,90,0.25), inset 0 1px 0 rgba(255,240,210,0.4)',
+  badgeBg: 'rgba(26,15,5,0.25)', badgeFg: '#3d2a10',
+  // inputs & buttons
+  inputRadius: 8,
+  inputBg: 'rgba(255,255,255,0.03)',
+  inputBorder: '1px solid rgba(255,255,255,0.07)',
+  statusBg: 'rgba(230,168,90,0.12)',
+  statusFg: '#e6a85a',
+  statusBorder: '1px solid rgba(230,168,90,0.35)',
+  // cards
+  cardRadius: 6,
+  cardBorder: '1px solid rgba(255,255,255,0.04)',
+  cardShadow: '0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -15px rgba(0,0,0,0.6)',
+  gridGap: 8,
+  // caption
+  captionMode: 'mono',
+  captionBg: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 100%)',
+  captionBlur: 'none',
+  captionFg: 'rgba(233,228,217,0.8)',
+  starColor: '#e6a85a', starBg: 'rgba(11,11,13,0.7)',
+  countNote: 'obsidian.v1',
+};
+
+// Concept B — "MIDNIGHT CINEMA"
+// Deep indigo + desaturated cyan with chrome micro-details.
+// Logo: prism. Cinematic, layered, glassy.
+const CINEMA = {
+  name: 'Midnight Cinema',
+  uiFont:   "'Space Grotesk', system-ui, sans-serif",
+  monoFont: "'Geist Mono', 'JetBrains Mono', ui-monospace, monospace",
+  brandFont:"'Space Grotesk', system-ui, sans-serif",
+  brandTracking: '-0.015em',
+  uiTracking: '0.01em',
+  pageBg:  'radial-gradient(1200px 600px at 50% -200px, #1a2140 0%, #0a0d1c 60%, #060814 100%)',
+  fg:      '#e6ecff',
+  muted:   'rgba(230,236,255,0.55)',
+  mutedDim:'rgba(230,236,255,0.28)',
+  rule:    'rgba(230,236,255,0.1)',
+  brandName: 'Photo Gallery',
+  brandSub:  'midnight · cinema',
+  headerBg: 'linear-gradient(180deg, rgba(20,26,52,0.85) 0%, rgba(10,13,28,0.7) 100%)',
+  headerBorder: '1px solid rgba(130,160,255,0.1)',
+  headerBlur: 'blur(12px)',
+  logoRadius: 8,
+  logoBg:     'linear-gradient(145deg, #3a4ad9 0%, #1a2477 60%, #0a0f3a 100%)',
+  logoFg:     '#e6ecff',
+  logoShadow: '0 0 0 1px rgba(130,160,255,0.25), 0 8px 24px rgba(90,120,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2)',
+  chipRadius: 6,
+  chipBg: 'rgba(255,255,255,0.025)',
+  chipFg: 'rgba(230,236,255,0.65)',
+  chipBorder: '1px solid rgba(130,160,255,0.08)',
+  chipActiveBg: 'linear-gradient(180deg, rgba(90,120,255,0.25) 0%, rgba(50,70,200,0.15) 100%)',
+  chipActiveFg: '#d8e3ff',
+  chipActiveBorder: '1px solid rgba(130,160,255,0.5)',
+  chipActiveShadow: '0 0 20px rgba(90,120,255,0.35), inset 0 1px 0 rgba(255,255,255,0.1)',
+  badgeBg: 'linear-gradient(180deg, #ff7b5a, #e63a3a)', badgeFg: '#fff',
+  inputRadius: 6,
+  inputBg: 'rgba(255,255,255,0.025)',
+  inputBorder: '1px solid rgba(130,160,255,0.12)',
+  statusBg: 'rgba(60,220,160,0.12)',
+  statusFg: '#3cdca0',
+  statusBorder: '1px solid rgba(60,220,160,0.35)',
+  cardRadius: 4,
+  cardBorder: '1px solid rgba(130,160,255,0.08)',
+  cardShadow: '0 2px 4px rgba(0,0,0,0.5), 0 16px 40px -20px rgba(60,80,200,0.4)',
+  gridGap: 6,
+  captionMode: 'mono',
+  captionBg: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(10,13,28,0.85) 100%)',
+  captionBlur: 'blur(4px)',
+  captionFg: 'rgba(200,220,255,0.85)',
+  starColor: '#ffd35a', starBg: 'rgba(10,13,28,0.8)',
+  countNote: 'roll.001 · 8 frames',
+};
+
+// Concept C — "DARKROOM"
+// Charcoal + safelight red. Analog photography lab vibe.
+// Logo: frame. High contrast, film-strip feel.
+const DARKROOM = {
+  name: 'Darkroom',
+  uiFont:   "'Inter', system-ui, sans-serif",
+  monoFont: "'JetBrains Mono', ui-monospace, monospace",
+  brandFont:"'Instrument Serif', 'Times New Roman', serif",
+  brandTracking: '0',
+  uiTracking: '0.02em',
+  pageBg:  '#161514',
+  fg:      '#f2ede4',
+  muted:   'rgba(242,237,228,0.55)',
+  mutedDim:'rgba(242,237,228,0.3)',
+  rule:    'rgba(242,237,228,0.14)',
+  brandName: 'Photo Gallery',
+  brandSub:  'darkroom · 35mm',
+  headerBg: '#1d1b19',
+  headerBorder: '1px solid #2a2724',
+  headerBlur: 'none',
+  logoRadius: 4,
+  logoBg:     '#ef3b3b',
+  logoFg:     '#1a0606',
+  logoShadow: '0 0 0 1px #8a1e1e, 0 4px 12px rgba(239,59,59,0.4)',
+  chipRadius: 3,
+  chipBg: '#1d1b19',
+  chipFg: 'rgba(242,237,228,0.7)',
+  chipBorder: '1px solid #2a2724',
+  chipActiveBg: '#f2ede4',
+  chipActiveFg: '#161514',
+  chipActiveBorder: '1px solid #f2ede4',
+  chipActiveShadow: '0 2px 0 #ef3b3b',
+  badgeBg: '#ef3b3b', badgeFg: '#fff',
+  inputRadius: 3,
+  inputBg: '#161514',
+  inputBorder: '1px solid #2a2724',
+  statusBg: '#ef3b3b',
+  statusFg: '#fff',
+  statusBorder: '1px solid #8a1e1e',
+  cardRadius: 0,
+  cardBorder: '2px solid #f2ede4',
+  cardShadow: 'none',
+  gridGap: 10,
+  captionMode: 'mono',
+  captionBg: '#f2ede4',
+  captionBlur: 'none',
+  captionFg: '#161514',
+  starColor: '#ef3b3b', starBg: '#f2ede4',
+  countNote: 'contact sheet · frame 1–8',
+};
+
+// ────────────────────────────────────────────────────────────
+// Canvas composition
+// ────────────────────────────────────────────────────────────
+const { DesignCanvas, DCSection, DCArtboard, DCPostIt } = window;
+
+const W = 1280;
+const H = 560;
+
+function Board({ theme, logoKind }) {
+  return (
+    <div style={{
+      width: W, height: H,
+      borderRadius: 14, overflow: 'hidden',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.12), 0 20px 60px -20px rgba(0,0,0,0.25)',
+    }}>
+      <window.GalleryMock theme={theme} logoKind={logoKind} />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="photo-gallery" title="Photo Gallery — редизайн"
+        subtitle="Три цветовые концепции · тёмная как главная · компактная плотность · моноширинный акцент">
+
+        <DCArtboard id="obsidian" label="A · Obsidian — янтарь × чёрный" width={W} height={H}>
+          <Board theme={OBSIDIAN} logoKind="aperture" />
+        </DCArtboard>
+
+        <DCArtboard id="cinema" label="B · Midnight Cinema — индиго × хром" width={W} height={H}>
+          <Board theme={CINEMA} logoKind="prism" />
+        </DCArtboard>
+
+        <DCArtboard id="darkroom" label="C · Darkroom — красный × крафт" width={W} height={H}>
+          <Board theme={DARKROOM} logoKind="frame" />
+        </DCArtboard>
+
+        <DCPostIt x={40} y={40} width={260}>
+          <b>Как читать канвас</b><br/><br/>
+          Три концепции одной галереи. Все режимы (Masonry, Bento, Honeycomb, Wave, Empire, Minimal, Album) сохраняются — меняется только визуальный язык: цвета, фоны, типографика, логотип, рамки карточек.<br/><br/>
+          Дважды кликните на артборд → фуллскрин.
+        </DCPostIt>
+
+        <DCPostIt x={W + 80} y={40} width={240}>
+          <b>A · Obsidian</b><br/>
+          Благородный чёрный (#0b0b0d) + янтарь (#e6a85a).<br/>
+          Логотип: <b>апертура</b>.<br/>
+          Карточки: едва заметные рамки, мягкая глубина. UI уходит на второй план — всё внимание на фото.
+        </DCPostIt>
+
+        <DCPostIt x={W + 80} y={H + 120} width={240}>
+          <b>B · Midnight Cinema</b><br/>
+          Индиго-градиент + хромированный акцент + неоновый рейтинг.<br/>
+          Логотип: <b>призма</b>.<br/>
+          Glassmorphism на шапке, caption с blur, минимальный скругл углов (4px) — кинематографичная подача.
+        </DCPostIt>
+
+        <DCPostIt x={W + 80} y={H*2 + 200} width={240}>
+          <b>C · Darkroom</b><br/>
+          Уголь + safelight-красный + кремовая бумага.<br/>
+          Логотип: <b>кадр</b>. Serif-вордмарк (Instrument Serif).<br/>
+          Нулевой скругл + белая рамка карточки = аналоговая «контактная печать». Самый смелый вариант.
+        </DCPostIt>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

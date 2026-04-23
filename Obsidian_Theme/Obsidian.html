@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Photo Gallery · Obsidian</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0b0d;
+    --bg-elev: #121214;
+    --fg: #e9e4d9;
+    --muted: rgba(233,228,217,0.55);
+    --muted-dim: rgba(233,228,217,0.3);
+    --rule: rgba(255,255,255,0.06);
+    --amber: #e6a85a;
+    --amber-dim: #c88a3e;
+    --sans: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --serif: 'Instrument Serif', 'Times New Roman', serif;
+  }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--sans); min-height:100vh; }
+  * { box-sizing:border-box; }
+  body::before {
+    /* film grain overlay */
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:1000;
+    opacity:0.055; mix-blend-mode:overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  body::after {
+    /* vignette */
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:999;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+  }
+  ::selection { background: rgba(230,168,90,0.35); color:#fff; }
+  button { font-family: inherit; color: inherit; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="obsidian-parts.jsx"></script>
+<script type="text/babel" src="obsidian-card.jsx"></script>
+<script type="text/babel" src="obsidian-layouts.jsx"></script>
+
+<script type="text/babel">
+const { MODES, ICN, PHOTOS, LAYOUTS } = window;
+
+// ---------- Chip ----------
+function Chip({ mode, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  // Active chip = amber gradient fill, identical for every mode (Album included).
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={()=>setHover(true)}
+      onMouseLeave={()=>setHover(false)}
+      style={{
+        display:'inline-flex', alignItems:'center', gap:7,
+        padding:'7px 12px', borderRadius:8,
+        background: active
+          ? 'linear-gradient(180deg, #e6a85a 0%, #c88a3e 100%)'
+          : (hover ? 'rgba(230,168,90,0.08)' : 'rgba(255,255,255,0.03)'),
+        color: active ? '#1a0f05' : (hover ? '#e6a85a' : 'rgba(233,228,217,0.75)'),
+        border: active
+          ? '1px solid rgba(230,168,90,0.6)'
+          : (hover ? '1px solid rgba(230,168,90,0.3)' : '1px solid rgba(255,255,255,0.06)'),
+        fontFamily:'var(--sans)', fontSize:12, fontWeight: active?600:500,
+        boxShadow: active
+          ? '0 4px 14px rgba(230,168,90,0.28), inset 0 1px 0 rgba(255,240,210,0.4)'
+          : 'none',
+        cursor:'pointer', whiteSpace:'nowrap',
+        transition:'all .18s',
+      }}>
+      <span style={{ display:'inline-flex', opacity: active?1:0.85 }}>{mode.icon}</span>
+      <span>{mode.label}</span>
+      {mode.badge && (
+        <span style={{
+          fontSize:9, fontWeight:700, letterSpacing:'0.08em',
+          padding:'2px 5px', borderRadius:999,
+          background: active ? 'rgba(26,15,5,0.25)' : 'rgba(230,168,90,0.18)',
+          color: active ? '#3d2a10' : '#e6a85a',
+          marginLeft:2,
+        }}>{mode.badge}</span>
+      )}
+    </button>
+  );
+}
+
+function IconBtn({ children, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button onClick={onClick}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      style={{
+        width:30, height:30, display:'grid', placeItems:'center',
+        borderRadius:8, cursor:'pointer',
+        background: active ? 'rgba(230,168,90,0.12)' : (hover ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.03)'),
+        border: active ? '1px solid rgba(230,168,90,0.35)' : '1px solid rgba(255,255,255,0.07)',
+        color: active ? '#e6a85a' : (hover ? '#e9e4d9' : 'rgba(233,228,217,0.75)'),
+        transition:'all .15s',
+      }}>{children}</button>
+  );
+}
+
+// ---------- Header ----------
+function Header({ mode, setMode, sortDir, setSortDir, password, setPassword }) {
+  return (
+    <header style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'linear-gradient(180deg, rgba(18,18,20,0.95) 0%, rgba(11,11,13,0.85) 100%)',
+      borderBottom:'1px solid var(--rule)',
+      backdropFilter:'blur(14px)',
+      padding:'14px 24px 0',
+    }}>
+      <div style={{
+        maxWidth: 1440, margin:'0 auto',
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+      }}>
+        {/* brand */}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{
+            width:38, height:38, borderRadius:10,
+            background:'linear-gradient(145deg, #2a1d0e, #15100a)',
+            display:'grid', placeItems:'center',
+            color:'#e6a85a',
+            boxShadow:'0 0 0 1px rgba(230,168,90,0.25), 0 6px 16px rgba(230,168,90,0.15)',
+          }}>{ICN.aperture}</div>
+          <div style={{ lineHeight:1.1 }}>
+            <div style={{ fontWeight:700, fontSize:15, letterSpacing:'-0.01em' }}>Photo Gallery</div>
+            <div style={{
+              fontFamily:'var(--mono)', fontSize:10, color:'var(--muted)',
+              letterSpacing:'0.14em', textTransform:'uppercase', marginTop:3,
+            }}>obsidian · demo</div>
+          </div>
+        </div>
+
+        {/* toolbar */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{
+            display:'flex', alignItems:'center', gap:8,
+            padding:'6px 12px', borderRadius:8,
+            background:'rgba(255,255,255,0.03)',
+            border:'1px solid rgba(255,255,255,0.07)',
+            width: 180,
+          }}>
+            <span style={{
+              fontFamily:'var(--mono)', fontSize:10,
+              color:'rgba(230,168,90,0.7)', letterSpacing:'0.12em',
+            }}>PASS</span>
+            <input
+              type="password" value={password}
+              onChange={e=>setPassword(e.target.value)}
+              placeholder="••••••"
+              style={{
+                flex:1, background:'transparent', border:'none', outline:'none',
+                color:'var(--fg)', fontSize:12, fontFamily:'var(--mono)',
+                letterSpacing:'0.2em',
+              }} />
+          </div>
+          <IconBtn onClick={()=>alert('Sign in')}>{ICN.login}</IconBtn>
+
+          <button onClick={()=>setSortDir(d => d === '↑' ? '↓' : '↑')}
+            style={{
+              display:'flex', alignItems:'center', gap:8,
+              padding:'6px 12px', borderRadius:8,
+              background:'rgba(255,255,255,0.03)',
+              border:'1px solid rgba(255,255,255,0.07)',
+              color:'var(--fg)', cursor:'pointer',
+              fontFamily:'var(--mono)', fontSize:11,
+              letterSpacing:'0.04em',
+            }}>
+            <span style={{ color:'var(--muted)' }}>{ICN.sort}</span>
+            <span>name</span>
+            <span style={{ color:'#e6a85a' }}>{sortDir}</span>
+          </button>
+
+          <IconBtn active>{ICN.check}</IconBtn>
+          <IconBtn>{ICN.refresh}</IconBtn>
+          <IconBtn>{ICN.moon}</IconBtn>
+        </div>
+      </div>
+
+      {/* modes */}
+      <div style={{
+        maxWidth:1440, margin:'0 auto',
+        display:'flex', gap:6, padding:'14px 0 12px',
+        overflowX:'auto',
+      }}>
+        {MODES.map(m => (
+          <Chip key={m.id} mode={m} active={mode===m.id} onClick={()=>setMode(m.id)} />
+        ))}
+      </div>
+    </header>
+  );
+}
+
+// ---------- CountRow ----------
+function CountRow({ mode, sortDir }) {
+  return (
+    <div style={{
+      maxWidth:1440, margin:'0 auto',
+      padding:'18px 24px 8px',
+      display:'flex', alignItems:'center', gap:14,
+    }}>
+      <div style={{
+        fontFamily:'var(--mono)', fontSize:10,
+        color:'var(--muted)', letterSpacing:'0.18em',
+        textTransform:'uppercase',
+      }}>
+        {PHOTOS.length} photos · {mode} · sort {sortDir}
+      </div>
+      <div style={{ flex:1, height:1, background:'var(--rule)' }} />
+      <div style={{
+        fontFamily:'var(--mono)', fontSize:10,
+        color:'var(--muted-dim)', letterSpacing:'0.18em',
+        textTransform:'uppercase',
+      }}>obsidian · v1</div>
+    </div>
+  );
+}
+
+// ---------- Footer ----------
+function Footer() {
+  return (
+    <footer style={{
+      maxWidth:1440, margin:'0 auto',
+      padding:'40px 24px 28px',
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      borderTop:'1px solid var(--rule)', marginTop:40,
+    }}>
+      <div style={{
+        fontFamily:'var(--mono)', fontSize:10,
+        color:'var(--muted-dim)', letterSpacing:'0.16em',
+        textTransform:'uppercase',
+      }}>© photo.gallery · 1pg</div>
+      <div style={{
+        fontFamily:'var(--serif)', fontStyle:'italic', fontSize:14,
+        color:'var(--muted)',
+      }}>every frame a held breath.</div>
+      <div style={{
+        fontFamily:'var(--mono)', fontSize:10,
+        color:'var(--muted-dim)', letterSpacing:'0.16em',
+      }}>↑ TOP</div>
+    </footer>
+  );
+}
+
+// ---------- App ----------
+function App() {
+  const [mode, setMode] = React.useState(() => {
+    return localStorage.getItem('obsidian:mode') || 'masonry';
+  });
+  const [sortDir, setSortDir] = React.useState('↑');
+  const [password, setPassword] = React.useState('');
+
+  React.useEffect(() => {
+    localStorage.setItem('obsidian:mode', mode);
+  }, [mode]);
+
+  const Layout = LAYOUTS[mode] || LAYOUTS.masonry;
+
+  return (
+    <div>
+      <Header
+        mode={mode} setMode={setMode}
+        sortDir={sortDir} setSortDir={setSortDir}
+        password={password} setPassword={setPassword}
+      />
+      <CountRow mode={mode} sortDir={sortDir} />
+      <main style={{
+        maxWidth:1440, margin:'0 auto',
+        padding:'4px 24px 24px',
+        minHeight:560,
+      }}>
+        <div key={mode} style={{
+          animation:'fadeIn .28s ease-out',
+        }}>
+          <Layout />
+        </div>
+      </main>
+      <Footer />
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity:0; transform:translateY(4px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

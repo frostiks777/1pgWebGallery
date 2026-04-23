@@ -65,7 +65,7 @@ function AlbumCard({
       onClick={onClick}
     >
       <div
-        className="flex-1 p-2 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col min-h-0"
+        className="flex-1 p-2 rounded-[var(--r-md)] border border-[var(--album-mat-outline)] shadow-[var(--shadow-card)] motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-300 motion-safe:group-hover:-translate-y-px motion-safe:group-hover:border-[var(--amber-border)] motion-safe:group-hover:shadow-[var(--shadow-hover)] flex flex-col min-h-0"
         style={{ background: 'var(--album-mat-bg)' }}
       >
         <div
@@ -181,14 +181,21 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
-      <header className="text-center mb-10">
-        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
-        <p className="text-[10px] tracking-[0.35em] uppercase my-3" style={{ color: 'var(--album-meta)' }}>album</p>
-        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
-        <p className="text-[10px] tracking-wider mt-3" style={{ color: 'var(--album-footer)' }}>{photos.length} photos</p>
+      <header className="mb-10 text-center">
+        <p
+          className="font-mono text-[10px] uppercase tracking-[0.4em] text-[var(--obs-muted)]"
+        >
+          — A L B U M —
+        </p>
+        <p
+          className="mt-2 text-2xl italic text-[var(--fg)] md:text-[24px]"
+          style={{ fontFamily: 'var(--serif)' }}
+        >
+          Vol. 01 · {photos.length} {photos.length === 1 ? 'Frame' : 'Frames'}
+        </p>
       </header>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-[120px] sm:auto-rows-[140px] md:auto-rows-[160px] [grid-auto-flow:dense] max-w-7xl mx-auto">
+      <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-3 [grid-auto-flow:dense] sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-[14px] auto-rows-[88px] sm:auto-rows-[88px] md:auto-rows-[88px]">
         {photoConfigs.map(({ photo, index, col, row }) => (
           <AlbumCard
             key={photo.path}
@@ -206,11 +213,6 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
           />
         ))}
       </div>
-
-      <footer className="text-center mt-10">
-        <div className="w-8 h-px mx-auto" style={{ background: 'var(--album-rule)' }} />
-        <p className="text-[10px] tracking-widest mt-3" style={{ color: 'var(--album-footer)' }}>© photo gallery</p>
-      </footer>
     </div>
   );
 }

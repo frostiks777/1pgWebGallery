@@ -1,8 +1,9 @@
 'use client';
 
 import { Photo } from './types';
-import { useState } from 'react';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { formatSyntheticMeta } from '@/lib/photo-meta';
+import { cn } from '@/lib/utils';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
@@ -15,179 +16,99 @@ interface MinimalismLayoutProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
-function MinimalistCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama, isCover, onToggleCover }: {
-  photo: Photo;
-  index: number;
-  onClick: () => void;
-  onHidePhoto?: (photo: Photo) => void;
-  onDeletePhoto?: (photo: Photo) => void;
-  isPanorama?: boolean;
-  onTogglePanorama?: (photo: Photo) => void;
-  isCover?: boolean;
-  onToggleCover?: (photo: Photo) => void;
-}) {
-  const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
-  
+export function MinimalismLayout({
+  photos,
+  onPhotoClick,
+  onHidePhoto,
+  onDeletePhoto,
+  panoramaPaths,
+  onTogglePanorama,
+  coverPaths,
+  onToggleCover,
+}: MinimalismLayoutProps) {
   return (
-    <div className="min-card group cursor-pointer" onClick={onClick}>
-      <div className="min-image-wrapper">
-        {hasError ? (
-          <div className="min-error">⚠️</div>
-        ) : (
-          <>
-            {isLoading && <div className="min-loader" />}
-            <img
-              src={thumbnailUrl}
-              alt={photo.name}
-              className={`min-image ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-              loading="lazy"
-              fetchPriority="high"
-              onLoad={() => setIsLoading(false)}
-              onError={() => { setHasError(true); setIsLoading(false); }}
-            />
-          </>
-        )}
-        <div className="min-overlay">
-          <span className="min-index">{String(index + 1).padStart(2, '0')}</span>
+    <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1 px-2">
+      {photos.map((photo, i) => (
+        <div
+          key={photo.path}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onPhotoClick(photo, i);
+            }
+          }}
+          className={cn(
+            'group grid cursor-pointer items-center gap-4 border-b border-[var(--rule)] py-2.5 font-mono text-[11px]',
+            'text-[var(--obs-muted)] transition-colors hover:text-[var(--amber)]',
+            'grid-cols-[60px_1fr] md:grid-cols-[60px_1fr_140px]',
+          )}
+          onClick={() => onPhotoClick(photo, i)}
+        >
+          <span className="tracking-[0.16em] opacity-55">{String(i + 1).padStart(2, '0')}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 tracking-[0.04em]">
+              {photo.name}
+              {coverPaths?.includes(photo.path) && <span className="ml-2 text-[var(--amber)]">★</span>}
+            </span>
+            <div
+              className="flex shrink-0 flex-wrap justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {onHidePhoto && (
+                <button
+                  type="button"
+                  className="min-h-9 min-w-9 rounded-full border border-[var(--rule)] bg-[var(--bg-elev)] p-1.5 text-[var(--fg)] hover:border-[var(--amber-border)]"
+                  aria-label="Скрыть"
+                  onClick={() => onHidePhoto(photo)}
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onDeletePhoto && (
+                <button
+                  type="button"
+                  className="min-h-9 min-w-9 rounded-full bg-red-600/85 p-1.5 text-white hover:bg-red-600"
+                  aria-label="Удалить"
+                  onClick={() => onDeletePhoto(photo)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onTogglePanorama && (
+                <button
+                  type="button"
+                  className={cn(
+                    'min-h-9 min-w-9 rounded-full border border-[var(--rule)] p-1.5',
+                    panoramaPaths?.includes(photo.path) ? 'bg-blue-600/80 text-white' : 'bg-[var(--bg-elev)] text-[var(--fg)]',
+                  )}
+                  aria-label="Панорама"
+                  onClick={() => onTogglePanorama(photo)}
+                >
+                  <RectangleHorizontal className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onToggleCover && (
+                <button
+                  type="button"
+                  className={cn(
+                    'min-h-9 min-w-9 rounded-full border border-[var(--rule)] p-1.5',
+                    coverPaths?.includes(photo.path)
+                      ? 'bg-[var(--amber-tint)] text-[var(--amber)]'
+                      : 'bg-[var(--bg-elev)] text-[var(--fg)]',
+                  )}
+                  aria-label="Обложка"
+                  onClick={() => onToggleCover(photo)}
+                >
+                  <Star className={cn('h-3.5 w-3.5', coverPaths?.includes(photo.path) && 'fill-current')} />
+                </button>
+              )}
+            </div>
+          </div>
+          <span className="hidden text-right text-[10px] opacity-55 md:block">{formatSyntheticMeta(photo)}</span>
         </div>
-        <div className="min-actions">
-          {onHidePhoto && (
-            <button
-              className="min-hide-btn"
-              title="Скрыть фото"
-              onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-            >
-              <EyeOff style={{ width: '14px', height: '14px' }} />
-            </button>
-          )}
-          {onDeletePhoto && (
-            <button
-              className="min-delete-btn"
-              title="Удалить фото"
-              onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
-            >
-              <Trash2 style={{ width: '14px', height: '14px' }} />
-            </button>
-          )}
-          {onTogglePanorama && (
-            <button
-              className={isPanorama ? 'min-panorama-btn min-panorama-active' : 'min-panorama-btn'}
-              title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
-              onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
-            >
-              <RectangleHorizontal style={{ width: '14px', height: '14px' }} />
-            </button>
-          )}
-          {onToggleCover && (
-            <button
-              className={isCover ? 'min-cover-btn min-cover-active' : 'min-cover-btn'}
-              title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
-              onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
-            >
-              <Star style={{ width: '14px', height: '14px', fill: isCover ? 'currentColor' : 'none' }} />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="min-caption">
-        <span>{photo.name.replace(/\.[^/.]+$/, '')}</span>
-      </div>
-      <style jsx>{`
-        .min-card { transition: transform 0.4s ease; }
-        .min-card:hover { transform: translateY(-4px); }
-        .min-image-wrapper { position: relative; overflow: hidden; background: var(--min-card-bg); aspect-ratio: 1; }
-        .min-image { width: 100%; height: 100%; object-fit: cover; filter: grayscale(10%); transition: all 0.6s ease; }
-        .min-card:hover .min-image { filter: grayscale(0%); transform: scale(1.02); }
-        .min-loader {
-          position: absolute; inset: 0;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .min-loader::after {
-          content: '';
-          width: 24px; height: 24px;
-          border: 2px solid var(--min-border);
-          border-top-color: var(--min-text);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .min-error { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: var(--min-card-bg); }
-        .min-overlay {
-          position: absolute; inset: 0;
-          background: rgba(0,0,0,0.02);
-          opacity: 0; transition: opacity 0.3s;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .min-card:hover .min-overlay { opacity: 1; }
-        .min-index { font-family: monospace; font-size: 3rem; font-weight: 200; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); }
-        .min-caption { padding: 1rem 0; border-bottom: 1px solid var(--min-border); }
-        .min-caption span { font-size: 0.8rem; color: var(--min-text); letter-spacing: 0.02em; text-transform: lowercase; }
-        .min-actions {
-          position: absolute; top: 8px; left: 8px;
-          display: flex; gap: 4px; align-items: center;
-        }
-        .min-hide-btn, .min-delete-btn, .min-panorama-btn, .min-cover-btn {
-          opacity: 0; transition: opacity 0.2s;
-          background: rgba(0,0,0,0.5);
-          color: white;
-          border: none; border-radius: 50%; padding: 6px;
-          cursor: pointer; display: flex; align-items: center; justify-content: center;
-          backdrop-filter: blur(4px);
-        }
-        .min-delete-btn { background: rgba(239,68,68,0.7); }
-        .min-card:hover .min-hide-btn,
-        .min-card:hover .min-delete-btn,
-        .min-card:hover .min-panorama-btn,
-        .min-card:hover .min-cover-btn { opacity: 1; }
-        .min-hide-btn:hover, .min-panorama-btn:hover, .min-cover-btn:hover { background: rgba(0,0,0,0.7); }
-        .min-delete-btn:hover { background: rgba(220,38,38,0.9); }
-        .min-panorama-active {
-          opacity: 1 !important;
-          background: rgba(59,130,246,0.8);
-        }
-        .min-panorama-active:hover { background: rgba(37,99,235,0.9) !important; }
-        .min-cover-active {
-          opacity: 1 !important;
-          background: rgba(245,158,11,0.8);
-        }
-        .min-cover-active:hover { background: rgba(217,119,6,0.9) !important; }
-      `}</style>
-    </div>
-  );
-}
-
-export function MinimalismLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: MinimalismLayoutProps) {
-  return (
-    <div className="bg-white dark:bg-gray-950 min-h-screen py-16 px-8">
-      <header className="text-center mb-12">
-        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
-        <h1 className="text-xs tracking-[0.3em] uppercase text-gray-800 dark:text-gray-200 my-4">gallery</h1>
-        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
-        <p className="text-xs text-gray-400 dark:text-gray-500 tracking-wider mt-4">{photos.length} pieces</p>
-      </header>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12 max-w-7xl mx-auto">
-        {photos.map((photo, index) => (
-          <MinimalistCard
-            key={photo.path}
-            photo={photo}
-            index={index}
-            onClick={() => onPhotoClick(photo, index)}
-            onHidePhoto={onHidePhoto}
-            onDeletePhoto={onDeletePhoto}
-            isPanorama={panoramaPaths?.includes(photo.path)}
-            onTogglePanorama={onTogglePanorama}
-            isCover={coverPaths?.includes(photo.path)}
-            onToggleCover={onToggleCover}
-          />
-        ))}
-      </div>
-      <footer className="text-center mt-16">
-        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
-        <p className="text-xs text-gray-300 dark:text-gray-600 tracking-widest mt-4">© photo gallery</p>
-      </footer>
+      ))}
     </div>
   );
 }

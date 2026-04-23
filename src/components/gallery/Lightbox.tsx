@@ -3,8 +3,20 @@
 import { Photo } from './types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, Loader2, EyeOff, Trash2, Star } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  Loader2,
+  EyeOff,
+  Trash2,
+  Star,
+} from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { formatSyntheticMeta } from '@/lib/photo-meta';
 
 interface LightboxProps {
   photos: Photo[];
@@ -17,19 +29,19 @@ interface LightboxProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
-function LightboxContent({ 
-  photos, 
-  initialIndex, 
-  isOpen, 
+function LightboxContent({
+  photos,
+  initialIndex,
+  isOpen,
   onClose,
   onHidePhoto,
   onDeletePhoto,
   coverPaths,
   onToggleCover,
-}: { 
-  photos: Photo[]; 
-  initialIndex: number; 
-  isOpen: boolean; 
+}: {
+  photos: Photo[];
+  initialIndex: number;
+  isOpen: boolean;
   onClose: () => void;
   onHidePhoto?: (photo: Photo) => void;
   onDeletePhoto?: (photo: Photo) => void;
@@ -42,13 +54,17 @@ function LightboxContent({
   const [hasError, setHasError] = useState(false);
 
   const thumbStripRef = useRef<HTMLDivElement>(null);
-  const thumbRefs     = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const thumbRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const isFirstRender = useRef(true);
 
+  useEffect(() => {
+    setIndex(initialIndex);
+  }, [initialIndex]);
+
   const currentPhoto = photos[index];
-  const imageUrl     = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
+  const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
-  const isCover      = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
+  const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
 
   const expectedUrl = useRef(imageUrl);
 
@@ -81,19 +97,33 @@ function LightboxContent({
     setZoom(1);
   }, [photos.length]);
 
-  const handleZoomIn  = () => setZoom((z) => Math.min(z + 0.5, 3));
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.5, 0.5));
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!isOpen) return;
-    switch (e.key) {
-      case 'ArrowLeft':  handlePrev(); break;
-      case 'ArrowRight': handleNext(); break;
-      case 'Escape':     onClose();    break;
-      case '+': case '=': setZoom((z) => Math.min(z + 0.5, 3)); break;
-      case '-':           setZoom((z) => Math.max(z - 0.5, 0.5)); break;
-    }
-  }, [isOpen, onClose, handlePrev, handleNext]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      switch (e.key) {
+        case 'ArrowLeft':
+          handlePrev();
+          break;
+        case 'ArrowRight':
+          handleNext();
+          break;
+        case 'Escape':
+          onClose();
+          break;
+        case '+':
+        case '=':
+          setZoom((z) => Math.min(z + 0.5, 3));
+          break;
+        case '-':
+          setZoom((z) => Math.max(z - 0.5, 0.5));
+          break;
+      }
+    },
+    [isOpen, onClose, handlePrev, handleNext],
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -115,9 +145,12 @@ function LightboxContent({
 
   if (!currentPhoto) return null;
 
+  const metaLine = formatSyntheticMeta(currentPhoto);
+
   return (
     <DialogContent
-      className="p-0 bg-black/95 border-none overflow-hidden"
+      overlayClassName="gallery-lightbox-overlay"
+      className="gallery-lightbox-content border-none bg-transparent p-0 shadow-none"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -128,26 +161,32 @@ function LightboxContent({
       }}
       showCloseButton={false}
     >
-      <DialogTitle className="sr-only">
-        Photo viewer - {currentPhoto.name}
-      </DialogTitle>
+      <DialogTitle className="sr-only">Photo viewer — {currentPhoto.name}</DialogTitle>
 
-      {/* Header */}
-      <div className="flex-none flex items-center justify-between px-3 py-2 bg-gradient-to-b from-black/80 to-black/40 z-50 shrink-0">
-        <div className="min-w-0 flex-1 mr-2 text-white">
-          <p className="font-medium text-sm truncate">{currentPhoto.name}</p>
-          <p className="text-xs text-white/60">
-            {index + 1} / {photos.length} &bull; {new Date(currentPhoto.lastModified).toLocaleDateString()}
-          </p>
+      <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-3 py-2 backdrop-blur-sm">
+        <div className="mr-2 min-w-0 flex-1 text-white">
+          <p className="truncate text-sm font-medium">{currentPhoto.name}</p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button variant="ghost" size="icon" onClick={handleZoomOut} className="text-white hover:bg-white/20 h-8 w-8">
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleZoomOut}
+            className="h-9 w-9 text-white hover:bg-white/15"
+            aria-label="Уменьшить"
+          >
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <span className="text-white text-xs min-w-[2.5rem] text-center tabular-nums">
+          <span className="min-w-[2.5rem] text-center font-mono text-xs tabular-nums text-white/80">
             {Math.round(zoom * 100)}%
           </span>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn} className="text-white hover:bg-white/20 h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleZoomIn}
+            className="h-9 w-9 text-white hover:bg-white/15"
+            aria-label="Увеличить"
+          >
             <ZoomIn className="h-4 w-4" />
           </Button>
           {onHidePhoto && (
@@ -155,8 +194,8 @@ function LightboxContent({
               variant="ghost"
               size="icon"
               onClick={() => onHidePhoto(currentPhoto)}
-              className="text-white hover:bg-white/20 h-8 w-8"
-              title="Скрыть фото"
+              className="h-9 w-9 text-white hover:bg-white/15"
+              aria-label="Скрыть фото"
             >
               <EyeOff className="h-4 w-4" />
             </Button>
@@ -166,8 +205,8 @@ function LightboxContent({
               variant="ghost"
               size="icon"
               onClick={() => onDeletePhoto(currentPhoto)}
-              className="text-red-400 hover:bg-red-500/30 h-8 w-8"
-              title="Удалить фото"
+              className="h-9 w-9 text-red-300 hover:bg-red-500/25"
+              aria-label="Удалить фото"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -177,39 +216,51 @@ function LightboxContent({
               variant="ghost"
               size="icon"
               onClick={() => onToggleCover(currentPhoto)}
-              className={isCover
-                ? 'text-amber-400 hover:bg-amber-500/30 h-8 w-8'
-                : 'text-white hover:bg-white/20 h-8 w-8'
+              className={
+                isCover
+                  ? 'h-9 w-9 text-amber-400 hover:bg-amber-500/20'
+                  : 'h-9 w-9 text-white hover:bg-white/15'
               }
-              title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+              aria-label={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
             >
               <Star className={`h-4 w-4 ${isCover ? 'fill-current' : ''}`} />
             </Button>
           )}
           <a href={fullImageUrl} download={currentPhoto.name} className="inline-flex">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8" title="Download full size">
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/15" aria-label="Скачать">
               <Download className="h-4 w-4" />
             </Button>
           </a>
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 h-8 w-8">
-            <X className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-9 w-9 font-mono text-white/50 hover:bg-white/10 hover:text-white"
+            aria-label="Закрыть"
+          >
+            <X className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
-      {/* Image container */}
-      <div className="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black/20">
         {photos.length > 1 && (
           <>
             <Button
-              variant="ghost" size="icon" onClick={handlePrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-10 w-10"
+              variant="ghost"
+              size="icon"
+              onClick={handlePrev}
+              className="absolute top-1/2 left-2 z-10 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/15"
+              aria-label="Предыдущее фото"
             >
               <ChevronLeft className="h-7 w-7" />
             </Button>
             <Button
-              variant="ghost" size="icon" onClick={handleNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 h-10 w-10"
+              variant="ghost"
+              size="icon"
+              onClick={handleNext}
+              className="absolute top-1/2 right-2 z-10 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/15"
+              aria-label="Следующее фото"
             >
               <ChevronRight className="h-7 w-7" />
             </Button>
@@ -217,14 +268,14 @@ function LightboxContent({
         )}
 
         {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
-            <p className="text-white/60 text-sm">Loading image...</p>
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--amber)]" />
+            <p className="text-sm text-white/60">Loading image...</p>
           </div>
         )}
         {hasError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white z-10">
-            <X className="w-12 h-12 text-red-400" />
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-white">
+            <X className="h-12 w-12 text-red-400" />
             <p className="text-base">Failed to load image</p>
             <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
               Retry
@@ -234,25 +285,36 @@ function LightboxContent({
         <img
           src={imageUrl}
           alt={currentPhoto.name}
-          className={`max-w-full max-h-full object-contain transition-all duration-300 ${
+          className={`max-h-[85vh] max-w-[90vw] object-contain transition-all duration-300 ${
             isLoading || hasError ? 'opacity-0' : 'opacity-100'
           }`}
           style={{ transform: `scale(${zoom})` }}
           fetchPriority="high"
-          onLoad={() => { if (expectedUrl.current === imageUrl) setIsLoading(false); }}
-          onError={() => { if (expectedUrl.current === imageUrl) { setHasError(true); setIsLoading(false); } }}
+          onLoad={() => {
+            if (expectedUrl.current === imageUrl) setIsLoading(false);
+          }}
+          onError={() => {
+            if (expectedUrl.current === imageUrl) {
+              setHasError(true);
+              setIsLoading(false);
+            }
+          }}
         />
       </div>
 
-      {/* Thumbnail strip */}
-      <div className="flex-none bg-gradient-to-t from-black/80 to-black/40 px-3 py-2 shrink-0">
+      <div className="shrink-0 border-t border-white/10 bg-black/50 px-4 py-2 text-center font-mono text-[11px] tracking-wide text-[rgba(233,228,217,0.75)]">
+        {currentPhoto.name} · {metaLine} · «frame {index + 1}/{photos.length}»
+      </div>
+
+      <div className="shrink-0 bg-gradient-to-t from-black/80 to-black/40 px-3 py-2">
         <div
           ref={thumbStripRef}
-          className="flex gap-2 overflow-x-auto max-w-full pb-1 scrollbar-lightbox px-[calc(50%-24px)]"
+          className="scrollbar-lightbox flex max-w-full gap-2 overflow-x-auto px-[calc(50%-24px)] pb-1"
         >
           {photos.map((photo, i) => (
             <button
               key={photo.path}
+              type="button"
               ref={(el) => {
                 if (el) thumbRefs.current.set(i, el);
                 else thumbRefs.current.delete(i);
@@ -263,16 +325,15 @@ function LightboxContent({
                   setIndex(i);
                 }
               }}
-              className={`flex-shrink-0 w-10 h-10 rounded-md overflow-hidden transition-all duration-200 ${
-                i === index
-                  ? 'ring-2 ring-white scale-110'
-                  : 'opacity-50 hover:opacity-80'
+              className={`h-10 w-10 shrink-0 overflow-hidden rounded-md transition-all duration-200 ${
+                i === index ? 'scale-110 ring-2 ring-[var(--amber)]' : 'opacity-50 hover:opacity-80'
               }`}
+              aria-label={`Миниатюра ${photo.name}`}
             >
               <img
                 src={`/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`}
-                alt={photo.name}
-                className="w-full h-full object-cover"
+                alt=""
+                className="h-full w-full object-cover"
                 loading="lazy"
                 fetchPriority="low"
               />
@@ -284,13 +345,27 @@ function LightboxContent({
   );
 }
 
-export function Lightbox({ photos, currentIndex, isOpen, onClose, onHidePhoto, onDeletePhoto, coverPaths, onToggleCover }: LightboxProps) {
+export function Lightbox({
+  photos,
+  currentIndex,
+  isOpen,
+  onClose,
+  onHidePhoto,
+  onDeletePhoto,
+  coverPaths,
+  onToggleCover,
+}: LightboxProps) {
   const contentKey = useMemo(() => `${isOpen}-${currentIndex}-${photos.length}`, [isOpen, currentIndex, photos.length]);
 
   if (!isOpen || photos.length === 0) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <LightboxContent
         key={contentKey}
         photos={photos}

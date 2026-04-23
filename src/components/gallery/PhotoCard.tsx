@@ -1,12 +1,16 @@
 'use client';
 
 import { Photo } from './types';
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { formatSyntheticMeta } from '@/lib/photo-meta';
 
 interface PhotoCardProps {
   photo: Photo;
   index: number;
+  total?: number;
+  frameLabel?: string;
   onClick: () => void;
   onHidePhoto?: (photo: Photo) => void;
   onDeletePhoto?: (photo: Photo) => void;
@@ -17,11 +21,14 @@ interface PhotoCardProps {
   className?: string;
   aspectRatio?: string;
   thumbnailSize?: number;
+  showCaption?: boolean;
 }
 
-export const PhotoCard = memo(function PhotoCard({ 
-  photo, 
-  index, 
+export const PhotoCard = memo(function PhotoCard({
+  photo,
+  index,
+  total,
+  frameLabel,
   onClick,
   onHidePhoto,
   onDeletePhoto,
@@ -31,40 +38,83 @@ export const PhotoCard = memo(function PhotoCard({
   isCover = false,
   className = '',
   aspectRatio = 'aspect-square',
-  thumbnailSize = 300
+  thumbnailSize = 300,
+  showCaption = true,
 }: PhotoCardProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const imageUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
-  
+
+  const imageUrl = useMemo(
+    () => `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
+    [photo.path],
+  );
+
+  const metaLine = useMemo(() => formatSyntheticMeta(photo), [photo]);
+
+  const computedFrame =
+    frameLabel ??
+    (total != null && total > 0
+      ? `${String(index + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`
+      : undefined);
+
+  const aspectClass = aspectRatio.trim() === '' ? 'min-h-0 h-full w-full' : aspectRatio;
+
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-200 dark:bg-slate-800 ${aspectRatio} ${className}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={cn(
+        'obs-photo-card group relative cursor-pointer overflow-hidden rounded-[var(--r-sm)] border border-[rgba(255,255,255,0.05)] bg-black',
+        'shadow-[var(--shadow-card)] transition-[transform,box-shadow,border-color] duration-[250ms]',
+        'motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:scale-[1.006]',
+        'group-hover:border-[var(--amber-border)] group-hover:shadow-[var(--shadow-hover)]',
+        aspectClass,
+        className,
+      )}
       onClick={onClick}
     >
+      {/* Top amber hairline — fades on hover */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5 opacity-0 transition-opacity duration-[250ms] group-hover:opacity-100"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, var(--amber) 50%, transparent 100%)',
+        }}
+        aria-hidden
+      />
+
       {hasError ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-200 dark:bg-slate-800">
-          <div className="text-3xl mb-2">⚠️</div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-full">{photo.name}</p>
-          <p className="text-xs text-red-400 mt-1">Failed to load</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-black">
+          <div className="mb-2 text-2xl" aria-hidden>
+            ⚠️
+          </div>
+          <p className="max-w-full truncate font-mono text-[10px] text-[var(--obs-muted)]">{photo.name}</p>
+          <p className="mt-1 text-xs text-red-400">Failed to load</p>
         </div>
       ) : (
         <>
           {isLoading && (
-            <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 animate-pulse">
-              <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-300 dark:from-slate-700 dark:to-slate-900" />
+            <div className="absolute inset-0 animate-pulse bg-[var(--bg-card)]">
+              <div className="h-full w-full bg-gradient-to-br from-black/40 to-black/80" />
             </div>
           )}
           <img
             src={imageUrl}
             alt={photo.name}
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
-              isLoading ? 'opacity-0' : 'opacity-100'
-            }`}
+            className={cn(
+              'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
+              isLoading ? 'opacity-0' : 'opacity-100',
+            )}
             loading="lazy"
             decoding="async"
             fetchPriority="high"
+            width={thumbnailSize}
+            height={thumbnailSize}
             onLoad={() => setIsLoading(false)}
             onError={() => {
               setHasError(true);
@@ -73,67 +123,120 @@ export const PhotoCard = memo(function PhotoCard({
           />
         </>
       )}
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="absolute bottom-0 left-0 right-0 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-200">
-        <p className="text-white text-sm font-medium truncate">{photo.name}</p>
-        <p className="text-white/70 text-xs mt-0.5">
-          {new Date(photo.lastModified).toLocaleDateString()}
-        </p>
-      </div>
-      {/* Index badge */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
-          #{index + 1}
-        </span>
-      </div>
-      {/* Top-left action buttons */}
-      <div className="absolute top-2 left-2 flex items-center gap-1">
+
+      {computedFrame && (
+        <div
+          className="pointer-events-none absolute left-2.5 top-2 z-10 font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(233,228,217,0.75)] dark:text-[rgba(233,228,217,0.75)]"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+        >
+          {computedFrame}
+        </div>
+      )}
+
+      {isCover && onToggleCover && (
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
+          aria-label="Убрать с обложки"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCover(photo);
+          }}
+        >
+          <Star className="h-[11px] w-[11px] fill-[var(--amber)] text-[var(--amber)]" aria-hidden />
+        </button>
+      )}
+      {isCover && !onToggleCover && (
+        <div
+          className="pointer-events-none absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
+          aria-hidden
+        >
+          <Star className="h-[11px] w-[11px] fill-[var(--amber)] text-[var(--amber)]" />
+        </div>
+      )}
+
+      <div
+        className={cn(
+          'absolute left-2 z-10 flex flex-col gap-1',
+          computedFrame ? 'top-9' : 'top-2',
+        )}
+      >
         {onHidePhoto && (
           <button
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
+            type="button"
+            className="rounded-full border border-white/10 bg-black/50 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100"
             title="Скрыть фото"
-            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
+            aria-label="Скрыть фото"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHidePhoto(photo);
+            }}
           >
             <EyeOff className="h-3.5 w-3.5" />
           </button>
         )}
         {onDeletePhoto && (
           <button
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90"
+            type="button"
+            className="rounded-full bg-red-500/70 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-red-600/90 group-hover:opacity-100"
             title="Удалить фото"
-            onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
+            aria-label="Удалить фото"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeletePhoto(photo);
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
         {onTogglePanorama && (
           <button
-            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
+            type="button"
+            className={cn(
+              'rounded-full p-1.5 backdrop-blur-sm transition-opacity',
               isPanorama
-                ? 'opacity-100 bg-blue-500/80 text-white hover:bg-blue-600/90'
-                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
-            }`}
+                ? 'bg-blue-500/80 text-white opacity-100 hover:bg-blue-600/90'
+                : 'bg-black/50 text-white/70 opacity-0 hover:bg-black/70 hover:text-white group-hover:opacity-100',
+            )}
             title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
-            onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
+            aria-label={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePanorama(photo);
+            }}
           >
             <RectangleHorizontal className="h-3.5 w-3.5" />
           </button>
         )}
-        {onToggleCover && (
+        {onToggleCover && !isCover && (
           <button
-            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
-              isCover
-                ? 'opacity-100 bg-amber-500/80 text-white hover:bg-amber-600/90'
-                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
-            }`}
-            title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
-            onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
+            type="button"
+            className="rounded-full bg-black/50 p-1.5 text-white/70 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 hover:text-white group-hover:opacity-100"
+            title="Сделать обложкой папки"
+            aria-label="Сделать обложкой папки"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCover(photo);
+            }}
           >
-            <Star className={`h-3.5 w-3.5 ${isCover ? 'fill-current' : ''}`} />
+            <Star className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
+
+      {showCaption && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-2.5 pb-1.5 pt-[18px]"
+          style={{ backgroundImage: 'var(--photo-caption-gradient)' }}
+        >
+          <div className="flex items-end justify-between gap-2 font-mono text-[10px] tracking-[0.04em] text-[var(--photo-caption-fg)]">
+            <span className="min-w-0 truncate">{photo.name}</span>
+            <span className="max-w-[48%] shrink-0 text-right text-[var(--photo-exif-hover)] opacity-0 transition-opacity duration-[250ms] group-hover:opacity-100">
+              {metaLine}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

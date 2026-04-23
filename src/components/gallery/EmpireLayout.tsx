@@ -1,8 +1,7 @@
 'use client';
 
 import { Photo } from './types';
-import { useState } from 'react';
-import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { PhotoCard } from './PhotoCard';
 
 interface EmpireLayoutProps {
   photos: Photo[];
@@ -15,159 +14,72 @@ interface EmpireLayoutProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
-function EmpireCard({ photo, index, onClick, onHidePhoto, onDeletePhoto, isPanorama, onTogglePanorama, isCover, onToggleCover }: {
-  photo: Photo;
-  index: number;
-  onClick: () => void;
-  onHidePhoto?: (photo: Photo) => void;
-  onDeletePhoto?: (photo: Photo) => void;
-  isPanorama?: boolean;
-  onTogglePanorama?: (photo: Photo) => void;
-  isCover?: boolean;
-  onToggleCover?: (photo: Photo) => void;
-}) {
-  const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
-  
-  const frameStyles = ['from-amber-500 to-yellow-600', 'from-orange-600 to-amber-700', 'from-gray-400 to-gray-500'];
-  const frameStyle = frameStyles[index % frameStyles.length];
-
-  return (
-    <div className="empire-card group relative">
-      <div className="empire-ornament">⚜</div>
-      <div className={`empire-frame bg-gradient-to-br ${frameStyle}`} onClick={onClick}>
-        <div className="empire-inner">
-          {hasError ? (
-            <div className="empire-error">⚠️</div>
-          ) : (
-            <>
-              {isLoading && <div className="empire-loader" />}
-              <img
-                src={thumbnailUrl}
-                alt={photo.name}
-                className={`empire-image ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-                loading="lazy"
-                fetchPriority="high"
-                onLoad={() => setIsLoading(false)}
-                onError={() => { setHasError(true); setIsLoading(false); }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-      <div className="empire-caption">
-        <h3>{photo.name.replace(/\.[^/.]+$/, '')}</h3>
-        <p>{new Date(photo.lastModified).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        <span>№ {String(index + 1).padStart(3, '0')}</span>
-      </div>
-      <div className="absolute top-3 left-3 flex items-center gap-1 z-10">
-        {onHidePhoto && (
-          <button
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
-            title="Скрыть фото"
-            onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
-          >
-            <EyeOff className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {onDeletePhoto && (
-          <button
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90"
-            title="Удалить фото"
-            onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {onTogglePanorama && (
-          <button
-            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
-              isPanorama
-                ? 'opacity-100 bg-blue-500/80 text-white hover:bg-blue-600/90'
-                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
-            }`}
-            title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
-            onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
-          >
-            <RectangleHorizontal className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {onToggleCover && (
-          <button
-            className={`transition-opacity duration-200 backdrop-blur-sm rounded-full p-1.5 ${
-              isCover
-                ? 'opacity-100 bg-amber-500/80 text-white hover:bg-amber-600/90'
-                : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
-            }`}
-            title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
-            onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
-          >
-            <Star className={`h-3.5 w-3.5 ${isCover ? 'fill-current' : ''}`} />
-          </button>
-        )}
-      </div>
-      <style jsx>{`
-        .empire-card {
-          background: var(--empire-card-bg);
-          padding: 1.5rem;
-          border-radius: 4px;
-          box-shadow: 0 4px 20px rgba(139, 109, 76, 0.15);
-          transition: transform 0.3s ease;
-          cursor: pointer;
-        }
-        .empire-card:hover { transform: translateY(-4px); }
-        .empire-ornament { text-align: center; font-size: 2rem; color: #c9a959; margin-bottom: 0.5rem; }
-        .empire-frame {
-          padding: 8px;
-          box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 8px 24px rgba(139, 109, 76, 0.3);
-        }
-        .empire-inner { background: var(--empire-inner-bg); padding: 4px; position: relative; min-height: 200px; }
-        .empire-image { width: 100%; height: 200px; object-fit: cover; transition: opacity 0.3s; }
-        .empire-error { width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
-        .empire-loader {
-          position: absolute; inset: 0;
-          display: flex; align-items: center; justify-content: center;
-          background: var(--empire-loader-bg);
-        }
-        .empire-loader::after {
-          content: '';
-          width: 24px; height: 24px;
-          border: 2px solid rgba(139,109,76,0.25);
-          border-top-color: #c9a959;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .empire-caption { text-align: center; padding-top: 1rem; font-family: Georgia, serif; }
-        .empire-caption h3 { font-size: 0.9rem; color: var(--empire-text-h); margin-bottom: 0.25rem; }
-        .empire-caption p { font-size: 0.75rem; color: var(--empire-text-sub); font-style: italic; }
-        .empire-caption span { font-size: 0.7rem; color: var(--empire-text-num); font-weight: 600; }
-      `}</style>
-    </div>
-  );
+function slot(photos: Photo[], i: number): Photo {
+  if (photos.length === 0) throw new Error('EmpireLayout requires photos');
+  return photos[Math.min(i, photos.length - 1)];
 }
 
-export function EmpireLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: EmpireLayoutProps) {
+export function EmpireLayout({
+  photos,
+  onPhotoClick,
+  onHidePhoto,
+  onDeletePhoto,
+  panoramaPaths,
+  onTogglePanorama,
+  coverPaths,
+  onToggleCover,
+}: EmpireLayoutProps) {
+  if (photos.length === 0) return null;
+
+  const p = (i: number) => slot(photos, i);
+  const idx = (i: number) => Math.min(i, photos.length - 1);
+
+  const cardProps = (photo: Photo, index: number, extra?: { frameLabel?: string }) => ({
+    photo,
+    index,
+    total: photos.length,
+    onClick: () => onPhotoClick(photo, index),
+    onHidePhoto,
+    onDeletePhoto,
+    onTogglePanorama,
+    isPanorama: panoramaPaths?.includes(photo.path),
+    onToggleCover,
+    isCover: coverPaths?.includes(photo.path),
+    aspectRatio: '' as const,
+    className: 'min-h-0 h-full w-full',
+    thumbnailSize: 500,
+    ...extra,
+  });
+
   return (
-    <div className="py-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950">
-      <div className="text-center mb-8 text-3xl text-amber-600">⚜</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-4 max-w-7xl mx-auto">
-        {photos.map((photo, index) => (
-          <EmpireCard
-            key={photo.path}
-            photo={photo}
-            index={index}
-            onClick={() => onPhotoClick(photo, index)}
-            onHidePhoto={onHidePhoto}
-            onDeletePhoto={onDeletePhoto}
-            isPanorama={panoramaPaths?.includes(photo.path)}
-            onTogglePanorama={onTogglePanorama}
-            isCover={coverPaths?.includes(photo.path)}
-            onToggleCover={onToggleCover}
-          />
-        ))}
+    <div
+      className="mx-auto grid w-full max-w-6xl gap-2.5 px-1"
+      style={{
+        gridTemplateColumns: '1fr 2fr 1fr',
+        gridTemplateRows: 'minmax(160px, 1fr) minmax(160px, 1fr)',
+        minHeight: 380,
+      }}
+    >
+      <div
+        className="grid h-full min-h-0 gap-2.5"
+        style={{ gridColumn: '1', gridRow: '1 / span 2', gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}
+      >
+        <PhotoCard {...cardProps(p(1), idx(1))} />
+        <PhotoCard {...cardProps(p(2), idx(2))} />
+      </div>
+      <div
+        className="min-h-0 h-full overflow-hidden rounded-[var(--r-sm)] border border-[var(--surface-border)]"
+        style={{ gridColumn: '2', gridRow: '1 / span 2' }}
+      >
+        <PhotoCard {...cardProps(p(0), idx(0), { frameLabel: 'HERO' })} />
+      </div>
+      <div
+        className="grid h-full min-h-0 gap-2.5"
+        style={{ gridColumn: '3', gridRow: '1 / span 2', gridTemplateRows: 'repeat(3, minmax(0, 1fr))' }}
+      >
+        <PhotoCard {...cardProps(p(3), idx(3))} />
+        <PhotoCard {...cardProps(p(4), idx(4))} />
+        <PhotoCard {...cardProps(p(5), idx(5))} />
       </div>
     </div>
   );

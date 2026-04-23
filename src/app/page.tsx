@@ -1,50 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Grid3X3, 
-  LayoutGrid, 
-  Hexagon, 
-  Waves, 
-  RefreshCw, 
-  ImageOff, 
+import {
+  RefreshCw,
+  ImageOff,
   Loader2,
-  Cloud,
-  SortAsc,
-  SortDesc,
-  Crown,
-  Minus,
-  XCircle,
-  CircleCheck,
-  CircleDashed,
   Folder,
-  ChevronRight,
-  Frame,
   ChevronUp,
-  Eye,
-  Sun,
-  Moon,
-  Lock,
-  LogIn,
-  Trash2,
-  Undo2,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
   MasonryLayout,
@@ -57,9 +26,23 @@ import {
   Lightbox,
   Photo,
   CollageLayout,
+  GalleryChrome,
+  GalleryCountRow,
+  GalleryFooter,
+  type GallerySortOption,
 } from '@/components/gallery';
 
-type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
+type SortOption = GallerySortOption;
+
+const VALID_OBSIDIAN_MODES: CollageLayout[] = [
+  'masonry',
+  'bento',
+  'honeycomb',
+  'wave',
+  'empire',
+  'minimalism',
+  'album',
+];
 
 interface FolderInfo {
   name: string;
@@ -80,17 +63,39 @@ interface FoldersResponse {
   error?: string;
 }
 
-const layoutOptions: { value: CollageLayout; label: string; icon: React.ReactNode; isNew?: boolean }[] = [
-  { value: 'masonry',    label: 'Masonry',  icon: <Grid3X3   className="h-4 w-4" /> },
-  { value: 'bento',      label: 'Bento',    icon: <LayoutGrid className="h-4 w-4" /> },
-  { value: 'honeycomb',  label: 'Honeycomb',icon: <Hexagon   className="h-4 w-4" /> },
-  { value: 'wave',       label: 'Wave',     icon: <Waves     className="h-4 w-4" /> },
-  { value: 'empire',     label: 'Empire',   icon: <Crown     className="h-4 w-4" /> },
-  { value: 'minimalism', label: 'Minimal',  icon: <Minus     className="h-4 w-4" /> },
-  { value: 'album',      label: 'Album',    icon: <Frame     className="h-4 w-4" />, isNew: true },
-];
+function layoutCountLabel(layout: CollageLayout): string {
+  switch (layout) {
+    case 'masonry':
+      return 'MASONRY';
+    case 'bento':
+      return 'BENTO';
+    case 'honeycomb':
+      return 'HONEYCOMB';
+    case 'wave':
+      return 'WAVE';
+    case 'empire':
+      return 'EMPIRE';
+    case 'minimalism':
+      return 'MINIMAL';
+    case 'album':
+      return 'ALBUM';
+    default:
+      return 'MASONRY';
+  }
+}
 
-const STYLE_LAYOUTS: CollageLayout[] = ['empire', 'minimalism', 'album'];
+function sortCountParts(opt: SortOption): { line: string; arrow: string } {
+  switch (opt) {
+    case 'name-asc':
+      return { line: 'NAME', arrow: '↑' };
+    case 'name-desc':
+      return { line: 'NAME', arrow: '↓' };
+    case 'date-asc':
+      return { line: 'DATE', arrow: '↑' };
+    case 'date-desc':
+      return { line: 'DATE', arrow: '↓' };
+  }
+}
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -99,6 +104,39 @@ export default function GalleryPage() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'demo' | 'webdav'>('demo');
   const [layout, setLayout] = useState<CollageLayout>('masonry');
+  const [preferReducedMotion, setPreferReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const fn = () => setPreferReducedMotion(mq.matches);
+    fn();
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('obsidian:mode');
+      if (raw && VALID_OBSIDIAN_MODES.includes(raw as CollageLayout)) {
+        setLayout(raw as CollageLayout);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const layoutPersistReady = useRef(false);
+  useEffect(() => {
+    if (!layoutPersistReady.current) {
+      layoutPersistReady.current = true;
+      return;
+    }
+    try {
+      localStorage.setItem('obsidian:mode', layout);
+    } catch {
+      /* ignore */
+    }
+  }, [layout]);
   const [sortOption, setSortOption] = useState<SortOption>('name-asc');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -131,22 +169,33 @@ export default function GalleryPage() {
   // Dark / light theme
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  useEffect(() => {
-    const saved = localStorage.getItem('theme');
+  useLayoutEffect(() => {
+    const saved = localStorage.getItem('obsidian:theme') || localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initial = saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light';
     setTheme(initial);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', initial === 'dark' ? 'dark' : 'light');
+    if (initial === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
   }, []);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
+      const root = document.documentElement;
+      root.setAttribute('data-theme', next === 'dark' ? 'dark' : 'light');
       if (next === 'dark') {
-        document.documentElement.classList.add('dark');
+        root.classList.add('dark');
       } else {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
       }
-      localStorage.setItem('theme', next);
+      try {
+        localStorage.setItem('obsidian:theme', next);
+        localStorage.setItem('theme', next);
+      } catch {
+        /* ignore quota */
+      }
       return next;
     });
   }, []);
@@ -553,273 +602,69 @@ export default function GalleryPage() {
     }
   }, [layout, visiblePhotos, handlePhotoClick, handleHidePhoto, handleDeletePhoto, panoramaPaths, handleTogglePanorama, coverPaths, handleToggleCover]);
 
-  const isStyleLayout = useMemo(
-    () => STYLE_LAYOUTS.includes(layout) && visiblePhotos.length > 0,
-    [layout, visiblePhotos.length],
-  );
-
   const isAtRoot = currentPath === '';
+
+  const sortParts = sortCountParts(sortOption);
 
   return (
     <TooltipProvider>
-      <div className={`min-h-screen flex flex-col ${isStyleLayout ? '' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950'}`}>
+      <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--fg)]">
+        <GalleryChrome
+          mode={mode}
+          layout={layout}
+          onLayoutChange={setLayout}
+          visiblePhotoCount={visiblePhotos.length}
+          sortOption={sortOption}
+          onSortChange={setSortOption}
+          authRequired={authRequired}
+          isAuthenticated={isAuthenticated}
+          authPassword={authPassword}
+          onAuthPasswordChange={setAuthPassword}
+          onAuthSubmit={handleAuthSubmit}
+          authLoading={authLoading}
+          authError={authError}
+          hiddenInCurrentFolder={hiddenInCurrentFolder.length}
+          onShowAllHidden={hiddenInCurrentFolder.length > 0 ? handleShowAll : undefined}
+          deletePendingCount={deletePendingInFolder.length}
+          onRestoreDeleted={deletePendingInFolder.length > 0 ? handleRestoreDeleted : undefined}
+          onConfirmDelete={deletePendingInFolder.length > 0 ? handleConfirmDelete : undefined}
+          genStatus={genStatus}
+          genProgress={genProgress}
+          genTooltip={genTooltip}
+          onGenerate={handleGenerate}
+          onRefresh={handleRefresh}
+          isLoading={isLoading}
+          isFoldersLoading={isFoldersLoading}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          showLayoutChips={visiblePhotos.length > 0}
+          breadcrumbs={breadcrumbs}
+          onBreadcrumbNavigate={setCurrentPath}
+          showBreadcrumbs={mode === 'webdav' && (currentPath !== '' || folders.length > 0)}
+        />
 
-        {/* Header */}
-        <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        {visiblePhotos.length > 0 && !isLoading && !error && (
+          <GalleryCountRow
+            photoCount={visiblePhotos.length}
+            layoutLabel={layoutCountLabel(layout)}
+            sortLine={sortParts.line}
+            sortArrow={sortParts.arrow}
+          />
+        )}
 
-              {/* Logo */}
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl shadow-lg ${mode === 'webdav' ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/20' : 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-500/20'}`}>
-                  <Cloud className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                    Photo Gallery
-                  </h1>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {mode === 'webdav' ? 'WebDAV' : 'Demo'}
-                    </p>
-                    {mode === 'webdav' && (
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        ●
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Controls */}
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {/* Password field — visible only when auth is required and not yet authenticated */}
-                {authRequired && !isAuthenticated && (
-                  <form onSubmit={handleAuthSubmit} className="flex items-center gap-1.5">
-                    <div className="relative">
-                      <Lock className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                      <input
-                        type="password"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        placeholder="Пароль"
-                        className={`h-9 pl-7 pr-3 text-sm rounded-md border bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm outline-none focus:ring-2 transition-colors w-32
-                          ${authError
-                            ? 'border-red-400 dark:border-red-500 focus:ring-red-300'
-                            : 'border-slate-200 dark:border-slate-700 focus:ring-violet-300 dark:focus:ring-violet-700'
-                          }
-                          text-slate-900 dark:text-slate-100 placeholder:text-slate-400`}
-                        autoComplete="current-password"
-                        disabled={authLoading}
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      disabled={authLoading || !authPassword}
-                      className="h-9 px-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
-                    >
-                      {authLoading
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <LogIn className="h-4 w-4" />}
-                    </Button>
-                  </form>
-                )}
-                {hiddenInCurrentFolder.length > 0 && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleShowAll}
-                        className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 gap-1.5 text-xs"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span className="hidden sm:inline">Показать все</span>
-                        <span className="inline sm:hidden">{hiddenInCurrentFolder.length}</span>
-                        <span className="hidden sm:inline text-slate-400 dark:text-slate-500">
-                          ({hiddenInCurrentFolder.length})
-                        </span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Показать {hiddenInCurrentFolder.length} скрытых фото</TooltipContent>
-                  </Tooltip>
-                )}
-                {deletePendingInFolder.length > 0 && (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRestoreDeleted}
-                          className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 gap-1.5 text-xs"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Восстановить</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Восстановить {deletePendingInFolder.length} фото</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleConfirmDelete}
-                          className="bg-red-500/90 hover:bg-red-600 text-white border-red-500 backdrop-blur-sm h-9 gap-1.5 text-xs"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Удалить</span>
-                          <span>({deletePendingInFolder.length})</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Удалить {deletePendingInFolder.length} фото навсегда</TooltipContent>
-                    </Tooltip>
-                  </>
-                )}
-                <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
-                  <SelectTrigger className="w-[140px] bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9">
-                    <SelectValue placeholder="Sort..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name-asc"><SortAsc  className="h-3 w-3 inline mr-1" />Name ↑</SelectItem>
-                    <SelectItem value="name-desc"><SortDesc className="h-3 w-3 inline mr-1" />Name ↓</SelectItem>
-                    <SelectItem value="date-asc"><SortAsc  className="h-3 w-3 inline mr-1" />Date ↑</SelectItem>
-                    <SelectItem value="date-desc"><SortDesc className="h-3 w-3 inline mr-1" />Date ↓</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline" size="icon"
-                      onClick={handleGenerate}
-                      disabled={genStatus === 'running'}
-                      className={`relative bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9 ${
-                        genStatus === 'done' ? 'border-green-300 dark:border-green-700' : ''
-                      }`}
-                    >
-                      {genStatus === 'running' ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-bold bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
-                            {genProgress}
-                          </span>
-                        </>
-                      ) : genStatus === 'done' ? (
-                        <CircleCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <CircleDashed className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{genTooltip}</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline" size="icon"
-                      onClick={handleRefresh}
-                      disabled={isLoading || isFoldersLoading}
-                      className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${(isLoading || isFoldersLoading) ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Refresh</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline" size="icon"
-                      onClick={toggleTheme}
-                      className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm h-9 w-9"
-                    >
-                      {theme === 'dark'
-                        ? <Sun className="h-4 w-4" />
-                        : <Moon className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-
-            {/* Breadcrumb bar — Windows Explorer style */}
-            {mode === 'webdav' && (currentPath !== '' || folders.length > 0) && (
-              <nav className="flex items-center gap-0.5 mt-2 mb-1 overflow-x-auto pb-1 scrollbar-none">
-                {breadcrumbs.map((crumb, idx) => {
-                  const isLast = idx === breadcrumbs.length - 1;
-                  return (
-                    <span key={crumb.path + idx} className="flex items-center gap-0.5 shrink-0">
-                      {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />}
-                      <Button
-                        variant={isLast ? 'secondary' : 'ghost'}
-                        size="sm"
-                        onClick={() => !isLast && setCurrentPath(crumb.path)}
-                        disabled={isLast}
-                        className={`h-7 px-2 text-xs font-medium rounded-md ${
-                          isLast
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-default'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        {crumb.label}
-                      </Button>
-                    </span>
-                  );
-                })}
-              </nav>
-            )}
-
-            {/* Layout Selector — only when showing photos */}
-            {visiblePhotos.length > 0 && (
-              <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
-                {layoutOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={layout === option.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayout(option.value)}
-                    className={`flex items-center gap-1.5 h-8 px-2.5 transition-all ${
-                      layout === option.value
-                        ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                        : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm'
-                    }`}
-                  >
-                    {option.icon}
-                    <span className="hidden sm:inline text-xs">{option.label}</span>
-                    {option.isNew && (
-                      <span className="text-[9px] font-bold uppercase leading-none px-1 py-0.5 rounded bg-violet-500 text-white">
-                        new
-                      </span>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className={`flex-1 ${isStyleLayout ? '' : 'container mx-auto px-4 py-6'}`}>
-
+        <main className="flex-1">
           {/* Folder grid */}
           {folders.length > 0 && (
-            <div className="mb-8">
+            <div className="gallery-grid-shell mb-8">
               {isFoldersLoading ? (
-                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Loading folders...</span>
+                <div className="flex items-center gap-2 text-[var(--obs-muted)] py-4 font-mono text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--amber)]" />
+                  <span>Loading folders...</span>
                 </div>
               ) : (
                 <>
                   {isAtRoot && photos.length === 0 ? null : (
-                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)] mb-3">
                       Folders
                     </p>
                   )}
@@ -830,14 +675,14 @@ export default function GalleryPage() {
                         <motion.button
                           key={folder.path}
                           onClick={() => navigateInto(folder)}
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white/90 dark:hover:bg-slate-800/90 hover:shadow-md transition-all text-left"
+                          whileHover={preferReducedMotion ? undefined : { scale: 1.03 }}
+                          whileTap={preferReducedMotion ? undefined : { scale: 0.97 }}
+                          className="group flex flex-col items-center gap-2 p-3 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--bg-elev)]/80 hover:border-[var(--amber-border)] hover:shadow-[var(--shadow-card)] transition-all text-left"
                         >
                           {previews.length === 0 ? (
                             <Folder className="h-10 w-10 text-amber-400 group-hover:text-amber-500 transition-colors my-2" />
                           ) : previews.length === 1 ? (
-                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+                            <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20">
                               <img
                                 src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
                                 alt=""
@@ -846,7 +691,7 @@ export default function GalleryPage() {
                               />
                             </div>
                           ) : previews.length === 2 ? (
-                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 grid grid-cols-2 gap-0.5">
+                            <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20 grid grid-cols-2 gap-0.5">
                               <img
                                 src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
                                 alt=""
@@ -861,7 +706,7 @@ export default function GalleryPage() {
                               />
                             </div>
                           ) : (
-                            <div className="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 grid grid-cols-[2fr_1fr] grid-rows-2 gap-0.5">
+                            <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20 grid grid-cols-[2fr_1fr] grid-rows-2 gap-0.5">
                               <img
                                 src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
                                 alt=""
@@ -882,7 +727,7 @@ export default function GalleryPage() {
                               />
                             </div>
                           )}
-                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 text-center leading-snug line-clamp-2 w-full">
+                          <span className="text-xs font-medium text-[var(--fg)] text-center leading-snug line-clamp-2 w-full">
                             {folder.name}
                           </span>
                         </motion.button>
@@ -898,8 +743,8 @@ export default function GalleryPage() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center min-h-[30vh]">
               <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
-                <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
-                <p className="text-slate-500 dark:text-slate-400">Loading photos...</p>
+                <Loader2 className="h-10 w-10 text-[var(--amber)] animate-spin" />
+                <p className="text-[var(--obs-muted)] font-mono text-sm">Loading photos...</p>
               </motion.div>
             </div>
           )}
@@ -938,44 +783,28 @@ export default function GalleryPage() {
           )}
 
           {!isLoading && !error && visiblePhotos.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              {!isStyleLayout && (
-                <div className="mb-4 flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-                    {visiblePhotos.length} photos
-                  </Badge>
-                  {hiddenInCurrentFolder.length > 0 && (
-                    <Badge variant="outline" className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-400 dark:text-slate-500">
-                      {hiddenInCurrentFolder.length} скрыто
-                    </Badge>
-                  )}
-                </div>
-              )}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: preferReducedMotion ? 0 : 0.3 }}
+            >
               <AnimatePresence mode="wait">
                 <motion.div
                   key={layout}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.15 }}
+                  initial={preferReducedMotion ? false : { opacity: 0, y: 10 }}
+                  animate={preferReducedMotion ? false : { opacity: 1, y: 0 }}
+                  exit={preferReducedMotion ? undefined : { opacity: 0, y: -10 }}
+                  transition={{ duration: preferReducedMotion ? 0 : 0.15 }}
+                  className={preferReducedMotion ? '' : 'gallery-layout-enter'}
                 >
-                  {renderLayout}
+                  <div className="gallery-grid-shell">{renderLayout}</div>
                 </motion.div>
               </AnimatePresence>
             </motion.div>
           )}
         </main>
 
-        {!isStyleLayout && (
-          <footer className="mt-auto border-t border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-            <div className="container mx-auto px-4 py-4">
-              <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
-                Photo Gallery{visiblePhotos.length > 0 && ` • ${visiblePhotos.length} photos`}
-                {hiddenInCurrentFolder.length > 0 && ` • ${hiddenInCurrentFolder.length} скрыто`}
-              </p>
-            </div>
-          </footer>
-        )}
+        <GalleryFooter />
 
         <Lightbox
           photos={visiblePhotos}
@@ -997,7 +826,7 @@ export default function GalleryPage() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
               onClick={scrollToTop}
-              className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full bg-slate-900/80 dark:bg-white/80 text-white dark:text-slate-900 shadow-lg backdrop-blur-sm hover:bg-slate-800 dark:hover:bg-white transition-colors flex items-center justify-center"
+              className="fixed bottom-6 right-6 z-50 h-11 w-11 rounded-full border border-[var(--amber-border)] bg-[var(--amber-tint)] text-[var(--amber)] shadow-lg backdrop-blur-sm hover:bg-[rgba(230,168,90,0.2)] transition-colors flex items-center justify-center"
               aria-label="Прокрутить вверх"
             >
               <ChevronUp className="h-5 w-5" />

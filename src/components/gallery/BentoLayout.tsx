@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Photo } from './types';
 import { PhotoCard } from './PhotoCard';
+import { bentoPatternForCols } from './masonry-patterns';
 
 interface BentoLayoutProps {
   photos: Photo[];
@@ -15,46 +16,74 @@ interface BentoLayoutProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
-const BENTO_PATTERN: { col: string; row: string }[] = [
-  { col: 'col-span-2', row: 'row-span-2' },
-  { col: 'col-span-1', row: 'row-span-1' },
-  { col: 'col-span-1', row: 'row-span-1' },
-  { col: 'col-span-1', row: 'row-span-2' },
-  { col: 'col-span-1', row: 'row-span-1' },
-  { col: 'col-span-3', row: 'row-span-1' },
-  { col: 'col-span-1', row: 'row-span-1' },
-  { col: 'col-span-1', row: 'row-span-1' },
-  { col: 'col-span-2', row: 'row-span-1' },
-  { col: 'col-span-1', row: 'row-span-1' },
-];
+function useBentoCols(): number {
+  const [cols, setCols] = useState(9);
+  useEffect(() => {
+    const mq = () => {
+      const w = window.innerWidth;
+      if (w < 640) setCols(3);
+      else if (w < 960) setCols(6);
+      else if (w < 1280) setCols(6);
+      else setCols(9);
+    };
+    mq();
+    window.addEventListener('resize', mq, { passive: true });
+    return () => window.removeEventListener('resize', mq);
+  }, []);
+  return cols;
+}
 
-export function BentoLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, panoramaPaths, onTogglePanorama, coverPaths, onToggleCover }: BentoLayoutProps) {
-  const photoConfigs = useMemo(() => {
-    return photos.map((photo, index) => {
-      const pattern = BENTO_PATTERN[index % BENTO_PATTERN.length];
-      return { photo, index, col: pattern.col, row: pattern.row };
-    });
-  }, [photos]);
+export function BentoLayout({
+  photos,
+  onPhotoClick,
+  onHidePhoto,
+  onDeletePhoto,
+  panoramaPaths,
+  onTogglePanorama,
+  coverPaths,
+  onToggleCover,
+}: BentoLayoutProps) {
+  const cols = useBentoCols();
+  const rowPx = cols >= 9 ? 62 : cols >= 6 ? 58 : 52;
+
+  const pattern = useMemo(() => bentoPatternForCols(cols), [cols]);
 
   return (
-    <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 auto-rows-[110px] md:auto-rows-[130px] [grid-auto-flow:dense]">
-      {photoConfigs.map(({ photo, index, col, row }) => (
-        <PhotoCard
-          key={photo.path}
-          photo={photo}
-          index={index}
-          onClick={() => onPhotoClick(photo, index)}
-          onHidePhoto={onHidePhoto}
-          onDeletePhoto={onDeletePhoto}
-          onTogglePanorama={onTogglePanorama}
-          isPanorama={panoramaPaths?.includes(photo.path)}
-          onToggleCover={onToggleCover}
-          isCover={coverPaths?.includes(photo.path)}
-          className={`${col} ${row}`}
-          aspectRatio=""
-          thumbnailSize={400}
-        />
-      ))}
+    <div
+      className="grid w-full gap-2"
+      style={{
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gridAutoRows: `${rowPx}px`,
+      }}
+    >
+      {photos.map((photo, index) => {
+        const spec = pattern[index % pattern.length];
+        return (
+          <div
+            key={photo.path}
+            style={{
+              gridColumn: `span ${spec.col} / span ${spec.col}`,
+              gridRow: `span ${spec.row} / span ${spec.row}`,
+            }}
+          >
+            <PhotoCard
+              photo={photo}
+              index={index}
+              total={photos.length}
+              onClick={() => onPhotoClick(photo, index)}
+              onHidePhoto={onHidePhoto}
+              onDeletePhoto={onDeletePhoto}
+              onTogglePanorama={onTogglePanorama}
+              isPanorama={panoramaPaths?.includes(photo.path)}
+              onToggleCover={onToggleCover}
+              isCover={coverPaths?.includes(photo.path)}
+              aspectRatio=""
+              className="h-full min-h-0"
+              thumbnailSize={400}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

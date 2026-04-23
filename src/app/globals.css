@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -43,125 +43,352 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ── Obsidian design tokens (BRIEF §1, §12) ─────────────────────────────── */
 :root {
   --radius: 0.625rem;
+  /* Below app modals (z-50) so dropdowns/tooltips work; lightbox overrides higher */
+  --gallery-z-grain: 11;
+  --gallery-z-grain-top: 12;
+  --gallery-z-lightbox: 1100;
 
-  /* ── Empire layout ─────────────────────────────────────────────────── */
-  --empire-card-bg: linear-gradient(135deg, #faf7f2, #f5ebe0);
-  --empire-inner-bg: #faf7f2;
-  --empire-loader-bg: #faf7f2;
-  --empire-text-h: #5c4033;
-  --empire-text-sub: #8b7355;
-  --empire-text-num: #c9a959;
+  /* surfaces — light */
+  --bg: #f5f1e8;
+  --bg-elev: #ffffff;
+  --bg-card: #ffffff;
+  --fg: #1a1715;
+  --obs-muted: rgba(26, 23, 21, 0.6);
+  --obs-muted-dim: rgba(26, 23, 21, 0.35);
+  --rule: rgba(0, 0, 0, 0.08);
+  --amber: #e6a85a;
+  --amber-dim: #c88a3e;
+  --amber-glow: rgba(230, 168, 90, 0.25);
+  --amber-tint: rgba(230, 168, 90, 0.12);
+  --amber-border: rgba(230, 168, 90, 0.35);
+  --accent-badge-bg: rgba(230, 168, 90, 0.18);
+  --ok: #e6a85a;
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.15);
+  --shadow-hover: 0 0 0 3px rgba(230, 168, 90, 0.18),
+    0 12px 40px -10px rgba(230, 168, 90, 0.3),
+    0 8px 24px -12px rgba(0, 0, 0, 0.2);
+  --sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+  --serif: var(--font-instrument-serif), "Times New Roman", serif;
 
-  /* ── Minimalism layout ─────────────────────────────────────────────── */
-  --min-card-bg: #fafafa;
-  --min-text: #1a1a1a;
-  --min-border: rgba(0, 0, 0, 0.06);
-  --min-heading: #1a1a1a;
+  /* Layout accents — aligned with Obsidian light */
+  --empire-card-bg: linear-gradient(135deg, #faf7f2, #ebe4d8);
+  --empire-inner-bg: #f5f1e8;
+  --empire-loader-bg: #f5f1e8;
+  --empire-text-h: #1a1715;
+  --empire-text-sub: rgba(26, 23, 21, 0.65);
+  --empire-text-num: #c88a3e;
+
+  --min-card-bg: #ffffff;
+  --min-text: #1a1715;
+  --min-border: rgba(0, 0, 0, 0.08);
+  --min-heading: #1a1715;
   --min-footer: rgba(0, 0, 0, 0.08);
 
-  /* ── Album layout ──────────────────────────────────────────────────── */
-  --album-page-bg: #f0ebe3;
+  --album-page-bg: #f5f1e8;
   --album-mat-bg: #ffffff;
   --album-photo-bg: #ede8e0;
-  --album-caption: #6b5e52;
-  --album-meta: #9a8878;
-  --album-rule: #c8b89a;
-  --album-footer: #c0b0a0;
-  --album-spin-border: #d0c8bc;
-  --album-spin-top: #8a7d6e;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --album-caption: rgba(26, 23, 21, 0.72);
+  --album-meta: rgba(26, 23, 21, 0.5);
+  --album-rule: var(--rule);
+  --album-footer: rgba(26, 23, 21, 0.45);
+  --album-spin-border: rgba(0, 0, 0, 0.1);
+  --album-spin-top: rgba(26, 23, 21, 0.55);
+
+  --background: #f5f1e8;
+  --foreground: #1a1715;
+  --card: #ffffff;
+  --card-foreground: #1a1715;
+  --popover: #ffffff;
+  --popover-foreground: #1a1715;
+  --primary: #1a1715;
+  --primary-foreground: #f5f1e8;
+  --secondary: rgba(0, 0, 0, 0.06);
+  --secondary-foreground: #1a1715;
+  --muted: rgba(0, 0, 0, 0.06);
+  --muted-foreground: rgba(26, 23, 21, 0.55);
+  --accent: rgba(230, 168, 90, 0.15);
+  --accent-foreground: #1a1715;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: #e6a85a;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1715;
+  --sidebar-primary: #1a1715;
+  --sidebar-primary-foreground: #f5f1e8;
+  --sidebar-accent: rgba(0, 0, 0, 0.06);
+  --sidebar-accent-foreground: #1a1715;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #e6a85a;
+
+  /* Overlays + themeable UI (BRIEF + BRIEF-cyberpunk) */
+  --scanlines: none;
+  --vignette: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.08) 100%);
+  --grain-opacity: 0.03;
+  --grain-blend: multiply;
+  --header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 241, 232, 0.9) 100%);
+  --logo-bg: linear-gradient(145deg, #2a1d0e, #15100a);
+  --logo-fg: #e6a85a;
+  --logo-shadow: 0 0 0 1px var(--amber-glow), 0 6px 16px rgba(230, 168, 90, 0.15);
+  --accent-active-bg: linear-gradient(180deg, #e6a85a 0%, #c88a3e 100%);
+  --accent-active-shadow: 0 4px 14px rgba(230, 168, 90, 0.28), inset 0 1px 0 rgba(255, 240, 210, 0.4);
+  --accent-on: #1a0f05;
+  --accent-active-border: rgba(230, 168, 90, 0.6);
+  --surface-0: rgba(255, 255, 255, 0.55);
+  --surface-1: rgba(255, 255, 255, 0.85);
+  --surface-border: rgba(26, 23, 21, 0.08);
+  --accent-tint-soft: rgba(230, 168, 90, 0.08);
+  --pass-label-color: var(--amber);
+  --selection-bg: rgba(230, 168, 90, 0.35);
+  --selection-fg: #1a1715;
+  --focus-ring: var(--ring);
+  --photo-caption-gradient: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.85) 100%);
+  --photo-caption-fg: rgba(233, 228, 217, 0.82);
+  --photo-exif-hover: rgba(230, 168, 90, 0.85);
+  --star-capsule-bg: rgba(11, 11, 13, 0.7);
+  --album-mat-outline: var(--rule);
+}
+
+/* Cyberpunk light — Obsidian_Theme/BRIEF-cyberpunk.md */
+html[data-theme="light"] {
+  --bg: #ebe6d9;
+  --bg-elev: #f5f0e2;
+  --bg-card: #ffffff;
+  --fg: #1a0f1a;
+  --obs-muted: rgba(26, 15, 26, 0.62);
+  --obs-muted-dim: rgba(26, 15, 26, 0.38);
+  --rule: rgba(26, 15, 26, 0.1);
+  --surface-0: rgba(255, 255, 255, 0.55);
+  --surface-1: rgba(255, 255, 255, 0.85);
+  --surface-border: rgba(26, 15, 26, 0.08);
+  --accent: #ff1493;
+  --accent-dim: #d9107a;
+  --accent-on: #fff6fb;
+  --accent-glow: rgba(255, 20, 147, 0.35);
+  --accent-tint: rgba(255, 20, 147, 0.1);
+  --accent-tint-soft: rgba(255, 20, 147, 0.06);
+  --accent-border: rgba(255, 20, 147, 0.4);
+  --accent-border-strong: rgba(255, 20, 147, 0.7);
+  --accent-badge-bg: rgba(255, 20, 147, 0.14);
+  --cyan: #00e5ff;
+  --accent-active-bg: linear-gradient(135deg, #ff1493 0%, #ff5a8a 50%, #00e5ff 100%);
+  --accent-active-shadow:
+    0 0 0 1px rgba(255, 20, 147, 0.4),
+    0 6px 20px rgba(255, 20, 147, 0.35),
+    0 0 40px rgba(0, 229, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --logo-bg: linear-gradient(135deg, #ff1493 0%, #00e5ff 100%);
+  --logo-fg: #ffffff;
+  --logo-shadow:
+    0 0 0 1px rgba(255, 20, 147, 0.3),
+    0 4px 12px rgba(255, 20, 147, 0.35),
+    0 0 24px rgba(0, 229, 255, 0.2);
+  --header-bg: linear-gradient(180deg, rgba(245, 240, 226, 0.92) 0%, rgba(235, 230, 217, 0.78) 100%);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px -18px rgba(0, 0, 0, 0.15);
+  --shadow-hover:
+    0 0 0 3px rgba(255, 20, 147, 0.12),
+    0 12px 40px -10px rgba(255, 20, 147, 0.3),
+    0 18px 40px -20px rgba(0, 0, 0, 0.18);
+  --grain-opacity: 0.04;
+  --grain-blend: multiply;
+  --vignette: radial-gradient(ellipse at top, rgba(255, 20, 147, 0.05) 0%, transparent 50%);
+  --scanlines: repeating-linear-gradient(
+    0deg,
+    rgba(26, 15, 26, 0.022) 0px,
+    rgba(26, 15, 26, 0.022) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  --amber: var(--accent);
+  --amber-dim: var(--accent-dim);
+  --amber-glow: var(--accent-glow);
+  --amber-tint: var(--accent-tint);
+  --amber-border: var(--accent-border);
+  --ok: var(--accent);
+  --pass-label-color: var(--accent);
+  --accent-active-border: rgba(255, 20, 147, 0.55);
+  --selection-bg: var(--accent-glow);
+  --selection-fg: #fff;
+  --focus-ring: var(--accent);
+  --photo-caption-gradient: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.92) 100%);
+  --photo-caption-fg: var(--obs-muted);
+  --photo-exif-hover: var(--accent);
+  --star-capsule-bg: rgba(255, 255, 255, 0.8);
+  --album-mat-outline: var(--surface-border);
+  --background: #ebe6d9;
+  --foreground: #1a0f1a;
+  --card: #ffffff;
+  --card-foreground: #1a0f1a;
+  --popover: #f5f0e2;
+  --popover-foreground: #1a0f1a;
+  --primary: #1a0f1a;
+  --primary-foreground: #fff6fb;
+  --muted: rgba(26, 15, 26, 0.06);
+  --muted-foreground: rgba(26, 15, 26, 0.55);
+  --border: var(--surface-border);
+  --input: var(--surface-border);
+  --ring: #ff1493;
+  --album-page-bg: var(--bg);
+  --album-mat-bg: #ffffff;
+  --album-photo-bg: #f0ebe3;
+  --album-caption: rgba(26, 15, 26, 0.72);
+  --album-meta: rgba(26, 15, 26, 0.5);
+  --album-rule: var(--rule);
+  --empire-text-num: var(--accent);
+}
+
+@media (max-width: 639px) {
+  html[data-theme="light"] {
+    --scanlines: repeating-linear-gradient(
+      0deg,
+      rgba(26, 15, 26, 0.012) 0px,
+      rgba(26, 15, 26, 0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+}
+
+[data-theme="light"] .gallery-chip-active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -3px;
+  height: 2px;
+  background: linear-gradient(90deg, #ff1493, #00e5ff);
+  border-radius: 2px;
+  filter: blur(0.5px);
+  box-shadow: 0 0 8px rgba(255, 20, 147, 0.6);
+}
+
+.gallery-logo-box {
+  overflow: hidden;
+  background: var(--logo-bg);
+  color: var(--logo-fg);
+  box-shadow: var(--logo-shadow);
+}
+
+.gallery-chip-active {
+  background: var(--accent-active-bg);
+  color: var(--accent-on);
+  box-shadow: var(--accent-active-shadow);
+  border-color: var(--accent-active-border) !important;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --bg: #0b0b0d;
+  --bg-elev: #121214;
+  --bg-card: #141311;
+  --fg: #e9e4d9;
+  --obs-muted: rgba(233, 228, 217, 0.55);
+  --obs-muted-dim: rgba(233, 228, 217, 0.3);
+  --rule: rgba(255, 255, 255, 0.06);
+  --amber: #e6a85a;
+  --amber-dim: #c88a3e;
+  --amber-glow: rgba(230, 168, 90, 0.25);
+  --amber-tint: rgba(230, 168, 90, 0.12);
+  --amber-border: rgba(230, 168, 90, 0.35);
+  --accent-badge-bg: rgba(230, 168, 90, 0.16);
+  --ok: #e6a85a;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+  --shadow-hover: 0 0 0 3px rgba(230, 168, 90, 0.12),
+    0 12px 40px -10px rgba(230, 168, 90, 0.25),
+    0 18px 40px -20px rgba(0, 0, 0, 0.8);
 
-  /* ── Empire layout ─────────────────────────────────────────────────── */
   --empire-card-bg: linear-gradient(135deg, #1e1810, #2a1e14);
-  --empire-inner-bg: #181208;
-  --empire-loader-bg: #181208;
-  --empire-text-h: #d4b896;
-  --empire-text-sub: #a08060;
-  --empire-text-num: #c9a959;
+  --empire-inner-bg: #141311;
+  --empire-loader-bg: #141311;
+  --empire-text-h: #e9e4d9;
+  --empire-text-sub: rgba(233, 228, 217, 0.55);
+  --empire-text-num: #e6a85a;
 
-  /* ── Minimalism layout ─────────────────────────────────────────────── */
-  --min-card-bg: #1a1a1a;
-  --min-text: #e5e5e5;
+  --min-card-bg: #141311;
+  --min-text: #e9e4d9;
   --min-border: rgba(255, 255, 255, 0.06);
-  --min-heading: #e5e5e5;
-  --min-footer: rgba(255, 255, 255, 0.05);
+  --min-heading: #e9e4d9;
+  --min-footer: rgba(255, 255, 255, 0.06);
 
-  /* ── Album layout ──────────────────────────────────────────────────── */
-  --album-page-bg: #1a1812;
-  --album-mat-bg: #252018;
+  --album-page-bg: #0b0b0d;
+  --album-mat-bg: #141311;
   --album-photo-bg: #1e1a14;
-  --album-caption: #a09080;
-  --album-meta: #7a6858;
-  --album-rule: #4a3828;
-  --album-footer: #5a4838;
-  --album-spin-border: #3a3028;
-  --album-spin-top: #6a5848;
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --album-caption: rgba(233, 228, 217, 0.72);
+  --album-meta: rgba(233, 228, 217, 0.45);
+  --album-rule: rgba(255, 255, 255, 0.08);
+  --album-footer: rgba(233, 228, 217, 0.4);
+  --album-spin-border: rgba(255, 255, 255, 0.08);
+  --album-spin-top: rgba(233, 228, 217, 0.5);
+
+  --background: #0b0b0d;
+  --foreground: #e9e4d9;
+  --card: #121214;
+  --card-foreground: #e9e4d9;
+  --popover: #121214;
+  --popover-foreground: #e9e4d9;
+  --primary: #e9e4d9;
+  --primary-foreground: #1a0f05;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #e9e4d9;
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: rgba(233, 228, 217, 0.55);
+  --accent: rgba(230, 168, 90, 0.12);
+  --accent-foreground: #e9e4d9;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #e6a85a;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #121214;
+  --sidebar-foreground: #e9e4d9;
+  --sidebar-primary: #e6a85a;
+  --sidebar-primary-foreground: #1a0f05;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
+  --sidebar-accent-foreground: #e9e4d9;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #e6a85a;
+
+  --scanlines: none;
+  --vignette: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+  --grain-opacity: 0.055;
+  --grain-blend: overlay;
+  --header-bg: linear-gradient(180deg, rgba(18, 18, 20, 0.95) 0%, rgba(11, 11, 13, 0.85) 100%);
+  --logo-bg: linear-gradient(145deg, #2a1d0e, #15100a);
+  --logo-fg: #e6a85a;
+  --logo-shadow: 0 0 0 1px var(--amber-glow), 0 6px 16px rgba(230, 168, 90, 0.15);
+  --accent-active-bg: linear-gradient(180deg, #e6a85a 0%, #c88a3e 100%);
+  --accent-active-shadow: 0 4px 14px rgba(230, 168, 90, 0.28), inset 0 1px 0 rgba(255, 240, 210, 0.4);
+  --accent-on: #1a0f05;
+  --accent-active-border: rgba(230, 168, 90, 0.6);
+  --surface-0: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.06);
+  --surface-border: rgba(255, 255, 255, 0.07);
+  --accent-tint-soft: rgba(230, 168, 90, 0.08);
+  --pass-label-color: var(--amber);
+  --selection-bg: rgba(230, 168, 90, 0.35);
+  --selection-fg: #0b0b0d;
+  --focus-ring: var(--ring);
+  --photo-caption-gradient: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.85) 100%);
+  --photo-caption-fg: rgba(233, 228, 217, 0.82);
+  --photo-exif-hover: rgba(230, 168, 90, 0.85);
+  --star-capsule-bg: rgba(11, 11, 13, 0.7);
+  --album-mat-outline: rgba(255, 255, 255, 0.06);
 }
 
 @layer base {
@@ -170,12 +397,114 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--sans);
+  }
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-fg);
+  }
+  *:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
 }
 
+/* Film grain + vignette / scanlines (BRIEF §2, BRIEF-cyberpunk §3) — below lightbox z-index */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--gallery-z-grain-top);
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--gallery-z-grain);
+  background: var(--scanlines), var(--vignette);
+}
+
+@keyframes galleryFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gallery-layout-enter {
+  animation: galleryFadeIn 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    --scanlines: none !important;
+  }
+
+  body::before {
+    opacity: calc(var(--grain-opacity) * 0.35) !important;
+  }
+
+  .gallery-layout-enter {
+    animation: none;
+  }
+
+  .obs-photo-card,
+  .obs-photo-card:hover {
+    transform: none !important;
+  }
+}
+
+[data-theme="light"] .honeycomb-tile:hover .honeycomb-inner {
+  filter: drop-shadow(0 0 12px rgba(255, 20, 147, 0.42));
+}
+
+.dark .honeycomb-tile:hover .honeycomb-inner {
+  filter: drop-shadow(0 0 10px rgba(230, 168, 90, 0.28));
+}
+
+/* Lightbox above grain */
+.gallery-lightbox-overlay {
+  z-index: var(--gallery-z-lightbox) !important;
+  background-color: rgba(0, 0, 0, 0.92) !important;
+  backdrop-filter: blur(10px);
+}
+
+.gallery-lightbox-content {
+  z-index: calc(var(--gallery-z-lightbox) + 1) !important;
+}
+
+.gallery-grid-shell {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 4px 24px 24px;
+}
+
 /* ── Lightbox thumbnail scrollbar ─────────────────────────────────────────── */
-.scrollbar-lightbox { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.25) transparent; }
-.scrollbar-lightbox::-webkit-scrollbar        { height: 3px; }
-.scrollbar-lightbox::-webkit-scrollbar-track  { background: transparent; }
-.scrollbar-lightbox::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.25); border-radius: 3px; }
-.scrollbar-lightbox::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
+.scrollbar-lightbox {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.scrollbar-lightbox::-webkit-scrollbar {
+  height: 3px;
+}
+.scrollbar-lightbox::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-lightbox::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+.scrollbar-lightbox::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
