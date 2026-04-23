@@ -24,7 +24,7 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
 
 ## ✨ Features
 
-- **🖼️ 7 Gallery Layouts**
+- **🖼️ 6 Gallery Layouts**
 
   **Grid Layouts:**
   - **Masonry** - Pinterest-style staggered grid
@@ -35,8 +35,7 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
   - **Wave** - Dynamic wavy arrangement
 
   **Style Layouts:**
-  - **Empire (Ампир)** - Classic luxury style with golden frames and ornate decorations
-  - **Minimalism (Минимализм)** - Clean, pure design with minimal elements
+  - **Minimalism (Минимализм)** - Clean list with thumbnails and monospace metadata
   - **Album** - Print-inspired layout with warm paper tones and mat frames
 
 - **🔍 Full-Featured Lightbox**
@@ -75,13 +74,13 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for detailed optimization report.
 
 - **🎨 UI / UX**
   - Dark / light theme toggle
-  - WebDAV connection indicator in the header and photo count row (green when the server responds successfully, red on load errors, gray for demo mode, pulse while loading)
+  - WebDAV connection indicator in the header (green when the server responds successfully, red on load errors, gray for demo mode, pulse while loading)
+  - Film grain / scanline-style overlay on the page background; stronger grain on light theme for a tactile paper feel
   - Smooth scroll-to-top button (~1s animation)
   - Batch thumbnail generation with progress indicator
   - Responsive design for mobile and desktop
   - Framer Motion animations
   - **Bento** layout uses a four-column rhythm on large screens (dense CSS grid) for clearer alignment; narrower breakpoints fall back to 6- and 3-column patterns
-  - **Empire** layout shows every photo: the classic hero block for the first six, then a responsive grid for the rest
   - **Minimal** layout lists each file with a thumbnail next to the name
   - **Album** layout uses tighter spacing below the global header for a print-style flow
 
@@ -198,7 +197,6 @@ WEBDAV_URL=https://dav.box.com/dav/
 │   │   ├── gallery/            # Gallery components
 │   │   │   ├── AlbumLayout.tsx
 │   │   │   ├── BentoLayout.tsx
-│   │   │   ├── EmpireLayout.tsx
 │   │   │   ├── HoneycombLayout.tsx
 │   │   │   ├── Lightbox.tsx
 │   │   │   ├── MasonryLayout.tsx
@@ -237,19 +235,10 @@ Dynamic wavy arrangement with varying rotations and heights. Creates an artistic
 
 ### Style Layouts
 
-#### Empire (Ампир) 👑
-Classic luxury style inspired by French Empire aesthetics:
-- Elegant golden and bronze frames
-- Ornamental decorations
-- Classic serif typography
-- Cream and gold color palette
-
 #### Minimalism (Минимализм) ➖
-Clean, pure design philosophy:
-- Pure white background
-- Minimal borders and decorations
-- Subtle grayscale effects
-- Monospace typography for numbers
+Clean list layout:
+- Thumbnail, filename, and synthetic metadata per row
+- Monospace typography; row actions on hover
 
 #### Album
 Print-inspired photo album layout:
@@ -357,7 +346,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Photo Gallery** — одностраничная веб-галерея фотографий с подключением к облачному хранилищу через WebDAV.
 
-- **7 макетов** отображения: Masonry, Bento, Honeycomb, Wave, Empire, Minimalism, Album
+- **6 макетов** отображения: Masonry, Bento, Honeycomb, Wave, Minimalism, Album
 - **Лайтбокс** с зумом, навигацией по клавиатуре, полоской миниатюр и скачиванием
 - **Управление фото**: скрытие, удаление (с восстановлением), выбор обложек папок, пометка панорам
 - **Навигация по папкам** с хлебными крошками и превью-обложками

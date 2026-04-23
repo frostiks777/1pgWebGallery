@@ -20,7 +20,6 @@ import {
   BentoLayout,
   HoneycombLayout,
   WaveLayout,
-  EmpireLayout,
   MinimalismLayout,
   AlbumLayout,
   Lightbox,
@@ -40,7 +39,6 @@ const VALID_OBSIDIAN_MODES: CollageLayout[] = [
   'bento',
   'honeycomb',
   'wave',
-  'empire',
   'minimalism',
   'album',
 ];
@@ -74,8 +72,6 @@ function layoutCountLabel(layout: CollageLayout): string {
       return 'HONEYCOMB';
     case 'wave':
       return 'WAVE';
-    case 'empire':
-      return 'EMPIRE';
     case 'minimalism':
       return 'MINIMAL';
     case 'album':
@@ -118,6 +114,11 @@ export default function GalleryPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem('obsidian:mode');
+      if (raw === 'empire') {
+        setLayout('masonry');
+        localStorage.setItem('obsidian:mode', 'masonry');
+        return;
+      }
       if (raw && VALID_OBSIDIAN_MODES.includes(raw as CollageLayout)) {
         setLayout(raw as CollageLayout);
       }
@@ -596,7 +597,6 @@ export default function GalleryPage() {
       case 'bento':      return <BentoLayout      {...commonProps} />;
       case 'honeycomb':  return <HoneycombLayout  {...commonProps} />;
       case 'wave':       return <WaveLayout       {...commonProps} />;
-      case 'empire':     return <EmpireLayout     {...commonProps} />;
       case 'minimalism': return <MinimalismLayout {...commonProps} />;
       case 'album':      return <AlbumLayout      {...commonProps} />;
       default:           return <MasonryLayout    {...commonProps} />;
@@ -658,7 +658,6 @@ export default function GalleryPage() {
             layoutLabel={layoutCountLabel(layout)}
             sortLine={sortParts.line}
             sortArrow={sortParts.arrow}
-            webDavIndicator={webDavIndicator}
           />
         )}
 

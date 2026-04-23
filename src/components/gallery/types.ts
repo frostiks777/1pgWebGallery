@@ -11,7 +11,6 @@ export type CollageLayout =
   | 'bento' 
   | 'honeycomb' 
   | 'wave'
-  | 'empire'
   | 'minimalism'
   | 'album';
 

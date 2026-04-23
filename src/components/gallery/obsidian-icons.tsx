@@ -95,14 +95,6 @@ export function IconWave(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function IconEmpire(props: SVGProps<SVGSVGElement>) {
-  return (
-    <Ic size={16} {...props}>
-      <path d="M12 3 l2 5 h5 l-4 3 1.5 5 -4.5 -3 -4.5 3 1.5 -5 -4 -3 h5 z" />
-    </Ic>
-  );
-}
-
 export function IconMinimal(props: SVGProps<SVGSVGElement>) {
   return (
     <Ic size={16} {...props}>

@@ -22,7 +22,6 @@ import {
   IconBento,
   IconHoneycomb,
   IconWave,
-  IconEmpire,
   IconMinimal,
   IconAlbum,
   IconSort,
@@ -35,7 +34,7 @@ import {
 
 export type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc';
 
-/** WebDAV / source indicator for header and count row */
+/** WebDAV / source indicator for header subtitle */
 export type WebDavIndicator = 'demo' | 'connected' | 'disconnected' | 'pending';
 
 function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
@@ -52,13 +51,10 @@ function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
     }
   })();
   return (
-    <span
-      className="inline-flex items-center gap-1.5 shrink-0"
-      title={title}
-    >
+    <span className="inline-flex shrink-0 items-center leading-none" title={title}>
       <span
         className={cn(
-          'inline-block h-2 w-2 rounded-full shrink-0',
+          'inline-block size-[6px] shrink-0 -translate-y-px rounded-full align-middle',
           colorClass,
           pulse && 'motion-safe:animate-pulse',
         )}
@@ -78,7 +74,6 @@ const LAYOUT_CHIPS: {
   { value: 'bento', label: 'Bento', Icon: IconBento },
   { value: 'honeycomb', label: 'Honeycomb', Icon: IconHoneycomb },
   { value: 'wave', label: 'Wave', Icon: IconWave },
-  { value: 'empire', label: 'Empire', Icon: IconEmpire },
   { value: 'minimalism', label: 'Minimal', Icon: IconMinimal },
   { value: 'album', label: 'Album', Icon: IconAlbum, isNew: true },
 ];
@@ -207,14 +202,14 @@ function ToolbarSortGenRefreshTheme({
         type="button"
         onClick={() => onSortChange(cycleSort(sortOption))}
         className={cn(
-          'flex items-center gap-1.5 h-[30px] px-2.5 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)]',
-          'font-mono text-[11px] text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] transition-all duration-[180ms] max-md:min-h-11',
+          'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2.5',
+          'font-mono text-[11px] leading-none text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] transition-all duration-[180ms] max-md:min-h-11',
         )}
         aria-label="Сортировка: переключить режим"
       >
-        <IconSort className="shrink-0 opacity-80" />
-        <span className="tracking-wide">{sl.line}</span>
-        <span className="text-[var(--amber)] tabular-nums">{sl.arrow}</span>
+        <IconSort className="size-[14px] shrink-0 self-center opacity-80" />
+        <span className="self-center tracking-wide leading-none">{sl.line}</span>
+        <span className="self-center tabular-nums leading-none text-[var(--amber)]">{sl.arrow}</span>
       </button>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -463,9 +458,9 @@ export function GalleryChrome({
               <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[var(--fg)] truncate">
                 Photo Gallery
               </h1>
-              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--obs-muted)] truncate">
+              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-[var(--obs-muted)] truncate">
                 <WebDavStatusDot status={webDavIndicator} />
-                <span className="truncate" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
+                <span className="truncate leading-none" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
                   {mode === 'webdav' ? 'webdav' : 'demo'}
                 </span>
               </p>
@@ -507,7 +502,7 @@ export function GalleryChrome({
         )}
 
         {showLayoutChips && visiblePhotoCount > 0 && (
-          <div className="flex gap-1.5 py-[14px] pb-3 overflow-x-auto scrollbar-none -mx-1 px-1">
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-[14px] pb-3 scrollbar-none">
             {LAYOUT_CHIPS.map(({ value, label, Icon, isNew }) => {
               const active = layout === value;
               return (
@@ -552,25 +547,19 @@ export function GalleryCountRow({
   layoutLabel,
   sortLine,
   sortArrow,
-  webDavIndicator,
 }: {
   photoCount: number;
   layoutLabel: string;
   sortLine: string;
   sortArrow: string;
-  webDavIndicator: WebDavIndicator;
 }): ReactNode {
   return (
-    <div className="gallery-grid-shell pt-2 pb-1">
+    <div className="gallery-grid-shell mt-5 pt-1 pb-1">
       <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)]">
-        <span className="shrink-0 whitespace-nowrap">
+        <span className="min-w-0 shrink whitespace-normal sm:whitespace-nowrap">
           {photoCount} photos · {layoutLabel} · {sortLine} {sortArrow}
         </span>
-        <span className="h-px flex-1 bg-[var(--rule)] min-w-[2rem]" aria-hidden />
-        <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <WebDavStatusDot status={webDavIndicator} />
-          <span>· v1</span>
-        </span>
+        <span className="h-px min-w-[2rem] flex-1 bg-[var(--rule)]" aria-hidden />
       </div>
     </div>
   );
@@ -578,18 +567,18 @@ export function GalleryCountRow({
 
 export function GalleryFooter(): ReactNode {
   return (
-    <footer className="mt-auto border-t border-[var(--rule)] px-6 py-10 pb-7 max-sm:px-4 bg-[var(--bg)]">
-      <div className="mx-auto max-w-[1440px] grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-4 items-center text-center md:text-left">
-        <p className="font-mono text-[10px] tracking-[0.12em] text-[var(--obs-muted)] order-2 md:order-1 md:text-left">
+    <footer className="mt-auto border-t border-[var(--rule)] bg-[var(--bg)] px-6 py-10 pb-7 max-sm:px-4">
+      <div className="mx-auto flex max-w-[1440px] flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-between md:gap-4 md:text-left">
+        <p className="order-2 font-mono text-[10px] tracking-[0.12em] text-[var(--obs-muted)] md:order-1 md:w-[min(100%,220px)] md:shrink-0 md:text-left">
           © photo.gallery · 1pg
         </p>
         <p
-          className="text-sm italic text-[var(--obs-muted)] order-1 md:order-2"
+          className="order-1 w-full max-w-xl px-2 text-center text-sm italic leading-snug text-[var(--obs-muted)] md:order-2 md:flex-1"
           style={{ fontFamily: 'var(--serif)' }}
         >
           every frame a held breath.
         </p>
-        <p className="font-mono text-[10px] tracking-[0.18em] text-[var(--obs-muted)] order-3 md:text-right">
+        <p className="order-3 font-mono text-[10px] tracking-[0.18em] text-[var(--obs-muted)] md:w-[min(100%,220px)] md:shrink-0 md:text-right">
           <button
             type="button"
             className="hover:text-[var(--amber)] transition-colors"

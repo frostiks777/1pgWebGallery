@@ -79,13 +79,6 @@
   --serif: var(--font-instrument-serif), "Times New Roman", serif;
 
   /* Layout accents — aligned with Obsidian light */
-  --empire-card-bg: linear-gradient(135deg, #faf7f2, #ebe4d8);
-  --empire-inner-bg: #f5f1e8;
-  --empire-loader-bg: #f5f1e8;
-  --empire-text-h: #1a1715;
-  --empire-text-sub: rgba(26, 23, 21, 0.65);
-  --empire-text-num: #c88a3e;
-
   --min-card-bg: #ffffff;
   --min-text: #1a1715;
   --min-border: rgba(0, 0, 0, 0.08);
@@ -137,7 +130,7 @@
   /* Overlays + themeable UI (BRIEF + BRIEF-cyberpunk) */
   --scanlines: none;
   --vignette: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.08) 100%);
-  --grain-opacity: 0.03;
+  --grain-opacity: 0.065;
   --grain-blend: multiply;
   --header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 241, 232, 0.9) 100%);
   --logo-bg: linear-gradient(145deg, #2a1d0e, #15100a);
@@ -202,7 +195,7 @@ html[data-theme="light"] {
     0 0 0 3px rgba(255, 20, 147, 0.12),
     0 12px 40px -10px rgba(255, 20, 147, 0.3),
     0 18px 40px -20px rgba(0, 0, 0, 0.18);
-  --grain-opacity: 0.04;
+  --grain-opacity: 0.09;
   --grain-blend: multiply;
   --vignette: radial-gradient(ellipse at top, rgba(255, 20, 147, 0.05) 0%, transparent 50%);
   --scanlines: repeating-linear-gradient(
@@ -247,7 +240,6 @@ html[data-theme="light"] {
   --album-caption: rgba(26, 15, 26, 0.72);
   --album-meta: rgba(26, 15, 26, 0.5);
   --album-rule: var(--rule);
-  --empire-text-num: var(--accent);
 }
 
 @media (max-width: 639px) {
@@ -308,13 +300,6 @@ html[data-theme="light"] {
   --shadow-hover: 0 0 0 3px rgba(230, 168, 90, 0.12),
     0 12px 40px -10px rgba(230, 168, 90, 0.25),
     0 18px 40px -20px rgba(0, 0, 0, 0.8);
-
-  --empire-card-bg: linear-gradient(135deg, #1e1810, #2a1e14);
-  --empire-inner-bg: #141311;
-  --empire-loader-bg: #141311;
-  --empire-text-h: #e9e4d9;
-  --empire-text-sub: rgba(233, 228, 217, 0.55);
-  --empire-text-num: #e6a85a;
 
   --min-card-bg: #141311;
   --min-text: #e9e4d9;
