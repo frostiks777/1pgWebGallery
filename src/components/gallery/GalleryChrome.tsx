@@ -60,10 +60,7 @@ function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
     }
   })();
   return (
-    // Optical nudge: a tight all-caps label next to it (leading-none, uppercase) sits with its
-    // visual ink slightly above the shared flex row's geometric center, so a dot centered on
-    // the box alone reads as floating high. `top-px` corrects for that without touching layout.
-    <span className="relative top-px inline-flex shrink-0 items-center justify-center" title={title}>
+    <span className="inline-flex shrink-0 items-center justify-center" title={title}>
       <span
         className={cn(
           'inline-block size-[6px] shrink-0 rounded-full',
@@ -216,8 +213,12 @@ function ToolbarSortGenRefreshTheme({
             aria-label="Сортировка"
           >
             <IconSort className="size-[13px] shrink-0 opacity-80" />
-            <span className="tracking-wide">{sl.line}</span>
-            <span className="tabular-nums text-[var(--amber)]">{sl.arrow}</span>
+            {/* leading-none on the button doesn't reliably reach these text nodes' own line box
+                (measured against the deployed font: the button's line-height alone left them
+                sitting flush against the top of their box) — leading-[1.6] set directly on each
+                span is what actually centers the glyph ink. */}
+            <span className="tracking-wide leading-[1.6]">{sl.line}</span>
+            <span className="tabular-nums text-[var(--amber)] leading-[1.6]">{sl.arrow}</span>
             <ChevronDown className="size-3 shrink-0 opacity-60" aria-hidden />
           </button>
         </DropdownMenuTrigger>
@@ -492,7 +493,10 @@ export function GalleryChrome({
               <h1 className="text-lg font-semibold leading-tight tracking-tight text-[var(--fg)] sm:text-xl truncate">
                 Photo Gallery
               </h1>
-              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-[var(--obs-muted)] truncate">
+              {/* leading-none (line-height:1) clips JetBrains Mono's glyph ink at this size — measured
+                  against the deployed font: leading-[1.4] is the smallest line-height that both stops
+                  the clipping and keeps the dot/text vertically centered on each other. */}
+              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-[1.4] tracking-[0.14em] text-[var(--obs-muted)] truncate">
                 <WebDavStatusDot status={webDavIndicator} />
                 <span className="truncate" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
                   {mode === 'webdav' ? 'webdav' : 'demo'}
@@ -617,7 +621,10 @@ export function GalleryFooter(): ReactNode {
         <p className="order-3 font-mono text-[10px] tracking-[0.18em] text-[var(--obs-muted)] md:w-[min(100%,220px)] md:shrink-0 md:text-right">
           <button
             type="button"
-            className="hover:text-[var(--amber)] transition-colors"
+            // leading-[1.7]: at this 10px size the default line-height leaves the glyph ink
+            // sitting flush against the top of the button's box (measured against the deployed
+            // font) — this is the smallest value that centers it.
+            className="hover:text-[var(--amber)] transition-colors leading-[1.7]"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
             ↑ TOP
