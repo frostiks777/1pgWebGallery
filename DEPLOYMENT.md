@@ -10,6 +10,7 @@
 7. [Настройка systemd](#7-настройка-systemd)
 8. [Запуск и проверка](#8-запуск-и-проверка)
 9. [Видео в галерее](#9-видео-в-галерее)
+10. [CI/CD (GitHub Actions)](#10-cicd-github-actions)
 
 ---
 
@@ -460,6 +461,90 @@ curl http://localhost:3000/api/photos
 
 ---
 
+## 10. CI/CD (GitHub Actions)
+
+С `.github/workflows/deploy.yml` пуш в `main` сам собирает и выкладывает
+проект — сервер больше никогда не запускает `next build`, а значит проблема
+"сборка виснет / OOM-killer убивает next-server" из §🐛 ниже для автодеплоя
+уже не актуальна: сборка идёт на раннерах GitHub (там памяти с избытком),
+а на сервер приезжает уже готовый standalone-бандл (`server.js` +
+минимальный `node_modules` + `.next/static` + `public`).
+
+### 10.1 Как это устроено
+
+- Каталог `/var/www/apps/photo-gallery` — обычный git-чекаут, как и раньше
+  (нужен для ручного отката/сборки, см. §"Обновление приложения" ниже).
+- `/var/www/apps/photo-gallery/release/` — **отдельный** каталог, которым
+  полностью владеет деплой: workflow перезаписывает его целиком (`rsync
+  --delete`) при каждом пуше. Ничего, что должно пережить деплой, туда не
+  кладём.
+- `.env.local` остаётся на прежнем месте, `/var/www/apps/photo-gallery/.env.local`
+  — systemd подхватывает его по абсолютному пути независимо от `release/`.
+- Кэш миниатюр (`CACHE_DIR`) вынесен в `/var/www/apps/photo-gallery/.data`
+  — тоже вне `release/`, чтобы не терять его на каждом деплое.
+- `photo-gallery.service` обновлён: `WorkingDirectory=.../release`,
+  `ExecStart=/usr/bin/node server.js` вместо `bunx next start`.
+
+### 10.2 Разовая настройка сервера
+
+Выполняется один раз, до первого пуша в `main`.
+
+**Пользователь для деплоя** (без root, только рестарт нужного сервиса):
+```bash
+sudo adduser --system --group --home /home/deploy deploy
+sudo usermod -aG www-data deploy
+
+# разрешаем этому пользователю без пароля только рестарт/статус этого сервиса
+echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart photo-gallery, /usr/bin/systemctl is-active --quiet photo-gallery' \
+  | sudo tee /etc/sudoers.d/photo-gallery-deploy
+sudo visudo -cf /etc/sudoers.d/photo-gallery-deploy   # проверка синтаксиса
+```
+
+**Каталог для релиза** (владелец — `deploy`, группа `www-data`, чтобы сервис
+под `www-data` мог читать):
+```bash
+sudo mkdir -p /var/www/apps/photo-gallery/release
+sudo chown deploy:www-data /var/www/apps/photo-gallery/release
+sudo chmod 2775 /var/www/apps/photo-gallery/release
+```
+
+**SSH-ключ** (генерируется один раз, приватная часть уходит в секрет GitHub,
+публичная — на сервер):
+```bash
+ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-deploy"
+sudo mkdir -p /home/deploy/.ssh
+sudo tee -a /home/deploy/.ssh/authorized_keys < deploy_key.pub
+sudo chown -R deploy:deploy /home/deploy/.ssh
+sudo chmod 700 /home/deploy/.ssh && sudo chmod 600 /home/deploy/.ssh/authorized_keys
+# приватный deploy_key (без .pub) пойдёт в секрет DEPLOY_SSH_KEY — см. ниже,
+# после чего его стоит удалить с диска
+```
+
+**Обновить unit-файл** (обычное обновление, как в §7 — этот шаг деплой не
+автоматизирует, он про инфраструктуру, а не про код приложения):
+```bash
+sudo cp /var/www/apps/photo-gallery/photo-gallery.service /etc/systemd/system/photo-gallery.service
+sudo systemctl daemon-reload
+```
+Пока в `release/` ещё нет `server.js` (до первого деплоя), сервис не сможет
+стартовать — это ожидаемо, `Restart=on-failure` просто подождёт первый пуш.
+
+**Секреты репозитория** (Settings → Secrets and variables → Actions):
+
+| Секрет | Значение |
+|---|---|
+| `DEPLOY_HOST` | IP или домен сервера, например `vds2952713...` |
+| `DEPLOY_PORT` | порт SSH, если не 22 (необязательно) |
+| `DEPLOY_USER` | `deploy` |
+| `DEPLOY_PATH` | `/var/www/apps/photo-gallery/release` |
+| `DEPLOY_SSH_KEY` | содержимое приватного `deploy_key` целиком |
+
+После этого — пуш в `main` (или запуск workflow вручную, вкладка Actions →
+Build & Deploy → Run workflow) соберёт и выложит проект, а
+`sudo systemctl status photo-gallery` покажет `active (running)`.
+
+---
+
 ## 🔧 Полезные команды
 
 ### Управление сервисом
@@ -471,6 +556,10 @@ sudo systemctl start photo-gallery     # Запуск
 ```
 
 ### Обновление приложения
+
+Обычный путь теперь — просто `git push` в `main`, дальше GitHub Actions сам
+соберёт и выложит (см. §10). Команды ниже — ручной запасной вариант (CI
+недоступен, или нужно выкатить незакоммиченную правку):
 ```bash
 cd /var/www/apps/photo-gallery
 git pull
@@ -478,6 +567,13 @@ npm install
 npm run build
 sudo systemctl restart photo-gallery
 ```
+Обратите внимание: `photo-gallery.service` теперь запускает
+`release/server.js`, а не `next start` из этого каталога — ручная сборка
+здесь используется только для тестирования/восстановления; чтобы она
+реально попала в прод, скопируйте `.next/standalone` (+ `.next/static`,
+`public`) в `release/` вручную, как это делает workflow, либо временно
+верните `ExecStart` на `bunx next start -p 3000` и `WorkingDirectory` на
+этот каталог.
 
 ### Просмотр логов
 ```bash

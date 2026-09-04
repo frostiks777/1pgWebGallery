@@ -1,0 +1,95 @@
+name: Build & Deploy
+
+# Builds the app on GitHub's runners (which have plenty of RAM) and ships only
+# the finished standalone bundle to the VPS — the VPS never runs `next build`
+# again, which is what was causing OOM kills / hung builds on its ~800MB RAM.
+#
+# One-time server setup required before this works — see DEPLOYMENT.md,
+# section "10. CI/CD (GitHub Actions)". In short: DEPLOY_PATH must point at
+# a dedicated release/ directory, separate from the git checkout, that this
+# workflow fully owns.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Non-blocking: AGENTS.md notes 14 pre-existing lint errors in this repo
+      # (react-hooks/set-state-in-effect) that are tracked as their own task,
+      # not something a deploy should be gated on fixing.
+      - name: Lint (non-blocking)
+        run: bun run lint
+        continue-on-error: true
+
+      - name: Build (standalone output)
+        run: bun run build
+
+      - name: Assemble release bundle
+        run: |
+          set -euo pipefail
+          rm -rf release
+          mkdir -p release
+          cp -r .next/standalone/. release/
+          mkdir -p release/.next
+          cp -r .next/static release/.next/static
+          cp -r public release/public
+
+      - name: Add deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust server host key
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync release to server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          # Must be the dedicated release dir (e.g. /var/www/apps/photo-gallery/release) —
+          # NOT the git checkout root. This directory is fully owned by CI: --delete
+          # below wipes anything not in this build, so nothing that must survive a
+          # deploy (.env.local, the .data thumbnail cache, the git checkout itself)
+          # may ever live under it. See DEPLOYMENT.md §10.
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            -e "ssh -p ${DEPLOY_PORT:-22}" \
+            release/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Restart service
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            'sudo systemctl restart photo-gallery && sleep 2 && sudo systemctl is-active --quiet photo-gallery'

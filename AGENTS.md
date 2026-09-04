@@ -60,8 +60,14 @@ npm run test:e2e         # playwright test — first time, also: npx playwright 
 
 ## Deployment
 
-Manual, by Andrew, over SSH — see `DEPLOYMENT.md`. No CI/CD, no auto-deploy. The usual
-update sequence on the server:
+`git push` to `main` triggers `.github/workflows/deploy.yml`: it builds the standalone
+Next.js output on GitHub's runners (plenty of RAM, unlike the VPS) and rsyncs the result
+over SSH to `/var/www/apps/photo-gallery`, then restarts the `photo-gallery` systemd unit.
+See `DEPLOYMENT.md` §10 for the one-time server setup (deploy user, SSH key, GitHub
+secrets) this depends on. The server no longer runs `next build` at all — that was the
+source of repeated OOM kills on its ~800MB RAM.
+
+Manual fallback (e.g. CI is down, or a change needs to go out without going through git):
 
 ```bash
 cd /var/www/apps/photo-gallery
@@ -70,8 +76,8 @@ sudo systemctl restart photo-gallery
 ```
 
 An AI session cannot reach the production server directly (it isn't on any network this
-session can route to) — the dev cycle below stops at "committed to git", and Andrew runs
-the deploy commands himself.
+session can route to) — the dev cycle below stops at "committed to git", and either the
+GitHub Actions workflow or Andrew himself gets it onto the server from there.
 
 ## AI-assisted development cycle
 

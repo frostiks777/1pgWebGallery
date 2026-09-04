@@ -8,16 +8,28 @@ Wants=network-online.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/apps/photo-gallery
+# Deploy writes the built standalone bundle to release/ and wipes it clean
+# on every deploy (rsync --delete) — nothing that must survive a deploy
+# (config, caches) lives inside it. See DEPLOYMENT.md §10.
+WorkingDirectory=/var/www/apps/photo-gallery/release
 
 # Окружение
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
-Environment="NODE_OPTIONS=--max-old-space-size=4096"
+# Kept outside release/ (which gets wiped on every deploy) so the
+# thumbnail/dir-meta cache survives across deploys.
+Environment="CACHE_DIR=/var/www/apps/photo-gallery/.data"
+# 4096 was sized for the build step, which no longer runs on this box.
+# The standalone runtime server barely needs heap; cap it well below this
+# box's ~800MB RAM so a traffic/thumbnail spike can't push it into OOM.
+Environment="NODE_OPTIONS=--max-old-space-size=512"
 EnvironmentFile=/var/www/apps/photo-gallery/.env.local
 
-# Запуск через Bun (bunx next start)
-ExecStart=/usr/local/bin/bunx next start -p 3000
+# Запускаем собранный standalone-бандл напрямую через node — сборка
+# (next build) больше не выполняется на этой машине вообще, её делает
+# GitHub Actions на своих раннерах и присылает сюда готовый server.js
+# (см. .github/workflows/deploy.yml и DEPLOYMENT.md §10).
+ExecStart=/usr/bin/node server.js
 
 # Перезапуск при падении
 Restart=on-failure

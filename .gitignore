@@ -63,6 +63,9 @@ upload/
 .data/
 **/.thumbs/
 
+# CI/CD deploy target on the server (rsync'd standalone build, not source)
+/release/
+
 # AI dev cycle (.agents/skills) — scratch run evidence, never committed
 .agents-runs/
 # The blanket `skills/` rule above (project specific) would otherwise also hide our
