@@ -1,10 +1,15 @@
 'use client';
 
 import { Photo } from './types';
-import { memo, useMemo, useState } from 'react';
-import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EyeOff, Trash2, RectangleHorizontal, Star, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
+
+// Hover must "commit" for this long before we bother fetching a trailer —
+// avoids firing a request (and, on first view, an ffmpeg generation job)
+// for every card the cursor merely passes over on its way elsewhere.
+const TRAILER_HOVER_DELAY_MS = 450;
 
 interface PhotoCardProps {
   photo: Photo;
@@ -49,6 +54,34 @@ export const PhotoCard = memo(function PhotoCard({
     [photo.path],
   );
 
+  // ── Video trailer preview ────────────────────────────────────────────────
+  // When this photo has a companion video (same filename stem), hovering —
+  // or opening it — swaps the static poster for a short auto-playing
+  // animated-WebP "trailer" generated on demand by /api/video-preview.
+  const trailerUrl = useMemo(
+    () => (photo.videoPath ? `/api/video-preview?path=${encodeURIComponent(photo.videoPath)}` : null),
+    [photo.videoPath],
+  );
+  const [wantsTrailer, setWantsTrailer] = useState(false);   // hover has "committed"
+  const [trailerLoaded, setTrailerLoaded] = useState(false); // trailer image has actually decoded
+  const [trailerFailed, setTrailerFailed] = useState(false); // 501 (no ffmpeg) / fetch error — stop retrying
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
+
+  const armTrailer = useCallback(() => {
+    if (!trailerUrl || trailerFailed) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setWantsTrailer(true), TRAILER_HOVER_DELAY_MS);
+  }, [trailerUrl, trailerFailed]);
+
+  const disarmTrailer = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setWantsTrailer(false);
+  }, []);
+
+  const showTrailer = wantsTrailer && !!trailerUrl && !trailerFailed;
+
   const metaLine = useMemo(() => formatSyntheticMeta(photo), [photo]);
 
   const computedFrame =
@@ -78,6 +111,10 @@ export const PhotoCard = memo(function PhotoCard({
         className,
       )}
       onClick={onClick}
+      onMouseEnter={armTrailer}
+      onMouseLeave={disarmTrailer}
+      onFocus={armTrailer}
+      onBlur={disarmTrailer}
     >
       {/* Top amber hairline — fades on hover */}
       <div
@@ -121,7 +158,38 @@ export const PhotoCard = memo(function PhotoCard({
               setIsLoading(false);
             }}
           />
+          {/* Trailer overlay: only mounted once hover has committed, so a quick
+              pass over the grid never triggers an /api/video-preview request. */}
+          {showTrailer && trailerUrl && (
+            <img
+              src={trailerUrl}
+              alt=""
+              aria-hidden
+              className={cn(
+                'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
+                trailerLoaded ? 'opacity-100' : 'opacity-0',
+              )}
+              decoding="async"
+              onLoad={() => setTrailerLoaded(true)}
+              onError={() => {
+                setTrailerFailed(true);
+                setTrailerLoaded(false);
+              }}
+            />
+          )}
         </>
+      )}
+
+      {trailerUrl && !trailerFailed && (
+        <div
+          className={cn(
+            'pointer-events-none absolute bottom-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 backdrop-blur-[4px] transition-opacity duration-200',
+            showTrailer && trailerLoaded ? 'opacity-0' : 'opacity-70',
+          )}
+          aria-hidden
+        >
+          <Play className="h-2.5 w-2.5 fill-white text-white" />
+        </div>
       )}
 
       {computedFrame && (

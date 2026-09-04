@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { testWebDAVConnection } from '@/lib/webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
+import { buildVideoStemMap, stemOf } from '@/lib/videoExt';
 
 interface LocalPhoto {
   name: string;
@@ -10,19 +11,21 @@ interface LocalPhoto {
   size: number;
   lastModified: string;
   mimeType: string;
+  videoPath?: string;
 }
 
 async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
   const demoDir = path.join(process.cwd(), 'public', 'demo-photos');
-  
+
   try {
     if (!fs.existsSync(demoDir)) {
       return [];
     }
-    
+
     const files = fs.readdirSync(demoDir);
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    
+    const videoStemMap = buildVideoStemMap(files);
+
     const photos: LocalPhoto[] = files
       .filter(file => {
         const ext = path.extname(file).toLowerCase();
@@ -31,7 +34,8 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
       .map(file => {
         const filePath = path.join(demoDir, file);
         const stats = fs.statSync(filePath);
-        
+        const companionVideo = videoStemMap.get(stemOf(file));
+
         return {
           name: file,
           // For demo photos, use direct path to public folder (no /api/photos prefix)
@@ -39,6 +43,7 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
           size: stats.size,
           lastModified: stats.mtime.toISOString(),
           mimeType: `image/${path.extname(file).slice(1)}`,
+          videoPath: companionVideo ? `/demo-photos/${companionVideo}` : undefined,
         };
       });
     
@@ -116,6 +121,7 @@ export async function GET(request: NextRequest) {
             size: photo.size,
             lastModified: photo.lastModified.toISOString(),
             mimeType: photo.mimeType,
+            videoPath: photo.videoPath,
           })),
         });
       } catch (webdavError) {

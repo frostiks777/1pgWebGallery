@@ -1,4 +1,5 @@
 import { createClient, WebDAVClient, FileStat, AuthType } from 'webdav';
+import { buildVideoStemMap, stemOf } from './videoExt';
 
 export interface PhotoInfo {
   name: string;
@@ -7,6 +8,8 @@ export interface PhotoInfo {
   lastModified: Date;
   mimeType: string;
   thumbnail?: string;
+  /** Full WebDAV path to a companion video (same filename stem, e.g. IMG_1.jpg + IMG_1.mp4) if one exists in the same folder. */
+  videoPath?: string;
 }
 
 export interface WebDAVConfig {
@@ -208,10 +211,14 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
     }
 
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.heic', '.heif'];
-    
+
     // Counter for logging
     let loggedCount = 0;
-    
+
+    // Companion videos: same folder, same filename stem (e.g. IMG_1.jpg + IMG_1.mp4).
+    // Used to power the gallery's hover/open "trailer" preview — see /api/video-preview.
+    const videoStemMap = buildVideoStemMap(files.map((f: FileStat) => f.basename));
+
     const photos: PhotoInfo[] = files
       .filter((file: FileStat) => {
         if (file.type !== 'file') return false;
@@ -224,13 +231,17 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
           console.log(`[WebDAV] Photo path: ${file.filename}, basename: ${file.basename}`);
           loggedCount++;
         }
-        
+
+        const companionVideo = videoStemMap.get(stemOf(file.basename));
+        const parentDir = file.filename.slice(0, file.filename.length - file.basename.length);
+
         return {
           name: file.basename,
           path: file.filename, // Full path from WebDAV root
           size: file.size || 0,
           lastModified: new Date(file.lastmod),
           mimeType: file.mime || 'image/jpeg',
+          videoPath: companionVideo ? `${parentDir}${companionVideo}` : undefined,
         };
       });
 

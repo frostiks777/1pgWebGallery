@@ -29,6 +29,28 @@ interface LightboxProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
+// Owns its own loaded/failed state and is remounted (via `key={src}`) whenever
+// the photo changes — sidesteps the setState-in-effect anti-pattern that
+// resetting this state from a parent-level useEffect would require.
+function LightboxTrailer({ src, zoom }: { src: string; zoom: number }) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={`pointer-events-none absolute max-h-[85vh] max-w-[90vw] object-contain transition-opacity duration-300 ${
+        loaded ? 'opacity-100' : 'opacity-0'
+      }`}
+      style={{ transform: `scale(${zoom})` }}
+      onLoad={() => setLoaded(true)}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function LightboxContent({
   photos,
   initialIndex,
@@ -65,6 +87,13 @@ function LightboxContent({
   const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
   const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
+
+  // Trailer: opening a photo that has a companion video starts the same
+  // auto-generated preview used on hover in the grid, just at a larger size
+  // (still a small animated WebP, not the source video — see /api/video-preview).
+  const trailerUrl = currentPhoto?.videoPath
+    ? `/api/video-preview?path=${encodeURIComponent(currentPhoto.videoPath)}&width=900`
+    : null;
 
   const expectedUrl = useRef(imageUrl);
 
@@ -300,6 +329,9 @@ function LightboxContent({
             }
           }}
         />
+        {trailerUrl && !isLoading && !hasError && (
+          <LightboxTrailer key={trailerUrl} src={trailerUrl} zoom={zoom} />
+        )}
       </div>
 
       <div className="shrink-0 border-t border-white/10 bg-black/50 px-4 py-2 text-center font-mono text-[11px] tracking-wide text-[rgba(233,228,217,0.75)]">

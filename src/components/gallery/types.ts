@@ -4,6 +4,8 @@ export interface Photo {
   size: number;
   lastModified: string;
   mimeType: string;
+  /** Path to a companion video (same filename stem) if one was found alongside this photo. Powers the hover/open trailer preview. */
+  videoPath?: string;
 }
 
 export type CollageLayout = 
