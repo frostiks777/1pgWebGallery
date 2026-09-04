@@ -226,10 +226,16 @@ async function fetchOriginalVideo(video: string): Promise<Buffer> {
   const c = dav();
   if (!c) throw new Error('WebDAV not configured');
   const p = video.startsWith('/') ? video : '/' + video;
+  const t0 = Date.now();
   const ab = await withTimeout(
     c.getFileContents(p, { format: 'binary' }) as Promise<ArrayBuffer>,
-    120_000, `fetch ${p}`,
+    // A large real-world video (tens to a hundred+ MB) over a slow WebDAV
+    // backend can genuinely take a while — this is the most likely place
+    // for a big clip's FIRST trailer generation to be slow, so it gets a
+    // generous ceiling and its own timing log rather than failing quietly.
+    240_000, `fetch ${p}`,
   );
+  console.info(`[VideoPreview] Fetched ${fmtBytes(ab.byteLength)} in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${p}`);
   return Buffer.from(ab);
 }
 
@@ -249,8 +255,10 @@ function frameCountFor(durationSec: number): number {
 }
 
 async function extractFramesAndMux(videoFile: string, workDir: string, width: number): Promise<Buffer> {
+  const t0 = Date.now();
   const duration = await probeDuration(videoFile);
   const frameCount = frameCountFor(duration);
+  console.info(`[VideoPreview] duration=${duration.toFixed(1)}s, extracting ${frameCount} frames`);
 
   // Sample from the middle 90% of the clip — avoids black intro/outro frames
   // and (per the user's request) deliberately skips frame 0, which is often
@@ -265,6 +273,7 @@ async function extractFramesAndMux(videoFile: string, workDir: string, width: nu
     const framePath = path.join(workDir, `f_${String(i).padStart(3, '0')}.jpg`);
     await extractFrameAt(videoFile, framePath, t, { width });
   }
+  console.info(`[VideoPreview] ${frameCount} frames extracted in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
   const outFile = path.join(workDir, 'preview.webp');
   const fps = (1000 / HOLD_MS).toFixed(3);
@@ -279,6 +288,7 @@ async function extractFramesAndMux(videoFile: string, workDir: string, width: nu
     '-loglevel', 'error',
     outFile,
   ]);
+  console.info(`[VideoPreview] mux done, total ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
   return fsp.readFile(outFile);
 }
@@ -311,6 +321,8 @@ export async function GET(request: NextRequest) {
     const decoded = decodeURIComponent(rawPath);
     const isDemo  = decoded.split('/').filter(Boolean)[0] === 'demo-photos';
     const width   = clampWidth(searchParams.get('width'));
+    const reqStart = Date.now();
+    console.info(`[VideoPreview] request: ${decoded} (width=${width})`);
 
     const respond = (buf: Buffer, xCache: string) =>
       new NextResponse(new Uint8Array(buf), {
@@ -375,6 +387,7 @@ export async function GET(request: NextRequest) {
     if (isDemo) writeLocalPreview(decoded, width, result);
     else writeDavPreview(decoded, width, result).catch(() => {});
 
+    console.info(`[VideoPreview] MISS total ${((Date.now() - reqStart) / 1000).toFixed(1)}s: ${decoded}`);
     return respond(result, 'MISS');
   } catch (err) {
     console.error('[VideoPreview] unhandled:', err);

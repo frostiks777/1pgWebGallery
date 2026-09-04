@@ -64,16 +64,21 @@ export const PhotoCard = memo(function PhotoCard({
   );
   const [wantsTrailer, setWantsTrailer] = useState(false);   // hover has "committed"
   const [trailerLoaded, setTrailerLoaded] = useState(false); // trailer image has actually decoded
-  const [trailerFailed, setTrailerFailed] = useState(false); // 501 (no ffmpeg) / fetch error — stop retrying
+  const [trailerFailed, setTrailerFailed] = useState(false); // this attempt errored (501/timeout/etc.)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
   const armTrailer = useCallback(() => {
-    if (!trailerUrl || trailerFailed) return;
+    if (!trailerUrl) return;
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    // A large/long source video can take a while to generate the FIRST time
+    // (fetch + ffmpeg on a modest VPS) — a previous attempt erroring (e.g. a
+    // slow first generation outrunning a proxy timeout) shouldn't permanently
+    // stop later hovers from trying again, since by then it's likely cached.
+    setTrailerFailed(false);
     hoverTimerRef.current = setTimeout(() => setWantsTrailer(true), TRAILER_HOVER_DELAY_MS);
-  }, [trailerUrl, trailerFailed]);
+  }, [trailerUrl]);
 
   const disarmTrailer = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -185,6 +190,10 @@ export const PhotoCard = memo(function PhotoCard({
           className={cn(
             'pointer-events-none absolute bottom-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 backdrop-blur-[4px] transition-opacity duration-200',
             showTrailer && trailerLoaded ? 'opacity-0' : 'opacity-70',
+            // A large/long source video's first trailer can take a while to
+            // generate (fetch + ffmpeg) — pulse the badge instead of sitting
+            // static, so a slow-but-working first hover doesn't read as broken.
+            showTrailer && !trailerLoaded ? 'animate-pulse' : '',
           )}
           aria-hidden
         >
