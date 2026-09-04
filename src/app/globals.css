@@ -156,52 +156,52 @@
 }
 
 /* Cyberpunk light — Obsidian_Theme/BRIEF-cyberpunk.md */
+/* Coordinated light — teal counterpart to the dark theme's amber, same warm-neutral base */
 html[data-theme="light"] {
-  --bg: #ebe6d9;
-  --bg-elev: #f5f0e2;
+  --bg: #f0ede4;
+  --bg-elev: #f7f5ee;
   --bg-card: #ffffff;
-  --fg: #1a0f1a;
-  --obs-muted: rgba(26, 15, 26, 0.62);
-  --obs-muted-dim: rgba(26, 15, 26, 0.38);
-  --rule: rgba(26, 15, 26, 0.1);
+  --fg: #142523;
+  --obs-muted: rgba(20, 37, 35, 0.6);
+  --obs-muted-dim: rgba(20, 37, 35, 0.36);
+  --rule: rgba(20, 37, 35, 0.1);
   --surface-0: rgba(255, 255, 255, 0.55);
   --surface-1: rgba(255, 255, 255, 0.85);
-  --surface-border: rgba(26, 15, 26, 0.08);
-  --accent: #ff1493;
-  --accent-dim: #d9107a;
-  --accent-on: #fff6fb;
-  --accent-glow: rgba(255, 20, 147, 0.35);
-  --accent-tint: rgba(255, 20, 147, 0.1);
-  --accent-tint-soft: rgba(255, 20, 147, 0.06);
-  --accent-border: rgba(255, 20, 147, 0.4);
-  --accent-border-strong: rgba(255, 20, 147, 0.7);
-  --accent-badge-bg: rgba(255, 20, 147, 0.14);
-  --cyan: #00e5ff;
-  --accent-active-bg: linear-gradient(135deg, #ff1493 0%, #ff5a8a 50%, #00e5ff 100%);
+  --surface-border: rgba(20, 37, 35, 0.08);
+  --accent: #0f8f82;
+  --accent-dim: #0c6e64;
+  --accent-on: #eafbf8;
+  --accent-glow: rgba(15, 143, 130, 0.32);
+  --accent-tint: rgba(15, 143, 130, 0.1);
+  --accent-tint-soft: rgba(15, 143, 130, 0.06);
+  --accent-border: rgba(15, 143, 130, 0.4);
+  --accent-border-strong: rgba(15, 143, 130, 0.7);
+  --accent-badge-bg: rgba(15, 143, 130, 0.14);
+  --cyan: #5fd3c4;
+  --accent-active-bg: linear-gradient(180deg, #14b8a6 0%, #0f766e 100%);
   --accent-active-shadow:
-    0 0 0 1px rgba(255, 20, 147, 0.4),
-    0 6px 20px rgba(255, 20, 147, 0.35),
-    0 0 40px rgba(0, 229, 255, 0.25),
+    0 0 0 1px rgba(15, 143, 130, 0.4),
+    0 6px 20px rgba(15, 143, 130, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  --logo-bg: linear-gradient(135deg, #ff1493 0%, #00e5ff 100%);
+  --logo-bg: linear-gradient(145deg, #14b8a6 0%, #0f766e 100%);
   --logo-fg: #ffffff;
   --logo-shadow:
-    0 0 0 1px rgba(255, 20, 147, 0.3),
-    0 4px 12px rgba(255, 20, 147, 0.35),
-    0 0 24px rgba(0, 229, 255, 0.2);
-  --header-bg: linear-gradient(180deg, rgba(245, 240, 226, 0.92) 0%, rgba(235, 230, 217, 0.78) 100%);
+    0 0 0 1px rgba(15, 143, 130, 0.3),
+    0 4px 12px rgba(15, 143, 130, 0.3),
+    0 0 24px rgba(15, 143, 130, 0.15);
+  --header-bg: linear-gradient(180deg, rgba(247, 245, 238, 0.95) 0%, rgba(240, 237, 228, 0.82) 100%);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px -18px rgba(0, 0, 0, 0.15);
   --shadow-hover:
-    0 0 0 3px rgba(255, 20, 147, 0.12),
-    0 12px 40px -10px rgba(255, 20, 147, 0.3),
+    0 0 0 3px rgba(15, 143, 130, 0.12),
+    0 12px 40px -10px rgba(15, 143, 130, 0.28),
     0 18px 40px -20px rgba(0, 0, 0, 0.18);
-  --grain-opacity: 0.09;
+  --grain-opacity: 0.06;
   --grain-blend: multiply;
-  --vignette: radial-gradient(ellipse at top, rgba(255, 20, 147, 0.05) 0%, transparent 50%);
+  --vignette: radial-gradient(ellipse at top, rgba(15, 143, 130, 0.05) 0%, transparent 50%);
   --scanlines: repeating-linear-gradient(
     0deg,
-    rgba(26, 15, 26, 0.022) 0px,
-    rgba(26, 15, 26, 0.022) 1px,
+    rgba(20, 37, 35, 0.02) 0px,
+    rgba(20, 37, 35, 0.02) 1px,
     transparent 1px,
     transparent 3px
   );
@@ -212,7 +212,7 @@ html[data-theme="light"] {
   --amber-border: var(--accent-border);
   --ok: var(--accent);
   --pass-label-color: var(--accent);
-  --accent-active-border: rgba(255, 20, 147, 0.55);
+  --accent-active-border: rgba(15, 143, 130, 0.55);
   --selection-bg: var(--accent-glow);
   --selection-fg: #fff;
   --focus-ring: var(--accent);
@@ -221,24 +221,24 @@ html[data-theme="light"] {
   --photo-exif-hover: var(--accent);
   --star-capsule-bg: rgba(255, 255, 255, 0.8);
   --album-mat-outline: var(--surface-border);
-  --background: #ebe6d9;
-  --foreground: #1a0f1a;
+  --background: #f0ede4;
+  --foreground: #142523;
   --card: #ffffff;
-  --card-foreground: #1a0f1a;
-  --popover: #f5f0e2;
-  --popover-foreground: #1a0f1a;
-  --primary: #1a0f1a;
-  --primary-foreground: #fff6fb;
-  --muted: rgba(26, 15, 26, 0.06);
-  --muted-foreground: rgba(26, 15, 26, 0.55);
+  --card-foreground: #142523;
+  --popover: #f7f5ee;
+  --popover-foreground: #142523;
+  --primary: #142523;
+  --primary-foreground: #eafbf8;
+  --muted: rgba(20, 37, 35, 0.06);
+  --muted-foreground: rgba(20, 37, 35, 0.55);
   --border: var(--surface-border);
   --input: var(--surface-border);
-  --ring: #ff1493;
+  --ring: #0f8f82;
   --album-page-bg: var(--bg);
   --album-mat-bg: #ffffff;
-  --album-photo-bg: #f0ebe3;
-  --album-caption: rgba(26, 15, 26, 0.72);
-  --album-meta: rgba(26, 15, 26, 0.5);
+  --album-photo-bg: #eef0e9;
+  --album-caption: rgba(20, 37, 35, 0.72);
+  --album-meta: rgba(20, 37, 35, 0.5);
   --album-rule: var(--rule);
 }
 
@@ -246,8 +246,8 @@ html[data-theme="light"] {
   html[data-theme="light"] {
     --scanlines: repeating-linear-gradient(
       0deg,
-      rgba(26, 15, 26, 0.012) 0px,
-      rgba(26, 15, 26, 0.012) 1px,
+      rgba(20, 37, 35, 0.01) 0px,
+      rgba(20, 37, 35, 0.01) 1px,
       transparent 1px,
       transparent 3px
     );
@@ -261,10 +261,10 @@ html[data-theme="light"] {
   right: 8px;
   bottom: -3px;
   height: 2px;
-  background: linear-gradient(90deg, #ff1493, #00e5ff);
+  background: linear-gradient(90deg, #14b8a6, #0f766e);
   border-radius: 2px;
   filter: blur(0.5px);
-  box-shadow: 0 0 8px rgba(255, 20, 147, 0.6);
+  box-shadow: 0 0 8px rgba(15, 143, 130, 0.55);
 }
 
 .gallery-logo-box {
@@ -283,8 +283,10 @@ html[data-theme="light"] {
 
 .dark {
   --bg: #0b0b0d;
-  --bg-elev: #121214;
-  --bg-card: #141311;
+  /* Slightly bigger step from --bg than before so cards/panels read as a separate layer
+     instead of nearly blending into the background on some monitors. */
+  --bg-elev: #141416;
+  --bg-card: #17161a;
   --fg: #e9e4d9;
   --obs-muted: rgba(233, 228, 217, 0.55);
   --obs-muted-dim: rgba(233, 228, 217, 0.3);
@@ -301,14 +303,14 @@ html[data-theme="light"] {
     0 12px 40px -10px rgba(230, 168, 90, 0.25),
     0 18px 40px -20px rgba(0, 0, 0, 0.8);
 
-  --min-card-bg: #141311;
+  --min-card-bg: #17161a;
   --min-text: #e9e4d9;
   --min-border: rgba(255, 255, 255, 0.06);
   --min-heading: #e9e4d9;
   --min-footer: rgba(255, 255, 255, 0.06);
 
   --album-page-bg: #0b0b0d;
-  --album-mat-bg: #141311;
+  --album-mat-bg: #17161a;
   --album-photo-bg: #1e1a14;
   --album-caption: rgba(233, 228, 217, 0.72);
   --album-meta: rgba(233, 228, 217, 0.45);
@@ -319,9 +321,9 @@ html[data-theme="light"] {
 
   --background: #0b0b0d;
   --foreground: #e9e4d9;
-  --card: #121214;
+  --card: #141416;
   --card-foreground: #e9e4d9;
-  --popover: #121214;
+  --popover: #141416;
   --popover-foreground: #e9e4d9;
   --primary: #e9e4d9;
   --primary-foreground: #1a0f05;
@@ -340,7 +342,7 @@ html[data-theme="light"] {
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #121214;
+  --sidebar: #141416;
   --sidebar-foreground: #e9e4d9;
   --sidebar-primary: #e6a85a;
   --sidebar-primary-foreground: #1a0f05;
@@ -353,7 +355,7 @@ html[data-theme="light"] {
   --vignette: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
   --grain-opacity: 0.055;
   --grain-blend: overlay;
-  --header-bg: linear-gradient(180deg, rgba(18, 18, 20, 0.95) 0%, rgba(11, 11, 13, 0.85) 100%);
+  --header-bg: linear-gradient(180deg, rgba(20, 20, 22, 0.95) 0%, rgba(11, 11, 13, 0.85) 100%);
   --logo-bg: linear-gradient(145deg, #2a1d0e, #15100a);
   --logo-fg: #e6a85a;
   --logo-shadow: 0 0 0 1px var(--amber-glow), 0 6px 16px rgba(230, 168, 90, 0.15);

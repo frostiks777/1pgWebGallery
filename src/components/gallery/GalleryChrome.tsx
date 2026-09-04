@@ -60,7 +60,10 @@ function WebDavStatusDot({ status }: { status: WebDavIndicator }) {
     }
   })();
   return (
-    <span className="inline-flex shrink-0 items-center justify-center" title={title}>
+    // Optical nudge: a tight all-caps label next to it (leading-none, uppercase) sits with its
+    // visual ink slightly above the shared flex row's geometric center, so a dot centered on
+    // the box alone reads as floating high. `top-px` corrects for that without touching layout.
+    <span className="relative top-px inline-flex shrink-0 items-center justify-center" title={title}>
       <span
         className={cn(
           'inline-block size-[6px] shrink-0 rounded-full',
@@ -533,7 +536,9 @@ export function GalleryChrome({
         )}
 
         {showLayoutChips && visiblePhotoCount > 0 && (
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-[14px] pb-3 scrollbar-none">
+          <div
+            className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-[14px] pb-3 scrollbar-none [mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent)]"
+          >
             {LAYOUT_CHIPS.map(({ value, label, Icon, isNew }) => {
               const active = layout === value;
               return (
@@ -550,7 +555,7 @@ export function GalleryChrome({
                   )}
                 >
                   <Icon className="shrink-0 opacity-90" />
-                  <span className="hidden sm:inline whitespace-nowrap">{label}</span>
+                  <span className="hidden sm:inline whitespace-nowrap leading-none">{label}</span>
                   {isNew && (
                     <span
                       className={cn(
