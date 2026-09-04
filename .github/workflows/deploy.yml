@@ -49,8 +49,18 @@ jobs:
           rm -rf release
           mkdir -p release
           cp -r .next/standalone/. release/
-          mkdir -p release/.next
-          cp -r .next/static release/.next/static
+          # .next/standalone/.next/static/ already exists here (Next's
+          # standalone tracing copies a *partial* static dir into it — only
+          # the CSS chunk, never the JS chunks). Because that destination
+          # already exists as a directory, a plain `cp -r .next/static
+          # release/.next/static` would NEST the full static/ dir one level
+          # too deep (release/.next/static/static/chunks/*.js) instead of
+          # merging into it, leaving only the pre-existing CSS at the path
+          # nginx/Next actually serve from and 404ing every JS chunk/font.
+          # The trailing /. copies static/'s *contents* into the existing
+          # dir instead of nesting the dir itself.
+          mkdir -p release/.next/static
+          cp -r .next/static/. release/.next/static/
           cp -r public release/public
 
       - name: Add deploy SSH key
