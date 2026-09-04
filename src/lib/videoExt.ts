@@ -35,3 +35,17 @@ export function buildVideoStemMap(basenames: string[]): Map<string, string> {
   }
   return map;
 }
+
+const VIDEO_MIME: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.m4v': 'video/x-m4v',
+  '.avi': 'video/x-msvideo',
+};
+
+/** Used when a video has no companion photo, so it's listed for its own extracted-frame "mimeType" caption. */
+export function videoMimeOf(filename: string): string {
+  return VIDEO_MIME[videoExtOf(filename)] || 'video/mp4';
+}

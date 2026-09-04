@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { WebDAVClient } from 'webdav';
+import { hasFfmpeg, withFfmpegSlot, probeDuration, extractFrameAt } from '@/lib/ffmpeg';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,21 +29,6 @@ const execFileAsync = promisify(execFile);
 //     pipeline (local disk cache + co-located `.previews/` next to the
 //     source, mirrored to WebDAV) so a given video is only ever processed once
 // ─────────────────────────────────────────────────────────────────────────────
-
-let ffmpegAvailable: boolean | null = null;
-async function hasFfmpeg(): Promise<boolean> {
-  if (ffmpegAvailable !== null) return ffmpegAvailable;
-  try {
-    await execFileAsync('ffmpeg', ['-version']);
-    await execFileAsync('ffprobe', ['-version']);
-    ffmpegAvailable = true;
-    console.info('[VideoPreview] ffmpeg/ffprobe found — trailer previews are ACTIVE');
-  } catch {
-    ffmpegAvailable = false;
-    console.error('[VideoPreview] *** ffmpeg NOT FOUND — trailer previews are DISABLED. Install with: sudo apt install -y ffmpeg ***');
-  }
-  return ffmpegAvailable;
-}
 
 const CACHE_DIR = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
 const PREVIEW_SUBDIR = process.env.COLOCATED_PREVIEWS_DIR || '.previews';
@@ -66,18 +52,6 @@ function clampWidth(raw: string | null): number {
 }
 
 try { if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch {}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Single-slot ffmpeg queue — never run more than one generation job at once.
-// ─────────────────────────────────────────────────────────────────────────────
-
-let ffmpegQueue: Promise<unknown> = Promise.resolve();
-function withFfmpegSlot<T>(job: () => Promise<T>): Promise<T> {
-  const run = ffmpegQueue.then(job, job);
-  // Swallow errors here so one failed job doesn't wedge the queue for the next caller.
-  ffmpegQueue = run.catch(() => {});
-  return run;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared WebDAV client (singleton)
@@ -269,17 +243,6 @@ async function fetchOriginalVideo(video: string): Promise<Buffer> {
 // memory and no slower in practice for a handful of frames.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function probeDuration(videoFile: string): Promise<number> {
-  const { stdout } = await execFileAsync('ffprobe', [
-    '-v', 'error',
-    '-show_entries', 'format=duration',
-    '-of', 'csv=p=0',
-    videoFile,
-  ]);
-  const d = parseFloat(stdout.trim());
-  return Number.isFinite(d) && d > 0 ? d : 0;
-}
-
 function frameCountFor(durationSec: number): number {
   if (durationSec <= 0) return MIN_FRAMES;
   return Math.max(MIN_FRAMES, Math.min(MAX_FRAMES, Math.round(durationSec)));
@@ -300,16 +263,7 @@ async function extractFramesAndMux(videoFile: string, workDir: string, width: nu
       ? margin + (usable * i) / Math.max(1, frameCount - 1)
       : 0;
     const framePath = path.join(workDir, `f_${String(i).padStart(3, '0')}.jpg`);
-    await execFileAsync('ffmpeg', [
-      '-y',
-      '-ss', t.toFixed(3),
-      '-i', videoFile,
-      '-frames:v', '1',
-      '-vf', `scale=${width}:-1:flags=lanczos`,
-      '-q:v', '4',
-      '-loglevel', 'error',
-      framePath,
-    ]);
+    await extractFrameAt(videoFile, framePath, t, { width });
   }
 
   const outFile = path.join(workDir, 'preview.webp');

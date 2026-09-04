@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { testWebDAVConnection } from '@/lib/webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
-import { buildVideoStemMap, stemOf } from '@/lib/videoExt';
+import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from '@/lib/videoExt';
 
 interface LocalPhoto {
   name: string;
@@ -46,7 +46,28 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
           videoPath: companionVideo ? `/demo-photos/${companionVideo}` : undefined,
         };
       });
-    
+
+    // Videos with no companion photo would otherwise never appear in the
+    // gallery — give each its own entry, `path` pointing at the video
+    // itself; /api/images detects that and generates a poster frame.
+    const imageStems = new Set(
+      files.filter(f => imageExtensions.includes(path.extname(f).toLowerCase())).map(f => stemOf(f)),
+    );
+    for (const file of files) {
+      if (!isVideoFile(file)) continue;
+      if (imageStems.has(stemOf(file))) continue;
+      const filePath = path.join(demoDir, file);
+      const stats = fs.statSync(filePath);
+      photos.push({
+        name: file,
+        path: `/demo-photos/${file}`,
+        size: stats.size,
+        lastModified: stats.mtime.toISOString(),
+        mimeType: videoMimeOf(file),
+        videoPath: `/demo-photos/${file}`,
+      });
+    }
+
     // Sort by name first, then by date
     photos.sort((a, b) => {
       const nameCompare = a.name.localeCompare(b.name, undefined, { numeric: true });

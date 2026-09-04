@@ -1,5 +1,5 @@
 import { createClient, WebDAVClient, FileStat, AuthType } from 'webdav';
-import { buildVideoStemMap, stemOf } from './videoExt';
+import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from './videoExt';
 
 export interface PhotoInfo {
   name: string;
@@ -244,6 +244,34 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
           videoPath: companionVideo ? `${parentDir}${companionVideo}` : undefined,
         };
       });
+
+    // Videos with NO companion photo would otherwise be entirely invisible —
+    // the gallery only ever listed image files. Give each of those its own
+    // gallery entry: `path` points at the video itself, and /api/images
+    // detects that (see isVideoFile there) and generates a poster frame
+    // instead of decoding it as a photo. `videoPath` = `path` here, which is
+    // also what lets the hover/open trailer preview work for these entries.
+    const imageStems = new Set(
+      files
+        .filter((file: FileStat) => {
+          if (file.type !== 'file') return false;
+          const ext = file.basename.toLowerCase().substring(file.basename.lastIndexOf('.'));
+          return imageExtensions.includes(ext);
+        })
+        .map((file: FileStat) => stemOf(file.basename)),
+    );
+    for (const file of files) {
+      if (file.type !== 'file' || !isVideoFile(file.basename)) continue;
+      if (imageStems.has(stemOf(file.basename))) continue; // already represented via its companion photo
+      photos.push({
+        name: file.basename,
+        path: file.filename,
+        size: file.size || 0,
+        lastModified: new Date(file.lastmod),
+        mimeType: file.mime || videoMimeOf(file.basename),
+        videoPath: file.filename,
+      });
+    }
 
     console.log(`[WebDAV] Found ${photos.length} photos out of ${files.length} files`);
 

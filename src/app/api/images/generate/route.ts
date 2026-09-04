@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
+import { hasFfmpeg, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -201,7 +202,8 @@ async function runGeneration(scopePath?: string) {
           console.warn(`[Generate] Cannot list ${dir}:`, err instanceof Error ? err.message : err);
           return;
         }
-        const videosHere: string[] = [];
+        const imagesHere: string[] = []; // basenames, for orphan-video stem matching below
+        const videosHere: string[] = []; // full paths
         for (const entry of entries) {
           if (entry.type === 'directory') {
             if (entry.basename.startsWith('.')) continue; // skip .thumbs and other hidden dirs
@@ -211,11 +213,20 @@ async function runGeneration(scopePath?: string) {
             !entry.filename.split('/').includes(thumbsDirName)
           ) {
             photoPaths.push(entry.filename);
+            imagesHere.push(entry.basename);
           } else if (isVideoFile(entry.basename)) {
             videosHere.push(entry.filename);
           }
         }
         if (videosHere.length > 0) videoPathsByDir.set(dir, videosHere);
+        // Videos with no companion photo (see src/lib/webdav.ts) are listed
+        // in the gallery in their own right — pre-generate their poster
+        // thumbnail here too, same as any other photo path.
+        const imageStemsHere = new Set(imagesHere.map(stemOf));
+        for (const v of videosHere) {
+          const base = v.slice(v.lastIndexOf('/') + 1);
+          if (!imageStemsHere.has(stemOf(base))) photoPaths.push(v);
+        }
       };
       await walkDir(startDir);
     } else {
@@ -223,14 +234,23 @@ async function runGeneration(scopePath?: string) {
       const demoDir = scopePath ? path.join(demoBase, scopePath) : demoBase;
       const demoPrefix = scopePath ? `/demo-photos/${scopePath}` : '/demo-photos';
       if (fs.existsSync(demoDir)) {
-        photoPaths = fs.readdirSync(demoDir)
-          .filter(f => imageExts.includes(path.extname(f).toLowerCase()))
+        const allFiles = fs.readdirSync(demoDir);
+        const imageStemsHere = new Set(
+          allFiles.filter(f => imageExts.includes(path.extname(f).toLowerCase())).map(stemOf),
+        );
+        photoPaths = allFiles
+          .filter(f => imageExts.includes(path.extname(f).toLowerCase()) ||
+            (isVideoFile(f) && !imageStemsHere.has(stemOf(f))))
           .map(f => `${demoPrefix}/${f}`);
       }
     }
 
     status.total = photoPaths.length * ALL_SIZES.length;
     console.info(`[Generate] Starting: ${photoPaths.length} photos × ${ALL_SIZES.length} sizes = ${status.total} tasks`);
+
+    // Checked once up front (not per-file) — orphan-video poster paths in
+    // photoPaths are simply skipped below if ffmpeg isn't installed.
+    const ffmpegOK = await hasFfmpeg();
 
     for (const size of ALL_SIZES) {
       for (const photoPath of photoPaths) {
@@ -269,6 +289,13 @@ async function runGeneration(scopePath?: string) {
             }
           }
 
+          if (isVideoFile(photoPath) && !ffmpegOK) {
+            console.warn(`[Generate] Skipping video poster (ffmpeg unavailable): ${photoPath}`);
+            status.skipped++;
+            status.done++;
+            continue;
+          }
+
           // Fetch original and generate
           status.lastPhoto = `${path.basename(photoPath)} [${size}]`;
           let original: Buffer;
@@ -285,6 +312,10 @@ async function runGeneration(scopePath?: string) {
             const fp = path.join(publicRoot, ...segs);
             if (!fp.startsWith(publicRoot + path.sep)) throw new Error('Invalid path');
             original = fs.readFileSync(fp);
+          }
+
+          if (isVideoFile(photoPath)) {
+            original = await extractVideoPosterBuffer(original);
           }
 
           const result = await optimizeImage(original, size);

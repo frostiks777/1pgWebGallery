@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import type { WebDAVClient } from 'webdav';
+import { isVideoFile } from '@/lib/videoExt';
+import { hasFfmpeg, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sharp initialisation — the CRITICAL piece for image optimisation.
@@ -32,6 +34,12 @@ try {
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
+
+// Videos with no companion photo (see src/lib/webdav.ts) are still listed in
+// the gallery, using a single extracted frame as their "photo" — same size
+// guard as video-preview/route.ts, so a huge upload can't be pulled fully
+// into memory here either.
+const MAX_VIDEO_BYTES = Number(process.env.VIDEO_PREVIEW_MAX_MB || 300) * 1024 * 1024;
 
 /**
  * Image size presets — tuned for real-world photos (3000–6000 px originals).
@@ -326,6 +334,16 @@ async function fetchOriginal(photo: string): Promise<Buffer> {
   return Buffer.from(ab);
 }
 
+async function statSize(photo: string): Promise<number | null> {
+  const c = dav();
+  if (!c) return null;
+  try {
+    const stat = await withTimeout(c.stat(photo), 10_000, `stat ${photo}`);
+    const s = 'data' in stat ? stat.data : stat;
+    return typeof s.size === 'number' ? s.size : null;
+  } catch { return null; }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET handler
 // ─────────────────────────────────────────────────────────────────────────────
@@ -366,12 +384,23 @@ export async function GET(request: NextRequest) {
       return respond(thumbHit, 'HIT-COLOCATED');
     }
 
+    // A video with no companion photo (see src/lib/webdav.ts) is still listed
+    // in the gallery with `path` pointing at the video itself — its "photo"
+    // is a single extracted frame, generated below instead of just reading bytes.
+    const isVideo = isVideoFile(decoded);
+    if (isVideo && !(await hasFfmpeg())) {
+      return NextResponse.json({ error: 'ffmpeg not available on server' }, { status: 501 });
+    }
+
     // ── 3. Fetch original ───────────────────────────────────────────────────
     let original: Buffer;
     if (isDemo) {
       const fp = safePublicPath(decoded);
       if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       if (!fs.existsSync(fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (isVideo && fs.statSync(fp).size > MAX_VIDEO_BYTES) {
+        return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+      }
       original = fs.readFileSync(fp);
     } else {
       // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
@@ -380,10 +409,24 @@ export async function GET(request: NextRequest) {
       if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
+      if (isVideo) {
+        const vsize = await statSize(decoded);
+        if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
+          return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+        }
+      }
       try { original = await fetchOriginal(decoded); }
       catch (err) {
         console.error('[Images] fetch failed:', err);
         return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+      }
+    }
+
+    if (isVideo) {
+      try { original = await extractVideoPosterBuffer(original); }
+      catch (err) {
+        console.error('[Images] poster extraction failed:', err);
+        return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
       }
     }
 
