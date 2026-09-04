@@ -61,6 +61,20 @@ upload/
 # Thumbnail cache & app data
 .cache/
 .data/
+**/.thumbs/
+
+# AI dev cycle (.agents/skills) — scratch run evidence, never committed
+.agents-runs/
+# The blanket `skills/` rule above (project specific) would otherwise also hide our
+# own .agents/skills/ definitions — those are committed, so explicitly un-ignore them.
+!.agents/skills/
+
+# npm regenerates its own lockfile locally; bun.lock is the committed one
+package-lock.json
+
+# Files the Claude desktop app drops into a connected folder when it delivers a
+# chat attachment (mockups, reports) — not project source, never committed.
+Claude outputs/
 
 # ============================================================================
 # CURSOR AI SECURITY TEMPLATE - .gitignore
