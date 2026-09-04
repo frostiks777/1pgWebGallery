@@ -47,7 +47,7 @@ function LightboxTrailer({ src, zoom }: { src: string; zoom: number }) {
       autoPlay
       playsInline
       preload="metadata"
-      className={`absolute max-h-[85vh] max-w-[90vw] object-contain transition-opacity duration-300 ${
+      className={`absolute max-h-full max-w-full object-contain transition-opacity duration-300 ${
         loaded ? 'opacity-100' : 'opacity-0'
       }`}
       style={{ transform: `scale(${zoom})` }}
@@ -319,7 +319,7 @@ function LightboxContent({
         <img
           src={imageUrl}
           alt={currentPhoto.name}
-          className={`max-h-[85vh] max-w-[90vw] object-contain transition-all duration-300 ${
+          className={`max-h-full max-w-full object-contain transition-all duration-300 ${
             isLoading || hasError ? 'opacity-0' : 'opacity-100'
           }`}
           style={{ transform: `scale(${zoom})` }}
