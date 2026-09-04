@@ -49,14 +49,6 @@ const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
-// Video "trailer" previews (see src/app/api/video-preview/route.ts) — cleaned
-// up alongside image thumbnails so orphaned previews don't sit on disk
-// forever on the size-constrained VPS. Widths must match the ones actually
-// requested by the UI: PhotoCard's grid hover (default width) and
-// Lightbox's larger open-preview (width=900).
-const PREVIEW_SUBDIR = process.env.COLOCATED_PREVIEWS_DIR || '.previews';
-const PREVIEW_WIDTHS = [400, 900];
-
 const IMAGE_PRESETS = {
   thumbnail: { width: 800,  height: 800,  quality: 80, effort: 6 },
   medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
@@ -185,9 +177,6 @@ async function runGeneration(scopePath?: string) {
     // (Depth:infinity / { deep: true } is rejected by many WebDAV providers)
     let photoPaths: string[] = [];
     const visitedDirs: string[] = [];
-    // Video basenames found per visited directory — used below to clean up
-    // orphaned .previews/ trailer caches for videos that no longer exist.
-    const videoPathsByDir = new Map<string, string[]>();
 
     if (client) {
       const walkDir = async (dir: string): Promise<void> => {
@@ -218,7 +207,6 @@ async function runGeneration(scopePath?: string) {
             videosHere.push(entry.filename);
           }
         }
-        if (videosHere.length > 0) videoPathsByDir.set(dir, videosHere);
         // Videos with no companion photo (see src/lib/webdav.ts) are listed
         // in the gallery in their own right — pre-generate their poster
         // thumbnail here too, same as any other photo path.
@@ -351,16 +339,6 @@ async function runGeneration(scopePath?: string) {
             expectedFiles.add(`${hash}${thumbExt()}`);
           }
         }
-        // Also protect live video-preview cache entries (src/app/api/video-preview/route.ts
-        // hashes them the same way, keyed by video path + width, extension `.preview.webp`).
-        for (const videos of videoPathsByDir.values()) {
-          for (const videoPath of videos) {
-            for (const width of PREVIEW_WIDTHS) {
-              const hash = crypto.createHash('md5').update(`${videoPath}-v1-w${width}`).digest('hex');
-              expectedFiles.add(`${hash}.preview.webp`);
-            }
-          }
-        }
         const cacheEntries = fs.readdirSync(CACHE_DIR, { withFileTypes: true });
         for (const entry of cacheEntries) {
           if (!entry.isFile()) continue;
@@ -422,34 +400,6 @@ async function runGeneration(scopePath?: string) {
 
       if (status.cleaned > 0) {
         console.info(`[Generate] Total cleanup: removed ${status.cleaned} orphaned thumbnails`);
-      }
-    }
-
-    // WebDAV .previews cleanup: remove trailer previews for videos that no longer exist
-    if (client && WEBDAV_COLOCATED_ENABLED && videoPathsByDir.size > 0) {
-      for (const [dir, videos] of videoPathsByDir) {
-        const validBases = new Set(videos.map(v => stemOf(v.slice(v.lastIndexOf('/') + 1))));
-        const previewDir = `${dir}/${PREVIEW_SUBDIR}`;
-        let previewEntries: FileStat[];
-        try {
-          previewEntries = await withTimeout(
-            client.getDirectoryContents(previewDir) as Promise<FileStat[]>,
-            15_000, `list ${previewDir}`,
-          );
-        } catch {
-          continue;
-        }
-        for (const pe of previewEntries) {
-          if (pe.type !== 'file') continue;
-          // Filenames are `<base>.w<N>.webp` — strip the width suffix to recover the base.
-          const withoutExt = pe.basename.replace(/\.webp$/i, '');
-          const base = withoutExt.replace(/\.w\d+$/, '');
-          if (validBases.has(base)) continue;
-          try {
-            await client.deleteFile(pe.filename);
-            status.cleaned++;
-          } catch {}
-        }
       }
     }
 

@@ -7,16 +7,17 @@ import path from 'path';
 const execFileAsync = promisify(execFile);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared ffmpeg plumbing — used by BOTH:
-//   - src/app/api/video-preview/route.ts (animated-WebP hover trailer)
-//   - src/app/api/images/route.ts        (static poster frame for videos that
-//                                          have no companion photo — see
-//                                          extractPosterFrame below)
+// Shared ffmpeg plumbing — used by src/app/api/images/route.ts (and the bulk
+// src/app/api/images/generate/route.ts) to extract a single "poster" frame
+// for videos that have no companion photo (see extractVideoPosterBuffer
+// below). The actual moving-picture hover/lightbox preview is now plain
+// native <video> streaming (src/app/api/video-stream/route.ts) — no ffmpeg
+// involved there at all.
 //
-// Kept in one module so the two routes share the SAME single-slot queue:
-// the whole point of `withFfmpegSlot` is that at most one ffmpeg process runs
-// server-wide at a time (the production VPS has just 1 CPU core), which only
-// holds if every ffmpeg-calling route goes through this one queue.
+// Kept in its own module so `withFfmpegSlot` remains a true single global
+// queue: the whole point is that at most one ffmpeg process runs server-wide
+// at a time (the production VPS has just 1 CPU core), which only holds if
+// every ffmpeg-calling route goes through this one queue.
 // ─────────────────────────────────────────────────────────────────────────────
 
 let ffmpegAvailable: boolean | null = null;
@@ -72,8 +73,7 @@ export async function extractFrameAt(
 
 /**
  * Picks a single representative "poster" timestamp for a video — deliberately
- * NOT frame 0, which is often black or a logo rather than real content (same
- * reasoning as the trailer's frame sampling in video-preview/route.ts).
+ * NOT frame 0, which is often black or a logo rather than real content.
  */
 export function posterTimestamp(durationSec: number): number {
   if (durationSec <= 0) return 0;

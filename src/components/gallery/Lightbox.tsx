@@ -32,20 +32,26 @@ interface LightboxProps {
 // Owns its own loaded/failed state and is remounted (via `key={src}`) whenever
 // the photo changes — sidesteps the setState-in-effect anti-pattern that
 // resetting this state from a parent-level useEffect would require.
+//
+// Plays the actual source video (streamed with Range support, see
+// /api/video-stream) with visible controls, since this is the full-size
+// viewer — not the muted/looping hover preview used in the grid.
 function LightboxTrailer({ src, zoom }: { src: string; zoom: number }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   return (
-    <img
+    <video
       src={src}
-      alt=""
-      aria-hidden
-      className={`pointer-events-none absolute max-h-[85vh] max-w-[90vw] object-contain transition-opacity duration-300 ${
+      controls
+      autoPlay
+      playsInline
+      preload="metadata"
+      className={`absolute max-h-[85vh] max-w-[90vw] object-contain transition-opacity duration-300 ${
         loaded ? 'opacity-100' : 'opacity-0'
       }`}
       style={{ transform: `scale(${zoom})` }}
-      onLoad={() => setLoaded(true)}
+      onLoadedData={() => setLoaded(true)}
       onError={() => setFailed(true)}
     />
   );
@@ -88,11 +94,10 @@ function LightboxContent({
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
   const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
 
-  // Trailer: opening a photo that has a companion video starts the same
-  // auto-generated preview used on hover in the grid, just at a larger size
-  // (still a small animated WebP, not the source video — see /api/video-preview).
+  // Opening a photo that has a companion video plays the actual source video,
+  // streamed with Range support, at full size with controls — see /api/video-stream.
   const trailerUrl = currentPhoto?.videoPath
-    ? `/api/video-preview?path=${encodeURIComponent(currentPhoto.videoPath)}&width=900`
+    ? `/api/video-stream?path=${encodeURIComponent(currentPhoto.videoPath)}`
     : null;
 
   const expectedUrl = useRef(imageUrl);

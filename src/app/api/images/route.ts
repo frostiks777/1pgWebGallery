@@ -36,9 +36,8 @@ const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 // Videos with no companion photo (see src/lib/webdav.ts) are still listed in
-// the gallery, using a single extracted frame as their "photo" — same size
-// guard as video-preview/route.ts, so a huge upload can't be pulled fully
-// into memory here either.
+// the gallery, using a single extracted frame as their "photo" — guards
+// against pulling a huge upload fully into memory here.
 const MAX_VIDEO_BYTES = Number(process.env.VIDEO_PREVIEW_MAX_MB || 300) * 1024 * 1024;
 
 /**

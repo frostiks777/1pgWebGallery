@@ -216,7 +216,7 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
     let loggedCount = 0;
 
     // Companion videos: same folder, same filename stem (e.g. IMG_1.jpg + IMG_1.mp4).
-    // Used to power the gallery's hover/open "trailer" preview — see /api/video-preview.
+    // Used to power the gallery's hover/open native video preview — see /api/video-stream.
     const videoStemMap = buildVideoStemMap(files.map((f: FileStat) => f.basename));
 
     const photos: PhotoInfo[] = files
