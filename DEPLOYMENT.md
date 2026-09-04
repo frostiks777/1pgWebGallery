@@ -177,7 +177,10 @@ server {
     root /var/www/apps/photo-gallery/release/public;
 
     # Next.js static files
-    location /_next/static/ {
+    # ^~ is required: without it the regex location below (jpg/png/woff2/...)
+    # outranks this prefix location, hijacks Next.js font requests (also
+    # .woff2) and 404s them via root public/ instead of this alias.
+    location ^~ /_next/static/ {
         alias /var/www/apps/photo-gallery/release/.next/static/;
         expires 365d;
         access_log off;
@@ -191,8 +194,8 @@ server {
         access_log off;
     }
 
-    # Static files
-    location ~* \.(jpg|jpeg|png|gif|webp|ico|svg|woff|woff2)$ {
+    # Static files (fonts excluded on purpose — served by /_next/static/ above)
+    location ~* \.(jpg|jpeg|png|gif|webp|ico|svg)$ {
         expires 30d;
         access_log off;
     }
@@ -559,6 +562,22 @@ sudo nginx -t && sudo systemctl reload nginx
 `setup-ci-deploy.sh` делает оба шага выше сам (шаги 7 и в конце шага 3) —
 это на случай ручной настройки или если скрипт не нашёл файлы по
 стандартным путям.
+
+**Приоритет location для `/_next/static/`** (если шрифты `.woff2` из
+`_next/static/media/` отдают 404, а сами файлы на диске есть — значит
+regex-локация для картинок ниже (`~* \.(jpg|...|woff2)$`) перехватывает
+их первой, так как в nginx regex-локации приоритетнее префиксных; чинится
+модификатором `^~` и исключением woff/woff2 из regex-блока — шрифты и так
+кэшируются в блоке `/_next/static/`):
+```bash
+sudo sed -i \
+  -e 's#location /_next/static/ {#location ^~ /_next/static/ {#' \
+  -e 's#\.(jpg|jpeg|png|gif|webp|ico|svg|woff|woff2)\$#\.(jpg|jpeg|png|gif|webp|ico|svg)\$#' \
+  /etc/nginx/sites-available/photo-gallery
+sudo nginx -t && sudo systemctl reload nginx
+```
+`setup-ci-deploy.sh` делает это сам тоже (шаг 7, отдельный проход после
+патча путей).
 
 **Секреты репозитория** (Settings → Secrets and variables → Actions):
 

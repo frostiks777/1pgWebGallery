@@ -165,6 +165,37 @@ else
     fi
 fi
 
+# Отдельный баг, не связанный с путём release/: без модификатора ^~ у
+# location /_next/static/ regex-локация для картинок/шрифтов ниже (она
+# матчит *.woff2 тоже) имеет более высокий приоритет в nginx и перехватывает
+# шрифты Next.js, отдавая 404 вместо файла (у неё нет своего alias — только
+# root на public/, где шрифтов нет). Чинится модификатором ^~ и исключением
+# woff/woff2 из regex-локации — сами шрифты уже кэшируются в блоке static/.
+PRIO_FILES="$(grep -rlF 'location /_next/static/ {' /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true)"
+if [ -z "$PRIO_FILES" ]; then
+    echo "Приоритет location для /_next/static/ уже исправлен (или конфиг не найден) — пропускаю."
+else
+    PATCHED_PRIO=false
+    for f in $PRIO_FILES; do
+        target="$(readlink -f "$f")"
+        sed -i \
+            -e 's#location /_next/static/ {#location ^~ /_next/static/ {#' \
+            -e 's#\.(jpg|jpeg|png|gif|webp|ico|svg|woff|woff2|ttf|eot)\$#\.(jpg|jpeg|png|gif|webp|ico|svg)\$#' \
+            -e 's#\.(jpg|jpeg|png|gif|webp|ico|svg|woff|woff2)\$#\.(jpg|jpeg|png|gif|webp|ico|svg)\$#' \
+            "$target"
+        echo "Исправлен приоритет location в: $target"
+        PATCHED_PRIO=true
+    done
+    if [ "$PATCHED_PRIO" = true ] && command -v nginx &> /dev/null; then
+        if nginx -t 2>&1; then
+            systemctl reload nginx
+            echo "nginx перезагружен."
+        else
+            echo -e "${RED}nginx -t упал после патча — проверьте конфиг вручную, reload НЕ делаю${NC}"
+        fi
+    fi
+fi
+
 echo -e "${BLUE}[8/8] Определение адреса сервера...${NC}"
 SERVER_IP="$(curl -fsS --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "<укажите вручную>")"
 SSH_PORT="$(awk '/^[[:space:]]*Port[[:space:]]+[0-9]+/{print $2; exit}' /etc/ssh/sshd_config 2>/dev/null || true)"
