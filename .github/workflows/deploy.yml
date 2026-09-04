@@ -80,7 +80,12 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
-          rsync -az --delete \
+          # .env.local lives in release/ as a symlink back to the real file
+          # outside it (see setup-ci-deploy.sh) so Next's own env loader,
+          # which reads from its cwd, can find it. --delete would otherwise
+          # remove that symlink every deploy since it's not part of this
+          # build's output.
+          rsync -az --delete --exclude '.env.local' \
             -e "ssh -p ${DEPLOY_PORT:-22}" \
             release/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 

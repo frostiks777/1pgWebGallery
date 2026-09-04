@@ -60,7 +60,7 @@ if [ ! -d "$PROJECT_PATH" ] || [ ! -f "$PROJECT_PATH/photo-gallery.service" ]; t
 fi
 RELEASE_DIR="$PROJECT_PATH/release"
 
-echo -e "${BLUE}[1/7] Пользователь для деплоя ($DEPLOY_USER)...${NC}"
+echo -e "${BLUE}[1/8] Пользователь для деплоя ($DEPLOY_USER)...${NC}"
 if id -u "$DEPLOY_USER" &>/dev/null; then
     echo "Уже существует, пропускаю создание."
 else
@@ -76,7 +76,7 @@ usermod -aG www-data "$DEPLOY_USER"
 # с /usr/sbin/nologin — чиним шелл и при повторном запуске.
 usermod -s /bin/bash "$DEPLOY_USER"
 
-echo -e "${BLUE}[2/7] Права sudo (только restart/is-active для $SERVICE_NAME)...${NC}"
+echo -e "${BLUE}[2/8] Права sudo (только restart/is-active для $SERVICE_NAME)...${NC}"
 SYSTEMCTL_BIN="$(command -v systemctl)"
 SUDOERS_FILE="/etc/sudoers.d/${SERVICE_NAME}-deploy"
 cat > "$SUDOERS_FILE" << EOF
@@ -89,7 +89,7 @@ if ! visudo -cf "$SUDOERS_FILE" > /dev/null; then
     exit 1
 fi
 
-echo -e "${BLUE}[3/7] Каталог release/ (цель деплоя)...${NC}"
+echo -e "${BLUE}[3/8] Каталог release/ (цель деплоя)...${NC}"
 mkdir -p "$RELEASE_DIR"
 chown "$DEPLOY_USER":www-data "$RELEASE_DIR"
 chmod 2775 "$RELEASE_DIR"
@@ -97,15 +97,21 @@ chmod 2775 "$RELEASE_DIR"
 # (см. CACHE_DIR в photo-gallery.service)
 mkdir -p "$PROJECT_PATH/.data"
 chown www-data:www-data "$PROJECT_PATH/.data"
+# .env.local тоже намеренно вне release/ (деплой его не должен трогать),
+# но Next.js на старте ищет .env.local в своей текущей директории — а это
+# теперь release/. Кладём туда symlink на настоящий файл: сам файл как лежал
+# в корне проекта, так и лежит, release/.env.local — просто ссылка на него.
+# rsync --delete эту ссылку не тронет (см. --exclude в deploy.yml).
+ln -sf "$PROJECT_PATH/.env.local" "$RELEASE_DIR/.env.local"
 
-echo -e "${BLUE}[4/7] rsync (нужен деплою)...${NC}"
+echo -e "${BLUE}[4/8] rsync (нужен деплою)...${NC}"
 if ! command -v rsync &> /dev/null; then
     apt update && apt install -y rsync
 else
     echo "Уже установлен."
 fi
 
-echo -e "${BLUE}[5/7] SSH-ключ для GitHub Actions...${NC}"
+echo -e "${BLUE}[5/8] SSH-ключ для GitHub Actions...${NC}"
 mkdir -p "$DEPLOY_HOME/.ssh"
 if [ -f "$KEY_PATH" ]; then
     echo "Ключ уже существует ($KEY_PATH), не перегенерирую."
@@ -120,14 +126,46 @@ chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$DEPLOY_HOME/.ssh"
 chmod 700 "$DEPLOY_HOME/.ssh"
 chmod 600 "$DEPLOY_HOME/.ssh/authorized_keys"
 
-echo -e "${BLUE}[6/7] systemd unit из репозитория...${NC}"
+echo -e "${BLUE}[6/8] systemd unit из репозитория...${NC}"
 cp "$PROJECT_PATH/photo-gallery.service" "/etc/systemd/system/${SERVICE_NAME}.service"
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME" > /dev/null 2>&1 || true
 echo "daemon-reload выполнен. Сервис НЕ перезапускаю — в release/ ещё нет"
 echo "server.js до первого деплоя; текущий процесс (если запущен) продолжит работать."
 
-echo -e "${BLUE}[7/7] Определение адреса сервера...${NC}"
+echo -e "${BLUE}[7/8] Патч nginx (статика теперь отдаётся из release/)...${NC}"
+# До перехода на CI/CD nginx отдавал /_next/static/, /demo-photos/ и корень
+# public/ напрямую с диска (alias/root на /var/www/apps/photo-gallery/...) —
+# в обход Node, для скорости. Эти файлы теперь лежат в release/, а не в
+# корне проекта, иначе после деплоя всё, что nginx отдавал сам (JS/CSS/шрифты/
+# demo-фото), превращается в 404, хотя сам Next.js работает нормально.
+NGINX_FILES="$(grep -rlF "/var/www/apps/photo-gallery/.next/static/" /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true)"
+if [ -z "$NGINX_FILES" ]; then
+    echo "Конфиг nginx со старыми путями не найден (уже пропатчен, или nginx настроен иначе/не используется) — пропускаю."
+else
+    PATCHED_ANY=false
+    for f in $NGINX_FILES; do
+        # sites-enabled обычно симлинки на sites-available — правим цель, не сам симлинк
+        target="$(readlink -f "$f")"
+        sed -i \
+            -e "s#/var/www/apps/photo-gallery/\.next/static/#${RELEASE_DIR}/.next/static/#g" \
+            -e "s#/var/www/apps/photo-gallery/public/demo-photos/#${RELEASE_DIR}/public/demo-photos/#g" \
+            -e "s#root /var/www/apps/photo-gallery/public;#root ${RELEASE_DIR}/public;#g" \
+            "$target"
+        echo "Пропатчен: $target"
+        PATCHED_ANY=true
+    done
+    if [ "$PATCHED_ANY" = true ] && command -v nginx &> /dev/null; then
+        if nginx -t 2>&1; then
+            systemctl reload nginx
+            echo "nginx перезагружен."
+        else
+            echo -e "${RED}nginx -t упал после патча — проверьте конфиг вручную, reload НЕ делаю${NC}"
+        fi
+    fi
+fi
+
+echo -e "${BLUE}[8/8] Определение адреса сервера...${NC}"
 SERVER_IP="$(curl -fsS --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "<укажите вручную>")"
 SSH_PORT="$(awk '/^[[:space:]]*Port[[:space:]]+[0-9]+/{print $2; exit}' /etc/ssh/sshd_config 2>/dev/null || true)"
 SSH_PORT="${SSH_PORT:-22}"

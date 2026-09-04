@@ -174,11 +174,11 @@ server {
     gzip_comp_level 6;
     gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss image/svg+xml;
 
-    root /var/www/apps/photo-gallery/public;
+    root /var/www/apps/photo-gallery/release/public;
 
     # Next.js static files
     location /_next/static/ {
-        alias /var/www/apps/photo-gallery/.next/static/;
+        alias /var/www/apps/photo-gallery/release/.next/static/;
         expires 365d;
         access_log off;
         add_header Cache-Control "public, max-age=31536000, immutable";
@@ -186,7 +186,7 @@ server {
 
     # Demo photos
     location /demo-photos/ {
-        alias /var/www/apps/photo-gallery/public/demo-photos/;
+        alias /var/www/apps/photo-gallery/release/public/demo-photos/;
         expires 30d;
         access_log off;
     }
@@ -479,11 +479,21 @@ curl http://localhost:3000/api/photos
   --delete`) при каждом пуше. Ничего, что должно пережить деплой, туда не
   кладём.
 - `.env.local` остаётся на прежнем месте, `/var/www/apps/photo-gallery/.env.local`
-  — systemd подхватывает его по абсолютному пути независимо от `release/`.
+  — сам файл деплой не трогает. Next.js на старте ищет `.env.local` в своей
+  текущей директории (`release/`), поэтому там лежит **symlink**
+  `release/.env.local → ../.env.local`, а не копия; `rsync --delete` его не
+  трогает (см. `--exclude` в `deploy.yml`). systemd's `EnvironmentFile=`
+  тоже указывает на настоящий файл — оба механизма подстраховывают друг
+  друга.
 - Кэш миниатюр (`CACHE_DIR`) вынесен в `/var/www/apps/photo-gallery/.data`
   — тоже вне `release/`, чтобы не терять его на каждом деплое.
 - `photo-gallery.service` обновлён: `WorkingDirectory=.../release`,
   `ExecStart=/usr/bin/node server.js` вместо `bunx next start`.
+- nginx раньше отдавал `/_next/static/`, `/demo-photos/` и корень `public/`
+  напрямую с диска (`alias`/`root` на `/var/www/apps/photo-gallery/...`,
+  мимо Node — так быстрее). Эти пути надо было перевести на `release/...`,
+  иначе всё, что отдавал сам nginx, превращается в 404 при живом и
+  здоровом Next.js. `setup-ci-deploy.sh` патчит это автоматически.
 
 ### 10.2 Разовая настройка сервера
 
@@ -528,6 +538,27 @@ sudo systemctl daemon-reload
 ```
 Пока в `release/` ещё нет `server.js` (до первого деплоя), сервис не сможет
 стартовать — это ожидаемо, `Restart=on-failure` просто подождёт первый пуш.
+
+**`.env.local` в `release/`** (иначе Next.js не найдёт реальные `WEBDAV_*`
+и молча откатится в demo-режим):
+```bash
+sudo ln -sf /var/www/apps/photo-gallery/.env.local /var/www/apps/photo-gallery/release/.env.local
+```
+
+**nginx** (если `/_next/static/`, `/demo-photos/` или корень `public/`
+отдаются самим nginx, а не проксируются в Node — проверьте свой
+`/etc/nginx/sites-available/photo-gallery` на такие `alias`/`root`):
+```bash
+sudo sed -i \
+  -e 's#/var/www/apps/photo-gallery/\.next/static/#/var/www/apps/photo-gallery/release/.next/static/#g' \
+  -e 's#/var/www/apps/photo-gallery/public/demo-photos/#/var/www/apps/photo-gallery/release/public/demo-photos/#g' \
+  -e 's#root /var/www/apps/photo-gallery/public;#root /var/www/apps/photo-gallery/release/public;#g' \
+  /etc/nginx/sites-available/photo-gallery
+sudo nginx -t && sudo systemctl reload nginx
+```
+`setup-ci-deploy.sh` делает оба шага выше сам (шаги 7 и в конце шага 3) —
+это на случай ручной настройки или если скрипт не нашёл файлы по
+стандартным путям.
 
 **Секреты репозитория** (Settings → Secrets and variables → Actions):
 
