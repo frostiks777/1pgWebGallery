@@ -44,7 +44,12 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  // Obsidian_Theme/ holds standalone design-mockup HTML/JSX (design-canvas
+  // exports, briefs) that is never imported or compiled by the app — only
+  // referenced from a few comments as a visual reference. It was written
+  // without the app's lint rules in mind, so lint it out rather than fix
+  // mockup code that ships nowhere.
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "Obsidian_Theme/**"]
 }];
 
 export default eslintConfig;
