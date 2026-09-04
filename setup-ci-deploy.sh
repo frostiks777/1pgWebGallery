@@ -62,11 +62,19 @@ RELEASE_DIR="$PROJECT_PATH/release"
 
 echo -e "${BLUE}[1/7] Пользователь для деплоя ($DEPLOY_USER)...${NC}"
 if id -u "$DEPLOY_USER" &>/dev/null; then
-    echo "Уже существует, пропускаю."
+    echo "Уже существует, пропускаю создание."
 else
-    adduser --system --group --home "$DEPLOY_HOME" --shell /usr/sbin/nologin "$DEPLOY_USER"
+    # /bin/bash, не /usr/sbin/nologin: пользователю не нужен интерактивный
+    # логин (пароля у него нет, только SSH-ключ), но rsync и systemctl restart
+    # выполняются через SSH КАК КОМАНДЫ — nologin вместо их запуска печатает
+    # "not available" в stdout, и rsync принимает это за начало протокола
+    # ("protocol version mismatch -- is your shell clean?").
+    adduser --system --group --home "$DEPLOY_HOME" --shell /bin/bash "$DEPLOY_USER"
 fi
 usermod -aG www-data "$DEPLOY_USER"
+# На случай если пользователь уже был создан прежней версией этого скрипта
+# с /usr/sbin/nologin — чиним шелл и при повторном запуске.
+usermod -s /bin/bash "$DEPLOY_USER"
 
 echo -e "${BLUE}[2/7] Права sudo (только restart/is-active для $SERVICE_NAME)...${NC}"
 SYSTEMCTL_BIN="$(command -v systemctl)"
