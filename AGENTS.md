@@ -139,13 +139,109 @@ gets it live from there.
 Task queue under `.agents/skills/`, all state in this repo's own git history (no worktrees, no
 claim/lease machinery — single maintainer, single checkout).
 
+- Route first: a large feature or bug (public API/UX, `.data` format, > ~2 files) goes to a
+  GitHub Issue instead — see `## Agent behavior`. The inbox/task queue is for small, mechanical work.
 - Note what needs doing in `ai/inbox.md`, in your own words.
 - `.agents/skills/process-inbox/SKILL.md` → task dirs under `ai/tasks/<date>/<slug>/`
   (`task.md` + `state.yaml`).
 - `.agents/skills/perform-task/SKILL.md` → implements exactly one task: change, self-review the full
   diff against `## Acceptance`, run `.agents/shared/checks.md`, commit, mark done or honestly blocked.
+  Inside a task, run the process skills in order: `interview` → `plan` → (`ponytail`) → (`tdd`) →
+  `verify` → `commit-push` (see `## Agent skills`).
 - `.agents/skills/continue/SKILL.md` → drains the queue (in-progress → oldest `todo` → process inbox).
 - `git log`/`blame` over `ai/tasks/` is the record of what the AI did and why.
+
+## Agent skills
+
+83 skills live in `.agents/skills/` (manifest: `skills-lock.json`) — project process skills
+plus upstream sets (mattpocock/skills, tech-leads-club, single-repo skills). They are loaded
+by the `skill` tool through their `description` frontmatter. Only `.agents/skills/` is used —
+not `.opencode/skills/` or `.claude/skills/`.
+
+Project process skills, in the order they run:
+
+`interview` → `plan` → (`ponytail` before new deps/abstractions) → (`tdd` when applicable) →
+`verify` → `commit-push`.
+
+- `interview` — 3–7 clarifying questions before non-trivial work; don't guess requirements.
+- `plan` — numbered, individually verifiable steps before code.
+- `ponytail` — prove a new dependency/abstraction is needed before adding it.
+- `tdd` — upstream skill; **there is no unit-test framework in this repo**, so today this means
+  an e2e spec first (`tests/e2e/`). Adding Vitest is a separate, undecided task.
+- `verify` — runs the chain from `.agents/shared/checks.md` and reports exact results.
+- `commit-push` — staging rules, Conventional Commits, push.
+- `telegram-bridge` — personal Telegram approvals (see `## Notifications`).
+
+To add a skill: create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name` must
+equal the directory name, `description` is the trigger). `apply-design` and
+`apply-design-v2` are inherited from the course project and do not apply here — delete them
+if they get in the way.
+
+## Hygiene of context window
+
+- **Two-iteration rule:** if the same check (`npx eslint .` / `npx tsc --noEmit` /
+  `npm run test:e2e` / `npx next build`) is still red after two consecutive fix attempts:
+  (1) state in one sentence why the current approach is wrong, (2) state an alternative in one
+  sentence, (3) ask the user via `question(...)` which way to go.
+- If the dialog has grown and progress is zero, propose `/compact` or a fresh session with
+  pointers to `AGENTS.md`, `MEMORY.md`, `CONTEXT.md`, `docs/adr/`.
+- Files are the only durable context between sessions: `AGENTS.md`, `MEMORY.md`, `CONTEXT.md`,
+  `docs/`. Anything not written there is lost on the next `/compact`.
+
+## Long-term memory
+
+- `MEMORY.md` (root) — project state between sessions; update it when the stack changes, a
+  critical fix lands, an ADR is accepted, or check results change.
+- `CONTEXT.md` (root) — domain glossary; use its vocabulary in issues, commits, code and UI text.
+- `docs/adr/` — one ADR per hard-to-reverse decision. `docs/adr/README.md` holds the index and
+  the "when not to write one" rules; template is `docs/adr/template.md`.
+- Before a large task: read `MEMORY.md`, then the relevant ADR. After: update `MEMORY.md` and
+  add an ADR if the decision is architectural.
+
+## Safety gates
+
+- **Read-only in production:** if the environment is production/staging (`NODE_ENV=production`,
+  explicit deploy target), only reads are allowed — `git log`, file reads, `curl` against the
+  running service. No writes to remote repos, no migrations, no deletions outside the release dir.
+- **Human-in-the-loop:** force-push, `git reset --hard`, rewriting `MEMORY.md`, deleting ADRs,
+  changing `.github/workflows/*`, or anything touching the production server require an explicit
+  user request — show the command and consequences first.
+- **Destructive operations** (`rm -rf`, `rsync --delete`, wiping `.data/`) — show a dry-run or
+  diff and wait for confirmation. `.data/` is user state, not cache.
+- **Secrets:** never write tokens/passwords into code or commits; `.env.local` stays gitignored;
+  the Telegram bot token lives only in `telegram-bot/.env`.
+
+## Notifications (toast + Telegram)
+
+Notify the user only in two cases (never "just because"):
+1. **A decision is needed** — the agent hit a question/choice/blocker and is waiting
+   (`question(...)`, ambiguity, a check still red after two iterations).
+2. **A successful release** — push done, CI/deploy went green, task finished and pushed.
+
+Channels (either or both, same two cases):
+
+- Windows toast:
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/notify.ps1 "Title" "Text"`
+  The script must stay UTF-8 **with BOM** (PowerShell 5.1 breaks Cyrillic otherwise) and uses
+  the WinRT `Windows.UI.Notifications` type, which only `powershell.exe` 5.1 can project —
+  `pwsh` 7 fails on it.
+- Telegram: `.agents/skills/telegram-bridge/SKILL.md` (`node telegram-bot/notify.mjs ...`).
+
+Keep messages short, in Russian, no secrets.
+
+## Agent behavior
+
+- **Task routing (hybrid):** small, mechanical work → `ai/inbox.md` → `ai/tasks/` (see
+  `## AI-assisted development cycle`). Large features and bugs, or anything touching the public
+  API, top-level UI behavior, or the `.data` format → GitHub Issue first (`gh issue create`,
+  labels from `docs/agents/triage-labels.md`); put `(#NN)` in the commit message and close the
+  issue after pushing. Single-line mechanical fixes may skip both.
+- Run the checks from `.agents/shared/checks.md` before committing; a red check caused by your
+  diff means the task is not done.
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`); never commit `package-lock.json`,
+  `next-env.d.ts` churn, `.data/`, or `telegram-bot/` state.
+- All user-facing strings stay Russian; the e2e specs select on them.
+- `git push` to `main` deploys to production — don't push without a green local verify.
 
 ## Known baseline issues (verified 2026-09-28 — not caused by your change)
 

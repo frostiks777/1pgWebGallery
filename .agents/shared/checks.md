@@ -27,7 +27,7 @@ npm run lint
 
 Must not report a *new* error. `AGENTS.md`'s "Known baseline issues" lists what's already
 broken and out of scope — a task touching `page.tsx`/`Lightbox.tsx` may still trip one of
-those 14 pre-existing lines merely by being in the same file; don't fail the task over a
+those 9 pre-existing lines merely by being in the same file; don't fail the task over a
 line your diff didn't touch, but do fail it over anything your diff *did* introduce or
 change.
 
