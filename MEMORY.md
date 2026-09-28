@@ -33,10 +33,17 @@
 
 ## Что сделано (последние изменения)
 
-- 2026-09-28: перенос AI-харнеса из 386 — 83 скилла + `skills-lock.json`; адаптация
-  `interview/plan/ponytail/verify/commit-push/telegram-bridge`; `CONTEXT.md`, `MEMORY.md`,
-  `docs/adr/`; гибридный трекинг; `ci.yml` (lint+build); `release-please.yml`;
-  `scripts/notify.ps1`; `opencode.jsonc` (permissions + shadcn MCP).
+- 2026-09-28: перенос AI-харнеса из 386, **не завершён**. Сделано (4 локальных коммита,
+  **не запушены**):
+  - 83 скилла + `skills-lock.json` импортированы; `.agents/skills/**` исключён из eslint;
+  - адаптированы `interview/plan/ponytail/verify/commit-push/telegram-bridge` под этот репо;
+  - `CONTEXT.md`, `MEMORY.md`, `docs/adr/` (0001–0003);
+  - `AGENTS.md` дополнен разделами Agent skills / Hygiene / Long-term memory / Safety gates /
+    Notifications / Agent behavior; baseline-числа приведены к 9 (`checks.md`, inbox, deploy.yml).
+- **Осталось по переносу (фазы 5–7):** `opencode.jsonc` (permissions + shadcn MCP),
+  `scripts/notify.ps1` (UTF-8 BOM), `.github/workflows/ci.yml` (lint non-blocking + build),
+  `.github/workflows/release-please.yml`, `docs/agents/{issue-tracker,triage-labels,domain}.md`,
+  routing в `process-inbox/SKILL.md`, GitHub-метки, затем полный verify и push.
 - 2026-09-27: Telegram-мост — скрипты `telegram-bot/` в git, state в `.gitignore`;
   `.opencode/plugins/telegram-autostart.js` (lock + pid + антиспам).
 - Ранее: фиксы nginx (`/_next/static/` приоритетнее image-локации), merge static в
@@ -44,6 +51,9 @@
 
 ## Открытые вопросы
 
+- **Push ждёт:** 4 локальных коммита переноса харнеса не запушены (`origin/main..HEAD`);
+  Andrew просил сделать это позже. После пуша — CI (lint+build) и деплой `deploy.yml`,
+  затем фазы 5–7 переноса (см. выше).
 - Починить 9 lint-ошибок (задача в `ai/inbox.md`) — отдельным reviewed-изменением.
 - Unit-тестов нет: скилл `tdd` работает через e2e-спеки; решение о Vitest — отдельная задача.
 - release-please: в настройках репозитория нужно включить «Allow GitHub Actions to create
