@@ -1,11 +1,11 @@
 ---
 name: verify
-description: Use before reporting a task as done — «закончил», «готово», «можно коммитить», «всё работает», «проверь». Run the full local check chain (`npm run lint`, `npm run typecheck`, `npm test`, `npm run build` when relevant) and report exact results. If anything is red, fix and re-run; never declare done with a red checker. Combined with `commit-push` skill for the final gate.
+description: Use before reporting a task as done — «закончил», «готово», «можно коммитить», «всё работает», «проверь». Run the repo's check chain from `.agents/shared/checks.md` (`npx eslint .`, `npx tsc --noEmit`, `npx next build`, `npm run test:e2e`) and report exact results. If anything is red, fix and re-run; never declare done with a red checker. Combined with `commit-push` for the final gate.
 ---
 
 # Verify
 
-Скилл финальной проверки перед тем, как сказать «готово». Запрещает отмечать задачу выполненной, пока полный чек-чейн не зелёный.
+Скилл финальной проверки перед тем, как сказать «готово». Запрещает отмечать задачу выполненной, пока чек-чейн не зелёный. **Источник истины по командам и scope — `.agents/shared/checks.md`**; здесь — как их прогонять и как отчитываться.
 
 ## Когда применять
 
@@ -16,73 +16,71 @@ description: Use before reporting a task as done — «закончил», «г�
 ```bash
 git status --short
 git diff --stat
-npm run lint
-npm run typecheck
-npm test
+npx eslint .
+npx tsc --noEmit
 ```
 
 | Команда | Что должно быть | Источник истины |
 |---|---|---|
-| `npm run lint` | `0 errors` | `.eslint` flat config в корне |
-| `npm run typecheck` | `0 errors` | `tsconfig.json` strict |
-| `npm test` | `All tests passed` (или N/N пройдено) | Vitest 4 |
+| `npx eslint .` | ровно 9 baseline-ошибок `react-hooks/set-state-in-effect`, **новых нет** | `eslint.config.mjs`, `AGENTS.md` → «Known baseline issues» |
+| `npx tsc --noEmit` | 0 ошибок | `tsconfig.json` |
 
-Допустимый baseline-warning фиксируется в `MEMORY.md` (раздел «Исправленные ошибки»). Если новый warning — стоп, чинить **до** коммита.
+Важно: скрипты `package.json` (`dev`/`build`/`start`/`lint`) вызывают `bunx` и падают без `bun` в PATH — запускай инструменты напрямую через `npx` (см. `AGENTS.md` → «Commands»). Прогон через `npm run lint` без `bun` даст ложный красный.
+
+Новая ошибка линта на строке, которую твой diff **не трогал**, — это baseline, а не провал задачи. Всё, что diff затронул или добавил, обязано быть чистым.
 
 ## Расширенный чек-чейн (по типу изменения)
 
-### Изменения затронули бэкенд / БД / схему Drizzle
-
-Дополнительно:
+### Изменения затронули галерею / лайтбокс / навигацию
 
 ```bash
-npm run build         # tsc --noEmit && vite build — фронт собирается
-npm run server:dev    # в фоне, опционально
-curl http://localhost:3000/health   # или browser.navigate
+npm run test:e2e    # первый прогон на машине: npx playwright install chromium
 ```
 
-### Изменения затронули UI / компоненты shadcn
+Расширяй `tests/e2e/gallery.smoke.spec.ts` (или добавляй новый spec), а не проверяй руками — иначе регрессия останется без покрытия.
 
-Дополнительно:
+### Изменения видны пользователю (UI)
+
+Сделай скриншот и посмотри на него: `page.screenshot()` в одноразовом Playwright-скрипте, файл в `.agents-runs/<task-id>/` (gitignored). «Сборка прошла» и «smoke прошёл» не доказывают, что UI выглядит правильно.
+
+### Изменения уровня сборки / next.config / маршрутов
 
 ```bash
-npm run dev           # в фоне
-browser.navigate("http://localhost:5173/<route>")   # через browser-инструмент opencode
-# визуальная проверка: нет красных ошибок в консоли, ожидаемый элемент рендерится
+npx next build      # нужен исходящий HTTPS к fonts.googleapis.com/fonts.gstatic.com (next/font)
 ```
 
-### Изменения затронули Drizzle-схему (`server/db/schema.ts`)
+Сеть заблокирована — это не дефект кода: запусти `npx next dev`, открой затронутый роут и **честно** напиши в отчёте, что production-сборка не проверена. 11 предупреждений Turbopack «Dynamic filesystem access…» в `src/app/api/images/route.ts` и `api/video-stream/route.ts` — baseline. Новые `fs.*Sync` на вычисляемых путях помечай `/*turbopackIgnore: true*/`.
+
+### Добавлен новый API-роут (`src/app/api/*/route.ts`)
+
+Роут автоматически наследует rate-limit и bearer-токен из `src/proxy.ts` (`/api/images` освобождён). Проверь, что это ожидаемое поведение, и что `next build` не добавил новых tracing-предупреждений.
+
+### Изменения затронули CI / workflows / деплой
 
 ```bash
-npm run db:generate   # генерация миграции
-npm run db:push       # применение к локальной БД
-# (опц.) перезапуск server:dev и smoke-тест эндпоинта
+git status                    # список файлов
+git diff -- .github/workflows # workflow тронут осознанно
+git remote -v                 # remote не менялся
 ```
 
-### Изменения затронули CI / workflows / публичные конфиги
-
-```bash
-git status            # посмотреть список файлов
-git remote -v         # убедиться, что имя репозитория не изменено
-git log -p -- .github/workflows/hexlet-check.yml | head -50   # hexlet-check НЕ тронут
-```
+`deploy.yml` собирает standalone-бандл на раннере и делает `rsync --delete` — ничего durable (`.data/`, `.env.local`) не должно оказаться под `DEPLOY_PATH`.
 
 ## Сценарий «всё красное»
 
-1. **Одна и та же ошибка после двух попытокфиксa** — остановись, переключись на `interview` (м.б. требование понято неверно) или `plan` (м.б. архитектура не та).
-2. **> 5 ошибок одновременно** — возможно, фундаментальная ошибка (например, обновил `drizzle-orm` и сломался `schema.ts`); не правь по одной, разберись в причине.
-3. **Никак не проходит, но при этом ясно, что код ок** — скажи пользователю «verify красный, причина — <X>, как смотришь на обход через <Y>?».
+1. **Одна и та же ошибка после двух попыток фикса** — остановись, переключись на `interview` (требование понято неверно?) или `plan` (архитектура не та?).
+2. **Много ошибок сразу** — вероятно, фундаментальная причина (сломанный импорт, обновление зависимости); не правь по одной, разберись.
+3. **Никак не проходит, но код явно ок** — скажи пользователю: «verify красный, причина — <X>, как смотришь на обход через <Y>?».
 
 ## Отчёт пользователю (шаблон)
 
 ```markdown
 ✅ Verify:
-- `npm run lint`: 0 errors (1 допустимый warning в `button.tsx` — зафиксирован в MEMORY.md).
-- `npm run typecheck`: 0 errors.
-- `npm test`: 6/6 passed (10.26s).
-- (опц.) `npm run build`: ok (171.52 kB JS, 9.91 kB CSS).
+- `npx eslint .`: 9 baseline-ошибок, новых нет (список совпадает с AGENTS.md).
+- `npx tsc --noEmit`: 0 ошибок.
+- `npm run test:e2e`: 1/1 passed (gallery.smoke).
+- (опц.) `npx next build`: ok.
 
-Что **не** проверялось: <если что-то было пропущено — перечислить честно>.
+Что **не** проверялось: <перечислить честно>.
 ```
 
 ## Запрещено
@@ -94,9 +92,9 @@ git log -p -- .github/workflows/hexlet-check.yml | head -50   # hexlet-check Н�
 
 ## Связь с правилом «2 итераций»
 
-После **2 неудачных попыток** фикса одной и той же ошибки — стоп и спроси пользователя / пересмотри подход. Это явно зафиксировано в `AGENTS.md` → «Hygiene of context window». Verify сам по себе не сбрасывает сессию, но фиксирует момент переключения.
+После **2 неудачных попыток** фикса одной и той же ошибки — стоп и спроси пользователя / пересмотри подход. Это явно зафиксировано в `AGENTS.md` → «Hygiene of context window».
 
 ## Связанные скиллы
 
 - **`commit-push`** — после зелёного verify делает коммит и пуш.
-- **`tdd`** — для нетривиальной логики: red→green→refactor; verify тут — финальная проверка перед коммитом.
+- **`tdd`** — unit-раннера в проекте нет; для нетривиальной логики сначала пишем e2e-спеку, потом код (см. `AGENTS.md` → «Agent skills»).

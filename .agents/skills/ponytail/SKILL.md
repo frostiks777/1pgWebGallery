@@ -13,7 +13,7 @@ description: Use before adding a new dependency, abstraction, wrapper, helper, o
 
 - Соблазн добавить новую зависимость (`npm install <pkg>`).
 - Соблазн вынести 3–5 строк в отдельный файл / утилиту / обёртку.
-- Соблазн создать новую директорию (`src/utils/x/`, `src/lib/y/`) под одну функцию.
+- Соблазн создать новую директорию (`src/lib/x/`, `src/components/y/`) под одну функцию.
 - Соблазн сделать wrapper / adapter / facade.
 
 ## Алгоритм «нет»
@@ -21,11 +21,11 @@ description: Use before adding a new dependency, abstraction, wrapper, helper, o
 Последовательно проверь каждый пункт. Если на любом ответ «да» — новую абстракцию НЕ создавай.
 
 1. **Можно решить уже существующей утилитой проекта?**
-   Проверь: `src/lib/utils.ts` (`cn`), `src/utils/`, `src/api/`, `src/components/ui/` (shadcn-примитивы).
+   Проверь: `src/lib/` (`webdav.ts`, `dir-meta.ts`, `auth.ts`, `ffmpeg.ts`, `videoExt.ts`), `src/components/gallery/` (шесть раскладок, `PhotoCard`, `Lightbox`), `src/components/ui/` (Radix/shadcn-примитивы), `src/lib/utils.ts` (`cn`).
 2. **Можно решить уже подключённой зависимостью из `package.json`?**
-   Проверь: `react`, `lucide-react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/*`, `sonner`, `drizzle-orm`, `fastify`.
+   Проверь: `react`, `next`, `webdav`, `sharp`, `zod`, `lucide-react`, `framer-motion`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/*`, `sonner`, `next-themes`.
 3. **Можно решить конфигурацией?**
-   Изменить значение в `vite.config.ts` / `tsconfig.json` / `eslint.config.js` / `tailwind.config.js` / `opencode.jsonc`.
+   Изменить значение в `next.config.ts` / `tsconfig.json` / `eslint.config.mjs` / `tailwind.config.ts` / `components.json` / `playwright.config.ts`.
 4. **Можно решить 1–5 строк в существующем файле?**
    Inline-правка предпочтительнее нового файла, если длина ≤ 5 строк и переиспользования не предвидится.
 5. **Действительно нужна новая абстракция?**
@@ -36,17 +36,16 @@ description: Use before adding a new dependency, abstraction, wrapper, helper, o
 - Добавлять зависимость, которая **даёт** < 1KB gzipped и не решает принципиально новую задачу (тогда это полифилл, который есть в стандартной библиотеке).
 - Создавать файл ради одной функции в 3–5 строк.
 - Заводить `wrappers/adapters/facades/index.ts` без доказанной необходимости (2+ места переиспользования).
-- Создавать `src/utils/<x>.ts` для функции, которая вызывается один раз и не тестируется отдельно.
+- Создавать `src/lib/<x>.ts` для функции, которая вызывается один раз и не тестируется отдельно.
 
 ## Шаблон обоснования
 
 Если все 4 «нет», обоснуй новую абстракцию **одним предложением** в PR/MEMORY/ADR:
 
 ```markdown
-Новая утилита `format-date.ts` нужна, потому что форматирование дат
-используется в 4 местах (`Slot время`, `success-страница`, `dashboard`,
-`/ics-экспорт`) и логика > 5 строк (`toLocaleString` + таймзона + edge-case
-«сегодня»).
+Новая утилита `formatDate.ts` нужна, потому что форматирование даты съёмки
+используется в 3 местах (`PhotoCard`, `Lightbox`, сортировка по дате) и
+логика > 5 строк (парсинг EXIF-даты, фолбэк на дату файла, локализация).
 ```
 
 Без такого обоснования — не добавлять.

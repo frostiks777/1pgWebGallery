@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Use when the task has more than 3 steps, changes ≥ 2 files, or is non-trivial after an interview — «спланируй», «напиши план», «декомпозируй», «с чего начать». Produce a numbered checklist of 3–10 atomic steps before any code/edit. Each step must be verifiable (тест, lint, typecheck, build, ручной чек UI). For very small one-line mechanical fixes this skill is optional.
+description: Use when the task has more than 3 steps, changes ≥ 2 files, or is non-trivial after an interview — «спланируй», «напиши план», «декомпозируй», «с чего начать». Produce a numbered checklist of 3–10 atomic steps before any code/edit. Each step must be verifiable (e2e, lint, typecheck, build, ручной чек UI). For very small one-line mechanical fixes this skill is optional.
 ---
 
 # Plan
@@ -36,7 +36,7 @@ description: Use when the task has more than 3 steps, changes ≥ 2 files, or is
 ```markdown
 - [ ] **Шаг N.** <что делается одной фразой>
   - Файлы: `<path1>`, `<path2>`
-  - Проверка: <`npm run typecheck` | `npm test` | ручной визуальный чек | другое>
+  - Проверка: <`npx eslint .` | `npx tsc --noEmit` | `npm run test:e2e` | ручной визуальный чек | другое>
   - (опц.) Субагент: <`explore` | `general`>
 ```
 

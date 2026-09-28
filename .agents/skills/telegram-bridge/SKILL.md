@@ -5,7 +5,7 @@ description: Use when notifying the user via the personal Telegram bridge or awa
 
 # Telegram-bridge
 
-Персональный мост в Telegram для согласований, когда пользователь не у компа. Код — в `telegram-bot/` (в `.gitignore`, в git не коммитится). Ноль зависимостей.
+Персональный мост в Telegram для согласований, когда пользователь не у компа. Код — в `telegram-bot/`: **скрипты и README трекаются в git**, состояние (`.env`, `inbox.jsonl`, `outbox.jsonl`, `decisions.jsonl`, `.bot.pid`, `.bot.lock`) — в `.gitignore`. Ноль зависимостей.
 
 ## Когда применять
 
@@ -21,7 +21,7 @@ node telegram-bot/notify.mjs "Нужно решение" "Делаем X?" --id 
 ```
 
 - Без заполненного `telegram-bot/.env` отправка молча пропускается (exit 0) — это норма, не ошибка.
-- Текст — короткий, по-русски, без секретов (пароли, токены, `ADMIN_PASSWORD` — никогда).
+- Текст — короткий, по-русски, без секретов (токены, пароли, содержимое `.env` — никогда).
 
 ## Как дождаться решения
 
@@ -43,7 +43,7 @@ node telegram-bot/reply.mjs "Текст ответа"  # ответ уходит
 
 ## Автозапуск и автоуведомления
 
-`node telegram-bot/bot.mjs` и уведомления «я закончил / я упал» поднимаются сами плагином `.opencode/plugins/telegram-autostart.js` при старте opencode (GUI и CLI) — пользователю ничего запускать не надо. Уведомления молчат, если в `telegram-bot/.env` не стоит `TELEGRAM_NOTIFY=on` (по умолчанию `off`); антиспам — не чаще раза в минуту на тип события. Проверять процесс не нужно; остановить — `taskkill /PID <число из telegram-bot/.bot.pid> /F`. Если `telegram-bot/` или `.env` удалены, бот не поднимается, а `notify.mjs`/`reply.mjs` молча пропускают отправку.
+`node telegram-bot/bot.mjs` и уведомления «я закончил / я упал» поднимаются сами плагином `.opencode/plugins/telegram-autostart.js` при старте opencode (GUI и CLI) — пользователю ничего запускать не надо. Плагин защищён lock-каталогом `.bot.lock` и pid-файлом: несколько параллельных сессий opencode не поднимут второй poller на том же токене (Telegram ответил бы 409). Уведомления молчат, если в `telegram-bot/.env` не стоит `TELEGRAM_NOTIFY=on` (по умолчанию `off`); антиспам — не чаще раза в минуту на тип события. Остановить — `taskkill /PID <число из telegram-bot/.bot.pid> /F`. Если `telegram-bot/` или `.env` удалены, бот не поднимается, а `notify.mjs`/`reply.mjs` молча пропускают отправку.
 
 ## Команды пользователя с телефона
 
@@ -54,6 +54,6 @@ node telegram-bot/reply.mjs "Текст ответа"  # ответ уходит
 ## Запрещено
 
 - Спамить на каждый шаг — только блокер/решение и успешный релиз (как с тостом).
-- Класть `telegram-bot/.env`, `*.jsonl` в git — вся папка уже в `.gitignore`.
+- Коммитить состояние `telegram-bot/` (`.env`, `*.jsonl`, `.bot.pid`, `.bot.lock`) — оно в `.gitignore`; скрипты трекаются.
 - Писать секреты в сообщения; светить токен бота в чате/логах.
 - Выдумывать решение пользователя при отсутствии записи в `decisions.jsonl`.
