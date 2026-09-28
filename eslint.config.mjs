@@ -49,7 +49,9 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
   // referenced from a few comments as a visual reference. It was written
   // without the app's lint rules in mind, so lint it out rather than fix
   // mockup code that ships nowhere.
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "Obsidian_Theme/**"]
+  // `.agents/skills/**` holds imported agent skills (upstream scripts + markdown) —
+  // they ship nowhere and must not break the repo's lint baseline. See AGENTS.md.
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", ".agents/skills/**", "Obsidian_Theme/**"]
 }];
 
 export default eslintConfig;
