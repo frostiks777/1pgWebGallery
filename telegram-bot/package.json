@@ -1,0 +1,14 @@
+{
+  "name": "telegram-control",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Личный Telegram-мост для согласований (вне основного проекта, в гитигноре). Ноль зависимостей.",
+  "scripts": {
+    "notify": "node notify.mjs",
+    "reply": "node reply.mjs",
+    "unread": "node unread.mjs",
+    "bot": "node bot.mjs",
+    "menu": "node setup-menu.mjs"
+  }
+}

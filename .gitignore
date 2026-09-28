@@ -79,6 +79,17 @@ package-lock.json
 # chat attachment (mockups, reports) — not project source, never committed.
 Claude outputs/
 
+# telegram-bot/ (personal bridge) — the scripts are tracked, the state is not.
+# inbox/outbox/decisions.jsonl hold the maintainer's Telegram chat id, his
+# messages and git status of unrelated private projects; .bot.pid/.bot.lock are
+# runtime artifacts. See AGENTS.md.
+telegram-bot/.env
+telegram-bot/.bot.pid
+telegram-bot/.bot.lock
+telegram-bot/inbox.jsonl
+telegram-bot/outbox.jsonl
+telegram-bot/decisions.jsonl
+
 # ============================================================================
 # CURSOR AI SECURITY TEMPLATE - .gitignore
 # ============================================================================
