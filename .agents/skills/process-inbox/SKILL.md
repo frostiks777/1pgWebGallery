@@ -22,6 +22,28 @@ touching the inbox.
 - Existing `ai/tasks/*/task.md` and `state.yaml`, so a new task doesn't duplicate one
   already tracked.
 
+## Route first
+
+Трекинг в этом репозитории гибридный (ADR-0002, `docs/agents/issue-tracker.md`).
+Прежде чем создавать task-файл, реши, куда идёт пункт инбокса:
+
+- **GitHub Issue**, если это крупная фича или баг, либо правка задевает публичный
+  API, верхнеуровневое поведение UI, формат `.data/` или затрагивает больше
+  ~2 файлов:
+
+  ```bash
+  gh issue create --title "..." --body "..." --label "bug"   # bug/enhancement — см. docs/agents/triage-labels.md
+  ```
+
+  Такой пункт из `ai/inbox.md` убирается, а номер issue (`(#NN)`) попадает в
+  будущий коммит; после пуша issue закрывается.
+- **Task-файл** в `ai/tasks/` — только для небольшой механической работы, которую
+  можно выполнить и проверить за одну сессию.
+
+Крупное, но сформулированное в одну строку («почини 9 lint-ошибок») — это Issue,
+а не task: у него отдельный reviewed-диф и он не должен ехать в общем потоке с
+чужими правками.
+
 ## For each inbox item
 
 An item is one bullet, or one short paragraph — an entry ends at the next top-level bullet

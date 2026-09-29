@@ -1,0 +1,57 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Плагины в формате текущей версии opencode: ключ "plugin" (не "plugins").
+  // opencode-notify — нативные уведомления ОС (Windows Toast / macOS
+  // Notification Center / Linux notify-send) с кнопками Accept/Reject, когда
+  // агенту нужно разрешение или он задаёт вопрос. npm-плагины ставятся Bun при
+  // старте, отдельного npm install не нужно.
+  // Второй канал — Telegram-мост, см. .agents/skills/telegram-bridge/SKILL.md;
+  // ручной тост без opencode — scripts/notify.ps1.
+  "plugin": ["opencode-notify"],
+
+  // Главная модель основного агента.
+  "model": "opencode/mimo-v2.6-flash-free",
+
+  // Все субагенты — только бесплатные модели (см. список: opencode models).
+  "agents": {
+    // Исследовательский субагент: только чтение и веб. Нет edit/bash/task,
+    // чтобы случайно ничего не править.
+    "explore": {
+      "model": "opencode/muse-spark-1.3-contributor-free",
+      "permission": {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "webfetch": "allow",
+        "websearch": "allow",
+        "skill": "allow",
+        "edit": "deny",
+        "bash": "deny",
+        "task": "deny",
+        "external_directory": "deny"
+      }
+    },
+    // Универсальный субагент для реализации: полный доступ, модель бесплатная.
+    "general": {
+      "model": "opencode/muse-spark-1.3-contributor-free"
+    }
+  },
+
+  // MCP-серверы. Подключён официальный shadcn MCP — в этом репозитории
+  // components.json есть, UI-компоненты в src/components/ui/ (Radix/shadcn).
+  //
+  // ВАЖНО: npm-пакет называется `shadcn`, сервер запускается подкомандой `mcp`:
+  // `npx -y shadcn@latest mcp`. Имя `@shadcn/ui/mcp` невалидно
+  // (npm: EINVALIDPACKAGENAME) — из-за него процесс падал с
+  // "MCP error -32000: Connection closed". Проверка: `npx -y shadcn@latest mcp --help`
+  "mcp": {
+    "shadcn": {
+      "type": "local",
+      "command": ["npx", "-y", "shadcn@latest", "mcp"],
+      "enabled": true,
+      "timeout": 60000
+    }
+  }
+}
