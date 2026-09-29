@@ -1,6 +1,6 @@
 # MEMORY.md — Состояние проекта «Photo Gallery»
 
-> Дата последнего обновления: 2026-09-28 (перенос AI-харнеса из проекта
+> Дата последнего обновления: 2026-09-29 (перенос AI-харнеса из проекта
 > [ai-for-developers-project-386](https://github.com/frostiks777/ai-for-developers-project-386):
 > 83 скилла, CONTEXT.md, ADR, CI, release-please, тост, opencode.jsonc).
 > Долговременная память между сессиями. Архитектурные решения — в `docs/adr/`,
@@ -24,26 +24,38 @@
 - `npx eslint .` — **9** baseline-ошибок `react-hooks/set-state-in-effect`
   (`src/app/page.tsx` 118/178/224/242/296/354/394, `Lightbox.tsx` 89/107). Задача на фикс
   лежит в `ai/inbox.md`; правило — не смешивать фикс с другими изменениями.
-- `npx tsc --noEmit` — чисто.
+- `npx tsc --noEmit` — **2** ошибки TS2345 в `src/app/api/video-stream/route.ts`
+  (строки 145 и 159: `Readable.toWeb(nodeStream)` — `createReadStream` отдаёт
+  webdav-овский `ReadableLike`, а не `stream.Readable`). `next build` при этом
+  проходит, т.к. этот файл не попадает в проверяемый набор. Задача в `ai/inbox.md`.
 - `npx next build` — требует исходящий HTTPS к `fonts.googleapis.com`/`fonts.gstatic.com`;
   даёт 11 baseline-предупреждений Turbopack о tracing (computed-path `fs.*Sync`).
-- `npm run test:e2e` — `tests/e2e/gallery.smoke.spec.ts` против `next dev` на :3100.
+- `npm run test:e2e` — **локально на ноутбуке не гоняем** (2026-09-29: оба smoke-теста
+  падают по таймауту 30 с на холодном старте; на прогретом `next dev` карточки рендерятся
+  за ~3 с, `/api/photos` отвечает 200). Причина — не код и не `beforeunload` (диагностика
+  дала 0 диалогов, 0 ошибок), а связка «холодный старт + 30-секундный таймаут теста».
+  Обходной путь и запрет поднимать `next dev` ради проверки — `.agents/shared/checks.md`
+  шаг 4.
 - Скрипты `package.json` (`dev`/`build`/`start`/`lint`) вызывают `bunx` и падают без `bun` —
   запускать инструменты напрямую через `npx` (см. `AGENTS.md` → «Commands»).
 
 ## Что сделано (последние изменения)
 
-- 2026-09-28: перенос AI-харнеса из 386, **не завершён**. Сделано (4 локальных коммита,
-  **не запушены**):
+- 2026-09-29: **перенос харнеса завершён**, всё запушено в `main` (CI + деплой зелёные).
+  Фазы 1–4 (скиллы, CONTEXT/MEMORY/ADR, секции AGENTS.md) — раньше; фазы 5–7:
+  `opencode.jsonc` (permissions субагентов, shadcn MCP, плагин `opencode-notify`,
+  пины бесплатных моделей), `scripts/notify.ps1` (тост, UTF-8 **с BOM**, AppId
+  «Фото-галерея»), `.github/workflows/ci.yml` (ADR-0003: lint non-blocking + build,
+  без e2e), `.github/workflows/release-please.yml`, `docs/agents/{issue-tracker,
+  triage-labels,domain}.md`, routing-шаг «Route first» в `process-inbox/SKILL.md`,
+  triage-метки в GitHub (`needs-triage`, `needs-info`, `ready-for-agent`,
+  `ready-for-human`). `deploy.yml` не трогали.
+- 2026-09-28: перенос AI-харнеса из 386, фазы 1–4 (4 коммита, запушены 2026-09-29):
   - 83 скилла + `skills-lock.json` импортированы; `.agents/skills/**` исключён из eslint;
   - адаптированы `interview/plan/ponytail/verify/commit-push/telegram-bridge` под этот репо;
   - `CONTEXT.md`, `MEMORY.md`, `docs/adr/` (0001–0003);
   - `AGENTS.md` дополнен разделами Agent skills / Hygiene / Long-term memory / Safety gates /
     Notifications / Agent behavior; baseline-числа приведены к 9 (`checks.md`, inbox, deploy.yml).
-- **Осталось по переносу (фазы 5–7):** `opencode.jsonc` (permissions + shadcn MCP),
-  `scripts/notify.ps1` (UTF-8 BOM), `.github/workflows/ci.yml` (lint non-blocking + build),
-  `.github/workflows/release-please.yml`, `docs/agents/{issue-tracker,triage-labels,domain}.md`,
-  routing в `process-inbox/SKILL.md`, GitHub-метки, затем полный verify и push.
 - 2026-09-27: Telegram-мост — скрипты `telegram-bot/` в git, state в `.gitignore`;
   `.opencode/plugins/telegram-autostart.js` (lock + pid + антиспам).
 - Ранее: фиксы nginx (`/_next/static/` приоритетнее image-локации), merge static в
@@ -51,13 +63,11 @@
 
 ## Открытые вопросы
 
-- **Push ждёт:** 4 локальных коммита переноса харнеса не запушены (`origin/main..HEAD`);
-  Andrew просил сделать это позже. После пуша — CI (lint+build) и деплой `deploy.yml`,
-  затем фазы 5–7 переноса (см. выше).
-- Починить 9 lint-ошибок (задача в `ai/inbox.md`) — отдельным reviewed-изменением.
+- **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
+  and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
+- Починить 9 lint-ошибок и 2 tsc-ошибки в `video-stream/route.ts` (задачи в
+  `ai/inbox.md`) — каждую отдельным reviewed-изменением.
 - Unit-тестов нет: скилл `tdd` работает через e2e-спеки; решение о Vitest — отдельная задача.
-- release-please: в настройках репозитория нужно включить «Allow GitHub Actions to create
-  and approve pull requests» (ручной шаг Andrew).
 - `apply-design` / `apply-design-v2` — унаследованы из 386, к этому проекту не применимы;
   кандидаты на удаление.
 

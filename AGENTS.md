@@ -53,10 +53,15 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   on computed paths in `src/app/api/images/route.ts` and `api/video-stream/route.ts` — the codebase
   already opts some of these out with `/*turbopackIgnore: true*/`; do the same for new ones instead
   of letting tracing balloon the standalone bundle.
-- `npm run test:e2e` — first run on a machine needs `npx playwright install chromium`. `playwright.config.ts`
-  boots its own `npx next dev -p 3100` (`reuseExistingServer` outside CI, so it won't fight your dev
-  server on 3000); point it elsewhere with `PLAYWRIGHT_BASE_URL`. **Extend `tests/e2e/` rather than
-  hand-rolling a check** for anything gallery/lightbox/navigation shaped.
+- `npm run test:e2e` — **на ноутбуке Andrew локально не гоняем** (2026-09-29: оба smoke-теста
+  падают по таймауту 30 с на холодном старте, при этом приложение живое — на прогретом
+  `next dev` карточки есть за ~3 с). `playwright.config.ts` boots its own `npx next dev -p 3100`
+  (`reuseExistingServer` outside CI, so it won't fight your dev server on 3000); point it
+  elsewhere with `PLAYWRIGHT_BASE_URL`. НЕ поднимай `next dev` ради проверки: Next 16
+  падает с `Another next dev server is already running`, если в папке уже есть живой
+  dev-сервер, и `test:e2e` не стартует. Подробности и обходной путь — `.agents/shared/checks.md`
+  шаг 4. **Extend `tests/e2e/` rather than hand-rolling a check** for anything
+  gallery/lightbox/navigation shaped.
 - `eslint.config.mjs` turns off a very large set of rules (`exhaustive-deps`, `no-img-element`,
   all the `@typescript-eslint/*` strictness ones, `no-console`…). A clean lint run is a weak signal
   here — don't treat it as proof the change is correct.
@@ -253,3 +258,8 @@ Keep messages short, in Russian, no secrets.
   count is 9.)
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
   network-restricted sandbox.
+- `npx tsc --noEmit` reports **2** errors, both TS2345 in `src/app/api/video-stream/route.ts`
+  (lines 145, 159): the `webdav` client's `createReadStream` returns its own `ReadableLike`,
+  which `Readable.toWeb()` won't take — the existing `as unknown as ReadableStream` cast is on
+  the result, not the argument. `next build` doesn't catch it (that file isn't in the
+  type-checked set). Tracked in `ai/inbox.md`; not caused by your change.
