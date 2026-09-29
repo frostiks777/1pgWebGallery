@@ -101,6 +101,22 @@ function parseRange(rangeHeader: string | null, totalSize: number): { start: num
   return { start, end: Math.min(end, totalSize - 1) };
 }
 
+/**
+ * `webdav`'s shipped `createReadStream` is typed as the platform-neutral
+ * `ReadableLike` (on/once/emit/pipe/destroy only, so the same types compile for
+ * the browser build) — but its node implementation literally returns
+ * `new stream.PassThrough()` (node_modules/webdav/dist/node/operations/
+ * createStream.js), which IS a `stream.Readable`. Widening the declared type
+ * here keeps `Readable.toWeb()` type-safe without changing what runs.
+ *
+ * `Readable.toWeb()` still returns node's own `stream.ReadableStream`, which is
+ * a different interface from the DOM `ReadableStream` `NextResponse` wants —
+ * hence the `as unknown as ReadableStream` on the *result* below.
+ */
+function asNodeReadable(stream: unknown): Readable {
+  return stream as Readable;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -141,7 +157,7 @@ export async function GET(request: NextRequest) {
     const range = parseRange(request.headers.get('range'), totalSize);
 
     if (range) {
-      const nodeStream = c.createReadStream(p, { range: { start: range.start, end: range.end } });
+      const nodeStream = asNodeReadable(c.createReadStream(p, { range: { start: range.start, end: range.end } }));
       const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
       return new NextResponse(webStream, {
         status: 206,
@@ -155,7 +171,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const nodeStream = c.createReadStream(p);
+    const nodeStream = asNodeReadable(c.createReadStream(p));
     const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
     return new NextResponse(webStream, {
       status: 200,
