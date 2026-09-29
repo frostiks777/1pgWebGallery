@@ -1,0 +1,26 @@
+name: Release Please
+
+# Conventional Commits -> версия в package.json + GitHub Release.
+# Требует ручного шага в настройках репо: Settings -> Actions -> General ->
+# "Allow GitHub Actions to create and approve pull requests" (release-please
+# сам открывает PR с bump'ом и сам его мержит). Без этого workflow будет падать
+# на создании PR.
+#
+# Мерж такого PR — это обычный push в main, то есть ещё один деплой
+# (deploy.yml). Ничего страшного: бандл пересобирается из того же кода.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: node

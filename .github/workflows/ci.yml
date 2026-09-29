@@ -1,0 +1,42 @@
+name: CI
+
+# ADR-0003: lint (non-blocking, пока в baseline 9 ошибок
+# react-hooks/set-state-in-effect) + build (блокирующий). E2e здесь намеренно
+# нет — он остаётся локальным гейтом (`npm run test:e2e`, .agents/shared/checks.md):
+# он требует Chromium и поднимает `next dev`, а в deploy.yml сборка и так уже есть.
+#
+# Как только задача на baseline-ошибки из ai/inbox.md закроется —
+# убери continue-on-error у шага Lint (отдельный коммит).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Новые коммиты в тот же PR глушим, деплой по ветке main не отменяем.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint (non-blocking)
+        run: bun run lint
+        continue-on-error: true
+
+      - name: Build (standalone output)
+        run: bun run build
