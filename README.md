@@ -184,7 +184,9 @@ poster and `501` when ffmpeg is unavailable.
 ## 🔒 Security
 
 **Gallery access** — `WEBDAV_LOGON_PASSWORD` puts a password gate in front of everything.
-The session lives in one browser tab and is not shared.
+Successful login sets an httpOnly `gallery-auth` cookie with a 30-day lifetime, shared across
+all tabs of the browser and surviving a restart. To revoke access, clear the cookie or change
+the password.
 
 **API access** — every `/api/*` route passes through [`src/proxy.ts`](./src/proxy.ts):
 
@@ -312,10 +314,14 @@ An OpenCode agent runs in this repository through GitHub Actions, via the GitHub
 
 | Workflow | Triggered by | Permissions | Does |
 |---|---|---|---|
-| [`opencode.yml`](./.github/workflows/opencode.yml) | `/oc` or `/opencode` comment in an issue or PR | `contents`, `pull-requests`, `issues`: write | carries out a request: investigate, fix, open a PR |
-| [`opencode-triage.yml`](./.github/workflows/opencode-triage.yml) | an issue opened by a human | `contents`: read, `issues`: write | comments with a breakdown of the task |
-| [`opencode-review.yml`](./.github/workflows/opencode-review.yml) | a PR opened or updated by a human | `contents`: read, `pull-requests`: write | leaves review comments |
-| [`opencode-audit.yml`](./.github/workflows/opencode-audit.yml) | schedule `17 6 * * *` or manual dispatch | `contents`, `pull-requests`, `issues`: write | runs `eslint`/`tsc` and Lighthouse, opens issues for findings |
+| [`opencode.yml`](./.github/workflows/opencode.yml) | `/oc` or `/opencode` comment in an issue or PR | `contents`, `pull-requests`, `issues`, `id-token`: write | carries out a request: investigate, fix, open a PR |
+| [`opencode-triage.yml`](./.github/workflows/opencode-triage.yml) | an issue opened by a human | `contents`: read; `issues`, `id-token`: write | comments with a breakdown of the task |
+| [`opencode-review.yml`](./.github/workflows/opencode-review.yml) | a PR opened or updated by a human | `contents`: read; `pull-requests`, `id-token`: write | leaves review comments |
+| [`opencode-audit.yml`](./.github/workflows/opencode-audit.yml) | schedule `17 6 * * *` or manual dispatch | `contents`: read; `issues`, `id-token`: write | runs `eslint`/`tsc` and Lighthouse, opens issues for findings |
+
+`id-token: write` is required in all four: the action exchanges an OIDC token for a token of
+the `opencode-agent` GitHub App, and without it the agent's permissions resolve to `none`.
+`opencode-audit.yml` deliberately does not request `pull-requests` — it writes issues only.
 
 Runs are visible in the **Actions** tab. Audit reports are kept as artifacts
 (`code-audit-report`, `lighthouse-report`) for 30 days.
