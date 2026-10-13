@@ -85,9 +85,11 @@ function LightboxContent({
   const thumbRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const isFirstRender = useRef(true);
 
-  useEffect(() => {
-    setIndex(initialIndex);
-  }, [initialIndex]);
+  // No `setIndex(initialIndex)` effect here: the parent remounts this component
+  // via `key={contentKey}` (which includes currentIndex), so a changed
+  // initialIndex always arrives as a fresh mount with the right value already
+  // in useState. Within a mount, `index` only changes through the handlers
+  // below — which is also where the per-image state gets reset.
 
   const currentPhoto = photos[index];
   const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
@@ -102,11 +104,23 @@ function LightboxContent({
 
   const expectedUrl = useRef(imageUrl);
 
+  // Ref-only: tracks which image the <img> is currently showing, so a late
+  // load/error event from the previous photo can't clear the state of the new
+  // one. The per-image *state* reset lives in the index-changing handlers
+  // below, not in an effect (setState-in-effect).
   useEffect(() => {
     expectedUrl.current = imageUrl;
-    setHasError(false);
-    setIsLoading(true);
   }, [imageUrl]);
+
+  const goToIndex = useCallback(
+    (next: number) => {
+      setIndex(next);
+      setZoom(1);
+      setHasError(false);
+      setIsLoading(true);
+    },
+    [],
+  );
 
   useEffect(() => {
     const scroll = () => {
@@ -122,14 +136,12 @@ function LightboxContent({
   }, [index]);
 
   const handlePrev = useCallback(() => {
-    setIndex((prev) => (prev - 1 + photos.length) % photos.length);
-    setZoom(1);
-  }, [photos.length]);
+    goToIndex((index - 1 + photos.length) % photos.length);
+  }, [goToIndex, index, photos.length]);
 
   const handleNext = useCallback(() => {
-    setIndex((prev) => (prev + 1) % photos.length);
-    setZoom(1);
-  }, [photos.length]);
+    goToIndex((index + 1) % photos.length);
+  }, [goToIndex, index, photos.length]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.5, 0.5));
@@ -358,8 +370,7 @@ function LightboxContent({
               }}
               onClick={() => {
                 if (i !== index) {
-                  setZoom(1);
-                  setIndex(i);
+                  goToIndex(i);
                 }
               }}
               className={`h-10 w-10 shrink-0 overflow-hidden rounded-md transition-all duration-200 ${

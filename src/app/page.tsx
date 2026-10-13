@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw,
@@ -94,52 +94,144 @@ function sortCountParts(opt: SortOption): { line: string; arrow: string } {
   }
 }
 
+function isValidLayout(raw: string): boolean {
+  return VALID_OBSIDIAN_MODES.includes(raw as CollageLayout);
+}
+
+/**
+ * A minimal localStorage-backed external store.
+ *
+ * Reading a persisted value into state from an effect is the
+ * setState-in-effect anti-pattern, and doing it in a lazy `useState`
+ * initializer instead would hydrate the server-rendered "masonry/light" markup
+ * with whatever happens to be in storage — a hydration mismatch.
+ * `useSyncExternalStore` is the supported way out: the server snapshot is the
+ * fallback, the stored value lands right after hydration, and the component
+ * re-renders on its own when it changes.
+ *
+ * Same-tab writes notify the local listeners directly (the native `storage`
+ * event only fires in *other* tabs), so both paths stay in sync.
+ */
+function createStoredStore<T extends string>(opts: {
+  keys: string[];
+  read: () => T;
+  server: T;
+  write: (next: T) => void;
+}) {
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null || opts.keys.includes(e.key)) notify();
+  };
+  // The cross-tab listener is bound on the first subscriber and released with
+  // the last one. Binding it in the factory body instead left a permanent
+  // `window` listener per store, with no path that could ever remove it — and
+  // StrictMode's double-invoke of the `useMemo` that calls this factory doubled
+  // it. `subscribe` is the only place `useSyncExternalStore` guarantees to pair
+  // an effect with its cleanup.
+  let windowBound = false;
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      if (!windowBound && typeof window !== 'undefined') {
+        window.addEventListener('storage', onStorage);
+        windowBound = true;
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0 && windowBound) {
+          window.removeEventListener('storage', onStorage);
+          windowBound = false;
+        }
+      };
+    },
+    getSnapshot: opts.read,
+    getServerSnapshot: () => opts.server,
+    set(next: T) {
+      opts.write(next);
+      notify();
+    },
+  };
+}
+
+// Stable identity so `useMemo` dependents don't churn on every render.
+const NO_COVERS: string[] = [];
+
 export default function GalleryPage() {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // The unsorted folder listing straight from the API.
   const [originalPhotos, setOriginalPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'demo' | 'webdav'>('demo');
-  const [layout, setLayout] = useState<CollageLayout>('masonry');
-  const [preferReducedMotion, setPreferReducedMotion] = useState(false);
+  // Layout lives in localStorage ('obsidian:mode'). Read through an external
+  // store, written on change — the old pair of "read on mount" + "persist on
+  // change" effects needed a `layoutPersistReady` ref to avoid writing the
+  // default back over the stored value on first render.
+  const layoutStore = useMemo(
+    () =>
+      createStoredStore<CollageLayout>({
+        keys: ['obsidian:mode'],
+        read: () => {
+          try {
+            const raw = localStorage.getItem('obsidian:mode');
+            // 'empire' is the retired layout this replaces — falls back to masonry.
+            return raw && isValidLayout(raw) ? (raw as CollageLayout) : 'masonry';
+          } catch {
+            return 'masonry';
+          }
+        },
+        server: 'masonry',
+        write: (next) => {
+          try {
+            localStorage.setItem('obsidian:mode', next);
+          } catch {
+            /* ignore quota */
+          }
+        },
+      }),
+    [],
+  );
+  const layout = useSyncExternalStore(layoutStore.subscribe, layoutStore.getSnapshot, layoutStore.getServerSnapshot);
+  const setLayout = useCallback((next: CollageLayout) => layoutStore.set(next), [layoutStore]);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const fn = () => setPreferReducedMotion(mq.matches);
-    fn();
-    mq.addEventListener('change', fn);
-    return () => mq.removeEventListener('change', fn);
-  }, []);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('obsidian:mode');
-      if (raw === 'empire') {
-        setLayout('masonry');
-        localStorage.setItem('obsidian:mode', 'masonry');
-        return;
-      }
-      if (raw && VALID_OBSIDIAN_MODES.includes(raw as CollageLayout)) {
-        setLayout(raw as CollageLayout);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const layoutPersistReady = useRef(false);
-  useEffect(() => {
-    if (!layoutPersistReady.current) {
-      layoutPersistReady.current = true;
-      return;
-    }
-    try {
-      localStorage.setItem('obsidian:mode', layout);
-    } catch {
-      /* ignore */
-    }
-  }, [layout]);
+  // prefers-reduced-motion: the media query *is* the state, so subscribe to it
+  // instead of mirroring it into a `useState` from a mount effect (and its
+  // 'change' listener). Server snapshot is "no preference".
+  const reducedMotionQuery = useMemo(
+    () => (typeof window === 'undefined' ? null : window.matchMedia('(prefers-reduced-motion: reduce)')),
+    [],
+  );
+  const subscribeReducedMotion = useCallback(
+    (onChange: () => void) => {
+      if (!reducedMotionQuery) return () => {};
+      reducedMotionQuery.addEventListener('change', onChange);
+      return () => reducedMotionQuery.removeEventListener('change', onChange);
+    },
+    [reducedMotionQuery],
+  );
+  const readReducedMotion = useCallback(() => reducedMotionQuery?.matches ?? false, [reducedMotionQuery]);
+  const preferReducedMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false);
   const [sortOption, setSortOption] = useState<SortOption>('name-asc');
+
+  // What the gallery renders: the API listing in the selected sort order.
+  // Derived rather than stored — sorting is a pure function of two pieces of
+  // state, so it needs no synchronizing effect, and every writer below only has
+  // to touch `originalPhotos`.
+  const photos = useMemo(() => {
+    const sorted = [...originalPhotos].sort((a, b) => {
+      switch (sortOption) {
+        case 'name-asc':  return a.name.localeCompare(b.name, undefined, { numeric: true });
+        case 'name-desc': return b.name.localeCompare(a.name, undefined, { numeric: true });
+        case 'date-asc':  return new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime();
+        case 'date-desc': return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
+        default: return 0;
+      }
+    });
+    return sorted;
+  }, [sortOption, originalPhotos]);
+
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
@@ -152,9 +244,11 @@ export default function GalleryPage() {
   // Panorama photos (per-directory)
   const [panoramaPaths, setPanoramaPaths] = useState<string[]>([]);
 
-  // Cover photos for the current folder (shown as folder preview in parent)
-  const [coverPaths, setCoverPaths] = useState<string[]>([]);
-  const [coversInitialized, setCoversInitialized] = useState(false);
+  // Cover photos for the current folder (shown as folder preview in parent).
+  // Stored per directory: a missing key means "not fetched for that folder
+  // yet", which is exactly what the old `coversInitialized` flag expressed —
+  // except it had to be reset from a folder-change effect.
+  const [coversByDir, setCoversByDir] = useState<Record<string, string[]>>({});
   const MAX_COVERS = 3;
 
   // Scroll-to-top visibility
@@ -168,39 +262,47 @@ export default function GalleryPage() {
   const [authError, setAuthError] = useState(false);
   const skipBeforeUnload = useRef(false);
 
-  // Dark / light theme
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  // Dark / light theme — same external-store treatment as the layout. With no
+  // stored preference the OS setting wins, which is why `read` can only be
+  // evaluated in the browser; the server snapshot is the light default.
+  const themeStore = useMemo(
+    () =>
+      createStoredStore<'light' | 'dark'>({
+        keys: ['obsidian:theme', 'theme'],
+        read: () => {
+          try {
+            const saved = localStorage.getItem('obsidian:theme') || localStorage.getItem('theme');
+            if (saved === 'dark' || saved === 'light') return saved;
+          } catch {
+            /* ignore */
+          }
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        },
+        server: 'light',
+        write: (next) => {
+          try {
+            localStorage.setItem('obsidian:theme', next);
+            localStorage.setItem('theme', next);
+          } catch {
+            /* ignore quota */
+          }
+        },
+      }),
+    [],
+  );
+  const theme = useSyncExternalStore(themeStore.subscribe, themeStore.getSnapshot, themeStore.getServerSnapshot);
+  const setTheme = useCallback((next: 'light' | 'dark') => themeStore.set(next), [themeStore]);
 
+  // The only DOM work left for the theme, and it sets no state:
   useLayoutEffect(() => {
-    const saved = localStorage.getItem('obsidian:theme') || localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initial = saved === 'dark' || (!saved && prefersDark) ? 'dark' : 'light';
-    setTheme(initial);
     const root = document.documentElement;
-    root.setAttribute('data-theme', initial === 'dark' ? 'dark' : 'light');
-    if (initial === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-  }, []);
+    root.setAttribute('data-theme', theme);
+    root.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      const root = document.documentElement;
-      root.setAttribute('data-theme', next === 'dark' ? 'dark' : 'light');
-      if (next === 'dark') {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-      try {
-        localStorage.setItem('obsidian:theme', next);
-        localStorage.setItem('theme', next);
-      } catch {
-        /* ignore quota */
-      }
-      return next;
-    });
-  }, []);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [setTheme, theme]);
 
   // Check auth status on mount
   useEffect(() => {
@@ -217,11 +319,25 @@ export default function GalleryPage() {
   // currentPath is relative to PHOTOS_DIR, empty string = root
   const [currentPath, setCurrentPath] = useState('');
   const [folders, setFolders] = useState<FolderInfo[]>([]);
-  const [isFoldersLoading, setIsFoldersLoading] = useState(false);
+  // Starts true: the initial load kicks off in a mount effect, and the folder
+  // spinner is what that load shows. Callers that start a load later set the
+  // flag themselves.
+  const [isFoldersLoading, setIsFoldersLoading] = useState(true);
+
+  const coverPaths = useMemo(() => coversByDir[currentPath] ?? NO_COVERS, [coversByDir, currentPath]);
+  const coversInitialized = currentPath in coversByDir;
+  const setCoverPaths = useCallback(
+    (next: string[] | ((prev: string[]) => string[])) => {
+      setCoversByDir((all) => {
+        const prev = all[currentPath] ?? [];
+        return { ...all, [currentPath]: typeof next === 'function' ? next(prev) : next };
+      });
+    },
+    [currentPath],
+  );
 
   // Fetch per-directory metadata (hidden + panoramas + covers) whenever folder changes
   useEffect(() => {
-    setCoversInitialized(false);
     const dirParam = currentPath ? `?dir=${encodeURIComponent(currentPath)}` : '?dir=';
     Promise.all([
       fetch(`/api/hidden${dirParam}`).then((r) => r.json()).catch(() => ({ paths: [] })),
@@ -230,22 +346,30 @@ export default function GalleryPage() {
     ]).then(([hiddenData, panoramaData, coverData]) => {
       if (Array.isArray(hiddenData.paths))   setHiddenPaths(hiddenData.paths);
       if (Array.isArray(panoramaData.paths)) setPanoramaPaths(panoramaData.paths);
-      if (Array.isArray(coverData.paths))    setCoverPaths(coverData.paths);
-      setCoversInitialized(true);
+      // Always write the key, empty list included: its presence is what marks
+      // this folder's covers as loaded.
+      setCoverPaths(Array.isArray(coverData.paths) ? coverData.paths : []);
     });
-  }, [currentPath]);
+  }, [currentPath, setCoverPaths]);
 
   // Auto-populate covers on first visit to a folder that has none yet
   useEffect(() => {
     if (!coversInitialized || coverPaths.length > 0 || isLoading || photos.length === 0) return;
     const firstN = photos.slice(0, MAX_COVERS).map((p) => p.path);
-    setCoverPaths(firstN);
     fetch('/api/covers', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paths: firstN, dir: currentPath }),
-    }).catch(() => {});
-  }, [coversInitialized, coverPaths.length, isLoading, photos, currentPath, MAX_COVERS]);
+    })
+      .then((resp) => {
+        // Only reflect the covers locally once the server has actually
+        // accepted them. A plain `.catch(() => {}).then(...)` ran the `then`
+        // on rejection too, so a failed PATCH left the UI advertising covers
+        // that were never persisted.
+        if (resp.ok) setCoverPaths(firstN);
+      })
+      .catch(() => {});
+  }, [coversInitialized, coverPaths.length, isLoading, photos, currentPath, MAX_COVERS, setCoverPaths]);
 
   // Scroll-to-top: show button after scrolling 300px
   useEffect(() => {
@@ -269,31 +393,56 @@ export default function GalleryPage() {
   const [genProgress, setGenProgress] = useState(0);
   const [genTooltip, setGenTooltip] = useState('Сгенерировать миниатюры для текущей папки');
 
-  const pollGenerateStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/images/generate');
-      const data = await res.json();
-      if (data.running) {
-        setGenStatus('running');
-        setGenProgress(data.progress || 0);
-        setGenTooltip(`Generating... ${data.done}/${data.total} (${data.progress}%)`);
-      } else if (data.finishedAt) {
-        setGenStatus('done');
-        setGenProgress(100);
-        const skipped = data.skipped || 0;
-        const errors = data.errors || 0;
-        setGenTooltip(`Done: ${data.done} processed, ${skipped} skipped${errors > 0 ? `, ${errors} errors` : ''}. Click to re-check.`);
-      }
-    } catch {}
+  // Reads the batch job status off the server. Kept as a function of `data`
+  // rather than as the fetch itself, so the poll below and the one-shot mount
+  // check can each own their own request (and their own cancellation).
+  const applyGenerateStatus = useCallback((data: {
+    running?: boolean;
+    progress?: number;
+    done?: number;
+    total?: number;
+    skipped?: number;
+    errors?: number;
+    finishedAt?: string | null;
+  }) => {
+    if (data.running) {
+      setGenStatus('running');
+      setGenProgress(data.progress || 0);
+      setGenTooltip(`Generating... ${data.done}/${data.total} (${data.progress}%)`);
+    } else if (data.finishedAt) {
+      setGenStatus('done');
+      setGenProgress(100);
+      const skipped = data.skipped || 0;
+      const errors = data.errors || 0;
+      setGenTooltip(`Done: ${data.done} processed, ${skipped} skipped${errors > 0 ? `, ${errors} errors` : ''}. Click to re-check.`);
+    }
   }, []);
+
+  const fetchGenerateStatus = useCallback(
+    () => fetch('/api/images/generate').then((r) => r.json()).then(applyGenerateStatus).catch(() => {}),
+    [applyGenerateStatus],
+  );
 
   useEffect(() => {
     if (genStatus !== 'running') return;
-    const iv = setInterval(pollGenerateStatus, 2000);
+    const iv = setInterval(fetchGenerateStatus, 2000);
     return () => clearInterval(iv);
-  }, [genStatus, pollGenerateStatus]);
+  }, [genStatus, fetchGenerateStatus]);
 
-  useEffect(() => { pollGenerateStatus(); }, [pollGenerateStatus]);
+  // One-shot status check on mount. The state writes live in the promise
+  // chain, not in the effect body, so this is a fetch — not a setState-in-effect.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/images/generate')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) applyGenerateStatus(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [applyGenerateStatus]);
 
   const handleGenerate = useCallback(async () => {
     try {
@@ -311,49 +460,56 @@ export default function GalleryPage() {
     }
   }, [currentPath]);
 
-  const fetchFolders = useCallback(async (path: string) => {
-    setIsFoldersLoading(true);
-    try {
-      const params = path ? `?path=${encodeURIComponent(path)}` : '';
-      const response = await fetch(`/api/folders${params}`);
-      const data: FoldersResponse = await response.json();
-      setFolders(data.success ? data.folders : []);
-    } catch {
-      setFolders([]);
-    } finally {
-      setIsFoldersLoading(false);
-    }
+  // The two loaders below touch state only inside their promise callbacks.
+  // That is deliberate: the folder-change effect that used to call them set
+  // `isLoading`/`isFoldersLoading` synchronously, which is exactly the
+  // setState-in-effect pattern. Callers now own the "a load started" flags —
+  // `goToPath` and `handleRefresh` for later loads, and the initial `true`
+  // values for the mount load.
+  const fetchFolders = useCallback((path: string) => {
+    const params = path ? `?path=${encodeURIComponent(path)}` : '';
+    return fetch(`/api/folders${params}`)
+      .then((r) => r.json())
+      .then((data: FoldersResponse) => {
+        setFolders(data.success ? data.folders : []);
+      })
+      .catch(() => {
+        setFolders([]);
+      })
+      .finally(() => {
+        setIsFoldersLoading(false);
+      });
   }, []);
 
-  const fetchPhotos = useCallback(async (path: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = path ? `?path=${encodeURIComponent(path)}` : '';
-      const response = await fetch(`/api/photos${params}`);
-      const data: PhotosResponse = await response.json();
-      setMode(data.mode);
-      if (!data.success) {
-        setError(data.error || 'Failed to fetch photos');
-        setPhotos([]);
+  const fetchPhotos = useCallback((path: string) => {
+    const params = path ? `?path=${encodeURIComponent(path)}` : '';
+    return fetch(`/api/photos${params}`)
+      .then((r) => r.json())
+      .then((data: PhotosResponse) => {
+        setMode(data.mode);
+        if (data.success) {
+          setError(null);
+          setOriginalPhotos(data.photos);
+        } else {
+          setError(data.error || 'Failed to fetch photos');
+          setOriginalPhotos([]);
+        }
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to load photos');
         setOriginalPhotos([]);
-      } else {
-        setOriginalPhotos(data.photos);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load photos');
-      setPhotos([]);
-      setOriginalPhotos([]);
-    } finally {
-      setIsLoading(false);
-    }
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, []);
 
-  // Whenever path changes, fetch both folders and photos for that path
+  // Initial load. Folder changes go through `goToPath` below, which is an event
+  // handler and therefore free to set the loading flags itself.
   useEffect(() => {
-    fetchFolders(currentPath);
-    fetchPhotos(currentPath);
-  }, [currentPath, fetchFolders, fetchPhotos]);
+    fetchFolders('');
+    fetchPhotos('');
+  }, [fetchFolders, fetchPhotos]);
 
   const handleAuthSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,28 +537,27 @@ export default function GalleryPage() {
     }
   }, [authPassword]);
 
-  useEffect(() => {
-    const sorted = [...originalPhotos].sort((a, b) => {
-      switch (sortOption) {
-        case 'name-asc':  return a.name.localeCompare(b.name, undefined, { numeric: true });
-        case 'name-desc': return b.name.localeCompare(a.name, undefined, { numeric: true });
-        case 'date-asc':  return new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime();
-        case 'date-desc': return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
-        default: return 0;
-      }
-    });
-    setPhotos(sorted);
-  }, [sortOption, originalPhotos]);
-
   const handlePhotoClick = useCallback((photo: Photo, index: number) => {
     setCurrentPhotoIndex(index);
     setLightboxOpen(true);
   }, []);
 
+  // Folder navigation = the event that starts the load. Keeping the fetch here
+  // (instead of reacting to `currentPath` from an effect) is what lets the
+  // loaders stay free of synchronous state writes.
+  const goToPath = useCallback((path: string) => {
+    setCurrentPath(path);
+    setIsLoading(true);
+    setIsFoldersLoading(true);
+    setError(null);
+    fetchFolders(path);
+    fetchPhotos(path);
+  }, [fetchFolders, fetchPhotos]);
+
   // folder.path is relative to PHOTOS_DIR (e.g. "Event1" or "Event1/Sub")
   const navigateInto = useCallback((folder: FolderInfo) => {
-    setCurrentPath(folder.path);
-  }, []);
+    goToPath(folder.path);
+  }, [goToPath]);
 
   // Breadcrumbs: split current absolute path into segments for display.
   // The first breadcrumb is always "Home" (maps to path="").
@@ -420,6 +575,9 @@ export default function GalleryPage() {
   }, [currentPath]);
 
   const handleRefresh = useCallback(() => {
+    setIsLoading(true);
+    setIsFoldersLoading(true);
+    setError(null);
     fetchFolders(currentPath);
     fetchPhotos(currentPath);
   }, [currentPath, fetchFolders, fetchPhotos]);
@@ -503,7 +661,8 @@ export default function GalleryPage() {
       });
     } catch {}
 
-    setPhotos((prev) => prev.filter((p) => !deletePendingPaths.includes(p.path)));
+    // The sorted view is derived from originalPhotos, so dropping the photos
+    // here is enough — the gallery re-sorts itself.
     setOriginalPhotos((prev) => prev.filter((p) => !deletePendingPaths.includes(p.path)));
     setHiddenPaths((prev) => prev.filter((p) => !deletePendingPaths.includes(p)));
     setDeletePendingPaths([]);
@@ -648,7 +807,7 @@ export default function GalleryPage() {
           onToggleTheme={toggleTheme}
           showLayoutChips={visiblePhotos.length > 0}
           breadcrumbs={breadcrumbs}
-          onBreadcrumbNavigate={setCurrentPath}
+          onBreadcrumbNavigate={goToPath}
           showBreadcrumbs={mode === 'webdav' && (currentPath !== '' || folders.length > 0)}
         />
 

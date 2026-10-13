@@ -30,4 +30,35 @@ test.describe('gallery smoke', () => {
     await closeButton.click();
     await expect(closeButton).toBeHidden();
   });
+
+  test('navigates between photos in the lightbox', async ({ page }) => {
+    // Covers the index-navigation path (goToIndex / handlePrev / handleNext),
+    // which the set-state-in-effect rework rewrote: the per-image state reset
+    // moved out of an effect into these handlers, so nothing else exercises it.
+    //
+    // Asserted against the frame counter the lightbox renders ("«frame 2/8»")
+    // rather than against the gallery's own <img alt> elements — those stay in
+    // the DOM behind the overlay and would match a bare `img[alt]` selector.
+    await page.goto('/');
+
+    const firstCard = page.locator('.obs-photo-card').first();
+    await firstCard.waitFor({ state: 'visible' });
+    await firstCard.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const frameCounter = dialog.getByText(/«frame \d+\/\d+»/).first();
+    await expect(frameCounter).toContainText(/«frame 1\/\d+»/);
+
+    // Forward, then back — the back step must land back on the first photo.
+    await page.getByLabel('Следующее фото').click();
+    await expect(frameCounter).toContainText(/«frame 2\/\d+»/);
+
+    await page.getByLabel('Предыдущее фото').click();
+    await expect(frameCounter).toContainText(/«frame 1\/\d+»/);
+
+    await page.getByLabel('Закрыть').click();
+    await expect(page.getByLabel('Закрыть')).toBeHidden();
+  });
 });
