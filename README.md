@@ -324,6 +324,41 @@ bun run start
 
 See [CHECKLIST.md](./CHECKLIST.md) for step-by-step verification guide.
 
+## 🤖 Агент в GitHub: воркфлоу
+
+Агент OpenCode работает не только в терминале: он подключён к GitHub Actions через
+GitHub App `opencode-agent` и бесплатную модель `opencode/mimo-v2.6-flash-free`.
+Подробности решения — [ADR-0004](./docs/adr/0004-agent-workflows-in-github-actions.md).
+
+| Воркфлоу | Чем запускается | Права | Что делает |
+|---|---|---|---|
+| [`opencode.yml`](./.github/workflows/opencode.yml) | комментарий с `/oc` или `/opencode` в issue или PR | `contents`, `pull-requests`, `issues`: write | выполняет просьбу: разобрать, исправить, открыть PR |
+| [`opencode-triage.yml`](./.github/workflows/opencode-triage.yml) | создание issue человеком | `contents`: read, `issues`: write | пишет комментарий с разбором задачи |
+| [`opencode-review.yml`](./.github/workflows/opencode-review.yml) | открытие или обновление PR человеком | `contents`: read, `pull-requests`: write | оставляет замечания к PR |
+| [`opencode-audit.yml`](./.github/workflows/opencode-audit.yml) | расписание `17 6 * * *` или ручной запуск | `contents`, `pull-requests`, `issues`: write | гоняет `eslint`/`tsc` и Lighthouse, заводит issue по находкам |
+
+Прогоны видны во вкладке **Actions**. Отчёты аудита сохраняются артефактами
+(`code-audit-report`, `lighthouse-report`) на 30 дней и дублируются в сводке прогона.
+
+Что нужно настроить в репозитории:
+
+- секрет `OPENCODE_API_KEY` — ключ провайдера модели (для `opencode/*` имя секрета именно такое);
+- Variable `APP_URL` — адрес стенда для Lighthouse (например `https://ap-p-g.duckdns.org/`);
+  без неё job Lighthouse пропускается, аудит по коду всё равно отрабатывает;
+- в настройках репозитория — «Allow GitHub Actions to create and approve pull requests»
+  (нужно агенту для `/oc исправь` и release-please).
+
+Особенности, о которых стоит знать:
+
+- `share: false` во всех воркфлоу — сессия агента не публикуется по ссылке, хотя дефолт
+  opencode для публичного репозитория — `share: true`;
+- агента могут звать только владелец, участники и контрибьюторы; комментарии ботов
+  отфильтровываются, поэтому петли «агент отвечает на свой ответ» не бывает;
+- PR, открытые ботом (в том числе PR от release-please и от самого агента),
+  авторевью не запускают — это экономит минуты Actions;
+- пуш в `main` деплоит прод, поэтому агенту запрещено пушить в `main` и мержить PR;
+- автотриаж — черновик постановки задачи, финальное решение всегда за человеком.
+
 ## 📚 Documentation
 
 - **[INSTALL.md](./INSTALL.md)** - Step-by-step installation guide (Ubuntu 22)
