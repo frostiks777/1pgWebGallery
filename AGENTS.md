@@ -141,8 +141,36 @@ gets it live from there.
 
 ## AI-assisted development cycle
 
-Task queue under `.agents/skills/`, all state in this repo's own git history (no worktrees, no
-claim/lease machinery — single maintainer, single checkout).
+Task queue under `.agents/skills/`, all state in this repo's own git history.
+
+### Один checkout на сессию — это больше не так
+
+Раньше правило звучало как «no worktrees, single maintainer, single checkout». С 2026-10-13
+одновременно работают несколько агентов, и общий checkout оказался источником реальных
+противоречий: агент переключает ветку под другим, `git status` показывает чужую работу,
+`git checkout` вырывает ветку из-под соседа. **Каждый агент работает в своём worktree.**
+
+| Путь | Ветка | Кто |
+|---|---|---|
+| `C:\My_projects_GIT\1pg_gall` | `main` | Основной checkout: мержи, правки в `main`, чтение |
+| `C:\My_projects_GIT\1pg_gall-readme` | `docs/readme-sync` | Отдельная задача на README |
+
+Правила, которые это влечёт:
+
+- **Перед началом работы выясни, где ты.** `git worktree list` в корне репозитория показывает
+  все рабочие копии и ветки. Не начинай правки, не убедившись, что текущий checkout — твой.
+- **Никогда не делай `git checkout` в чужом worktree.** Это и есть та поломка, от которой
+  правило защищает.
+- **Ветку нельзя занять в двух worktree одновременно** — git не даст. Освободи её честным
+  `git checkout main`, потом `git worktree add <путь> <ветка>`.
+- **Новый worktree = новый checkout = нужен `install`.** `node_modules` не копируется:
+  ~500 МБ и несколько минут на `bun install --frozen-lockfile`. Для правки документации
+  установка не нужна.
+- `.env.local` и `.data` в новый worktree **не переносятся и не должны**: `.env.local`
+  gitignored, `.data` — состояние владельца конкретного деплоя.
+- **Состояние задачи — в git, а не в каталоге.** Правило «claim/lease machinery отсутствует»
+  остаётся в силе: кто первый занял ветку, тот и работает, и это видно в
+  `git worktree list`.
 
 - Route first: a large feature or bug (public API/UX, `.data` format, > ~2 files) goes to a
   GitHub Issue instead — see `## Agent behavior`. The inbox/task queue is for small, mechanical work.
