@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.0.0...v1.1.0) (2026-10-13)
+
+
+### Features
+
+* **ci:** агент в GitHub Actions — /oc, триаж, ревью, регулярный аудит ([#17](https://github.com/frostiks777/1pgWebGallery/issues/17)) ([69df08e](https://github.com/frostiks777/1pgWebGallery/commit/69df08ec8abf05e70f751dc7414d95e2b48e2f64))
+
+
+### Bug Fixes
+
+* **ci:** narrow opencode permissions and check out the PR head ref ([#17](https://github.com/frostiks777/1pgWebGallery/issues/17)) ([71392a7](https://github.com/frostiks777/1pgWebGallery/commit/71392a79879e5f7a059d223f47afcb876651cc9e))
+
 ## 1.0.0 (2026-10-13)
 
 
