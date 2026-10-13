@@ -31,7 +31,14 @@ jobs:
     # Только pull request, заведённые человеком. PR от ботов (release-please,
     # Dependabot) не должны будить агента и тратить минуты Actions: на таком PR
     # он всё равно не может выполнить запись и падает.
-    if: github.event.sender.type != 'Bot' && github.event.pull_request.user.type != 'Bot'
+    # Проверка `head.repo.full_name` отсекает PR из форков: на них секреты
+    # недоступны (`OPENCODE_API_KEY` пустой), а `GITHUB_TOKEN` у форка
+    # read-only, поэтому агент всё равно не смог бы оставить замечания — был бы
+    # только красный крест и сожжённые минуты.
+    if: >
+      github.event.sender.type != 'Bot' &&
+      github.event.pull_request.user.type != 'Bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     # Зависший прогон агента не должен держать раннер до дефолтных 360 минут.
     timeout-minutes: 15

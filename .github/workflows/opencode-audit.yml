@@ -14,8 +14,13 @@
 #                      не задана, job пропускается целиком, а агент работает по отчёту
 #                      о проверках кода.
 #
-# Права: агент не только читает — он заводит issue по находкам отчёта, поэтому
-# `issues: write` обязателен. `id-token: write` — обязателен: по нему экшен
+# Права: агент читает код и заводит issue по находкам отчёта — это единственная
+# запись воркфлоу, поэтому `issues: write` достаточно. `contents: write` и
+# `pull-requests: write` НЕ запрашиваем: `GITHUB_TOKEN` передаётся агенту в env,
+# а `persist-credentials: false` убирает только записанный extraheader — токен
+# всё равно остаётся в распоряжении агента (`gh`, `git -c http.extraheader=…`),
+# и лишние права увеличивают площадь, с которой агент может дотянуться до `main`
+# (пуш в `main` = деплой на прод). `id-token: write` обязателен: по нему экшен
 # обменивает OIDC-токен на токен GitHub App `opencode-agent` (на токене раннера
 # права агента были `permission: none`). Модель бесплатная, та же, что в
 # `opencode.jsonc`.
@@ -29,8 +34,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   issues: write
   # Обязателен: без `use_github_token` экшен обменивает OIDC-токен на токен
   # приложения opencode-agent, и права у агента настоящие, а не «none».
@@ -183,8 +187,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Достаточно прочитать код и завести issue: коммитов агент не делает,
-          # а `contents: write` нужен воркфлоу по требованию шага 5 курса.
+          # Достаточно прочитать код и завести issue: коммитить тут нечего, а
+          # прав на запись в репозиторий у воркфлоу нет.
           persist-credentials: false
 
       - name: Скачать отчёт о проверках
