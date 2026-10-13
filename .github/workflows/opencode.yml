@@ -1,0 +1,114 @@
+# Ручной вызов агента из комментария: `/oc объясни`, `/oc исправь` и т.п.
+#
+# Два события, из которых берётся инструкция из текста комментария
+# (поэтому `prompt` не нужен — агент сам прочитает, что попросили):
+#   * `issue_comment`               — общий комментарий в обсуждении issue или PR
+#                                    (технически PR тоже issue);
+#   * `pull_request_review_comment` — замечание к строке diff: агенту вместе с
+#                                    событием приходят путь к файлу, номер строки
+#                                    и окружающий diff, указывать их в тексте не нужно.
+#
+# Триггер срабатывает на любой комментарий, а условие `if` пропускает работу дальше
+# только при выполнении трёх условий сразу:
+#   1. комментарий не от бота — иначе агент ответит на свой же ответ и получится
+#      петля (ответ агента цитирует текст пользователя, а значит может содержать
+#      `/oc` снова);
+#   2. автор — владелец, участник или контрибьютор: репозиторий публичный, позвать
+#      агента может кто угодно с правом комментировать, а каждый вызов тратит минуты
+#      Actions и лимит провайдера, поэтому круг вызывающих ограничен;
+#   3. в тексте есть команда `/oc` или `/opencode` в начале строки или после пробела.
+#      Пробел перед командой обязателен: подстрока `/opencode` встречается в любой
+#      ссылке на https://opencode.ai/..., в том числе в подписи под ответом агента,
+#      и голый `contains()` будил бы воркфлоу на каждую такую ссылку.
+#
+# Права шире, чем у автотриажа и ревью: `/oc исправь` создаёт ветку и pull request.
+# ВАЖНО: пуш в `main` здесь означает деплой на прод (`deploy.yml`). Защита от
+# этого — ручная: агент не мержит PR, а `gh pr merge` токену раннера технически
+# доступен (эндпоинту Merge достаточно `contents: write`), поэтому единственная
+# надёжная защита — branch protection на `main`. Пока её нет, запрет пушить в
+# `main` передан агенту текстом (см. `AGENTS.md`, раздел «Agent behavior»).
+
+name: opencode
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  # Обязателен: без `use_github_token` экшен обменивает OIDC-токен на токен
+  # приложения opencode-agent, и права у агента настоящие, а не «none».
+  id-token: write
+
+jobs:
+  opencode:
+    if: |
+      github.event.sender.type != 'Bot' &&
+      github.event.comment.user.type != 'Bot' &&
+      (
+        contains(github.event.comment.author_association, 'OWNER') ||
+        contains(github.event.comment.author_association, 'MEMBER') ||
+        contains(github.event.comment.author_association, 'COLLABORATOR') ||
+        contains(github.event.comment.author_association, 'CONTRIBUTOR')
+      ) &&
+      (
+        startsWith(github.event.comment.body, '/oc') ||
+        contains(github.event.comment.body, ' /oc') ||
+        startsWith(github.event.comment.body, '/opencode') ||
+        contains(github.event.comment.body, ' /opencode')
+      )
+    runs-on: ubuntu-latest
+    # Зависший прогон агента не должен держать раннер до дефолтных 360 минут.
+    timeout-minutes: 20
+    # Один вызов агента на issue/PR: новый комментарий отменяет предыдущий
+    # прогон, чтобы ответы не наслаивались и не жгли минуты Actions.
+    concurrency:
+      group: opencode-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+
+          # Ветка, в которой агент должен работать. Три источника, по убыванию
+          # приоритета:
+          #   * `refs/pull/<N>/head` — надёжнее имени ветки: ref существует и для
+          #     PR из форка, у которого ветки в origin нет;
+          #   * `pull_request.head.ref` — замечание к строке diff даёт имя ветки;
+          #   * `github.sha` — последний коммит дефолтной ветки, для новой задачи.
+          # Второй источник важен для `issue_comment`: у этого события нет
+          # `github.event.pull_request`, и без проверки `issue.pull_request`
+          # `/oc исправь` в обсуждении PR работал бы с кодом `main`, а фикс ушёл
+          # бы мимо изменений PR.
+          ref: >-
+            ${{ github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number)
+            || github.event.pull_request.head.ref
+            || github.sha }}
+          # `persist-credentials` не выключаем: без него в `.git/config` нет
+          # extraheader с токеном, и любой `git push` агента падает с
+          # "could not read Username for 'https://github.com'". Токен раннера
+          # живёт только в job и не попадает в коммиты или вывод команд.
+
+      # Права `contents: write` позволяют агенту коммитить, но на раннере git
+      # без ident: любой коммит падает с "Author identity unknown".
+      - name: Configure git identity
+        run: |
+          git config user.name "opencode-agent[bot]"
+          git config user.email "opencode-agent@users.noreply.github.com"
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/mimo-v2.6-flash-free
+          # Репозиторий публичный, а дефолт opencode для публичных репозиториев —
+          # `share: true`: сессия агента публикуется по ссылке. В сессии попадает
+          # вывод команд и куски кода, поэтому решение зафиксировано явно:
+          # публикации нет.
+          share: false

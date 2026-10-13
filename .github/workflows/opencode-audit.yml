@@ -1,0 +1,275 @@
+# Регулярная проверка качества приложения агентом OpenCode.
+#
+# События:
+#   * `schedule`       — раз в сутки, 06:17 UTC (cron — не чаще одного запуска в сутки,
+#                       время не круглое, чтобы не совпадать с пиком GitHub Actions);
+#   * `workflow_dispatch` — ручной запуск из вкладки Actions.
+#
+# Два независимых источника данных, один разбор агентом:
+#   * `code-audit`   — реальные проверки репозитория (`eslint`, `tsc`); их вывод —
+#                      единственный в этом проекте машинный сигнал о состоянии кода;
+#   * `lighthouse`   — замер прода по адресу из Variables репозитория (`APP_URL`).
+#                      Адрес не вписан в воркфлоу: переезд стенда не должен требовать
+#                      правки воркфлоу и попадать в историю коммитов. Если переменная
+#                      не задана, job пропускается целиком, а агент работает по отчёту
+#                      о проверках кода.
+#
+# Права: агент читает код и заводит issue по находкам отчёта — это единственная
+# запись воркфлоу, поэтому `issues: write` достаточно. `contents: write` и
+# `pull-requests: write` НЕ запрашиваем: `GITHUB_TOKEN` передаётся агенту в env,
+# а `persist-credentials: false` убирает только записанный extraheader — токен
+# всё равно остаётся в распоряжении агента (`gh`, `git -c http.extraheader=…`),
+# и лишние права увеличивают площадь, с которой агент может дотянуться до `main`
+# (пуш в `main` = деплой на прод). `id-token: write` обязателен: по нему экшен
+# обменивает OIDC-токен на токен GitHub App `opencode-agent` (на токене раннера
+# права агента были `permission: none`). Модель бесплатная, та же, что в
+# `opencode.jsonc`.
+
+name: opencode-audit
+
+on:
+  schedule:
+    # 06:17 UTC = 09:17 Europe/Moscow. Раз в сутки.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  # Обязателен: без `use_github_token` экшен обменивает OIDC-токен на токен
+  # приложения opencode-agent, и права у агента настоящие, а не «none».
+  id-token: write
+
+concurrency:
+  # Один аудит одновременно: ручной запуск не должен дублировать плановый.
+  group: opencode-audit
+  cancel-in-progress: false
+
+jobs:
+  code-audit:
+    name: Проверки репозитория (lint + tsc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Проверки падают кодом возврата, если в проекте снова появится ошибка
+      # (сейчас baseline пустой, `npx eslint .` и `npx tsc --noEmit` чистые).
+      # Код возврата игнорируем намеренно: в этом воркфлоу проверка не блокирует
+      # прогон, а её вывод попадает в отчёт и дальше в разбор агента. Блокирующая
+      # проверка живёт отдельно в `ci.yml`.
+      - name: Собрать отчёт о проверках
+        run: |
+          mkdir -p audit-report/code
+          {
+            echo "# Проверки репозитория"
+            echo
+            echo "Дата: $(date -u +%Y-%m-%dT%H:%M:%SZ), коммит: ${GITHUB_SHA}"
+            echo
+            echo "## eslint (bun run lint)"
+            echo
+          } > audit-report/code/code-audit.md
+          set +e
+          bun run lint >> audit-report/code/code-audit.md 2>&1
+          echo "eslint exit code: $?" >> audit-report/code/code-audit.md
+          {
+            echo
+            echo "## tsc (bunx tsc --noEmit)"
+            echo
+          } >> audit-report/code/code-audit.md
+          bunx tsc --noEmit >> audit-report/code/code-audit.md 2>&1
+          echo "tsc exit code: $?" >> audit-report/code/code-audit.md
+          set -e
+          cat audit-report/code/code-audit.md
+
+      - name: Сохранить отчёт артефактом
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-audit-report
+          path: audit-report/code/
+          retention-days: 30
+
+  lighthouse:
+    name: Lighthouse по стенду
+    # Без `APP_URL` в Variables замер невозможен — молча пропускаем job, а агент
+    # разбирает только отчёт о проверках кода.
+    if: vars.APP_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Нужен ради `scripts/lighthouse-summary.mjs`; коммитить тут нечего.
+          persist-credentials: false
+
+      - name: Проверить адрес стенда
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Не задана переменная репозитория APP_URL (Settings → Secrets and variables → Actions → Variables)"
+            exit 1
+          fi
+          echo "APP_URL=$APP_URL"
+
+      - name: Установить Chrome
+        # На ubuntu-latest Chrome может отсутствовать или быть не тем каналом;
+        # lighthouse запускает именно системный Chrome, поэтому ставим явно.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
+
+      - name: Собрать отчёт Lighthouse
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          mkdir -p audit-report/lighthouse
+          npx --yes lighthouse@12 --version
+          set +e
+          # `--output-path` — это префикс имени файла, а не папка: без суффикса
+          # Lighthouse пишет `audit-report.report.json` в корень репозитория.
+          # Поэтому задаём `audit-report/lighthouse/report`, а дальше ищем файл по glob.
+          npx --yes lighthouse@12 "$APP_URL" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --output=json \
+            --output=html \
+            --output-path=./audit-report/lighthouse/report \
+            --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage"
+          code=$?
+          set -e
+          echo "lighthouse exit code: $code"
+          ls -la audit-report/lighthouse || true
+          report_json=$(ls audit-report/lighthouse/*.json 2>/dev/null | head -n 1)
+          if [ -z "$report_json" ]; then
+            echo "::error::Lighthouse не создал JSON-отчёт (exit code $code)"
+            exit 1
+          fi
+          if [ "$code" != "0" ]; then
+            echo "::warning::Lighthouse завершился с кодом $code, но отчёт есть — используем его"
+          fi
+          echo "Отчёт: $report_json"
+
+      - name: Свести отчёт в Markdown
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: node scripts/lighthouse-summary.mjs audit-report/lighthouse
+
+      - name: Сохранить отчёт артефактом
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: audit-report/lighthouse/
+          retention-days: 30
+
+  audit:
+    name: Разбор отчётов агентом
+    # Отчёты собраны — агент разбирает находки и заводит issue.
+    # `always()` — прогон разбора не должен отменяться, если Lighthouse не смог
+    # замерить стенд: отчёт о проверках кода ценен сам по себе.
+    needs: [code-audit, lighthouse]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Достаточно прочитать код и завести issue: коммитить тут нечего, а
+          # прав на запись в репозиторий у воркфлоу нет.
+          persist-credentials: false
+
+      - name: Скачать отчёт о проверках
+        uses: actions/download-artifact@v4
+        with:
+          name: code-audit-report
+          path: audit-report/code
+
+      - name: Скачать отчёт Lighthouse
+        # Job мог быть пропущен (не задана `APP_URL`) или упасть — это не повод
+        # ронять разбор.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: lighthouse-report
+          path: audit-report/lighthouse
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/mimo-v2.6-flash-free
+          # Решение по `share`: разбор отчётов не публикуется, хотя дефолт
+          # opencode для публичного репозитория — `share: true`.
+          share: false
+          prompt: |
+            Это регулярная проверка качества фото-галереи. Репозиторий уже выкачан,
+            отчёты лежат в файлах — прочитай их первым делом:
+
+            - `audit-report/code/code-audit.md` — вывод `eslint` и `tsc`;
+            - `audit-report/lighthouse/summary.md` — сводка Lighthouse по стенду
+              (может отсутствовать: замер не проходит, если не задан `APP_URL` или
+              приложение отдаёт экран пароля — в этом случае про Lighthouse забудь).
+
+            Заведи **не больше двух** issue: только по находкам, которые действительно
+            стоит исправлять, и разнеси их по темам (находки кода отдельно от
+            находок производительности и доступности).
+
+            Что делать:
+
+            1. Отдели находки, которые относятся к коду этого репозитория (настройки
+               сборки, шрифты, картинки, мета-теги, размер бандла, доступность
+               разметки), от находок на стороне хостинга или CDN — вторые в отдельный
+               раздел «вне нашего контроля».
+            2. **Считай каждую ошибку eslint/tsc новой.** Baseline в проекте пустой:
+               `npx eslint .` и `npx tsc --noEmit` проходят чисто, любая ошибка в
+               отчёте — регрессия, а не известная проблема. Две исключенные из CI
+               зоны, которые всё равно не считать находкой: `npx next build` требует
+               исходящего HTTPS к Google Fonts (это ограничение среды, не дефект
+               кода), а e2e локально не гоняем (`.agents/shared/checks.md`).
+               По Lighthouse ориентируйся на пороги из отчёта —
+               производительность ниже 70, доступность ниже 90, лучшие практики или
+               SEO ниже 80.
+            3. **Не** заводи issue ради микрооптимизаций и ради того, что не
+               воспроизводится из отчёта. Если находка ниже порога — не заводи,
+               просто напиши это в теле.
+            4. В issue напиши: что замеряем (число и порог), где это в коде
+               (`путь/файл:строка`), почему это важно гостю, и что считается
+               исправлением.
+            5. Перед заведением issue проверь через `gh issue list` и `gh issue list
+               --state all --search "<тема>"`, не заводил ли уже кто-то такое —
+               дубли не создавай, а допиши в существующий.
+            6. Метки на новом issue проставь по `docs/agents/triage-labels.md`
+               (`needs-triage`, `ready-for-human` — правку делает человек).
+
+            Не правь код: это регулярная проверка, а не реализация.
+
+      - name: Опубликовать сводку в логе прогона
+        run: |
+          {
+            echo "## Регулярная проверка качества"
+            echo
+            echo "### Проверки репозитория"
+            echo
+            cat audit-report/code/code-audit.md
+            if [ -f audit-report/lighthouse/summary.md ]; then
+              echo
+              echo "### Lighthouse"
+              echo
+              cat audit-report/lighthouse/summary.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

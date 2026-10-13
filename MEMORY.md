@@ -1,6 +1,8 @@
 # MEMORY.md — Состояние проекта «Photo Gallery»
 
-> Дата последнего обновления: 2026-09-29 (перенос AI-харнеса из проекта
+> Дата последнего обновления: 2026-10-13 (агент в GitHub Actions: `/oc`, автотриаж, авторевью,
+> регулярный аудит по расписанию — ADR-0004, четыре воркфлоу в `.github/workflows/`).
+> 2026-09-29: перенос AI-харнеса из проекта
 > [ai-for-developers-project-386](https://github.com/frostiks777/ai-for-developers-project-386):
 > 83 скилла, CONTEXT.md, ADR, CI, release-please, тост, opencode.jsonc).
 > Долговременная память между сессиями. Архитектурные решения — в `docs/adr/`,
@@ -19,15 +21,14 @@
   tdd → verify → commit-push`.
 - Память/доки: `CONTEXT.md` (глоссарий), `docs/adr/` (решения), этот файл (состояние).
 
-## Проверки (baseline на 2026-09-28)
+## Проверки (baseline перечитан 2026-10-13)
 
-- `npx eslint .` — **9** baseline-ошибок `react-hooks/set-state-in-effect`
-  (`src/app/page.tsx` 118/178/224/242/296/354/394, `Lightbox.tsx` 89/107). Задача на фикс
-  лежит в `ai/inbox.md`; правило — не смешивать фикс с другими изменениями.
-- `npx tsc --noEmit` — **2** ошибки TS2345 в `src/app/api/video-stream/route.ts`
-  (строки 145 и 159: `Readable.toWeb(nodeStream)` — `createReadStream` отдаёт
-  webdav-овский `ReadableLike`, а не `stream.Readable`). `next build` при этом
-  проходит, т.к. этот файл не попадает в проверяемый набор. Задача в `ai/inbox.md`.
+- `npx eslint .` — **чисто** (0 ошибок). Прежние 9 ошибок
+  `react-hooks/set-state-in-effect` починены коммитом `8a922af` (#12).
+- `npx tsc --noEmit` — **чисто** (0 ошибок). Прежние 2 ошибки TS2345 в
+  `src/app/api/video-stream/route.ts` починены коммитом `4370e29`.
+- `ci.yml` из ADR-0003 держит `continue-on-error` у шага Lint «на время baseline» —
+  теперь он не нужен, снимать отдельным коммитом.
 - `npx next build` — требует исходящий HTTPS к `fonts.googleapis.com`/`fonts.gstatic.com`;
   даёт 11 baseline-предупреждений Turbopack о tracing (computed-path `fs.*Sync`).
 - `npm run test:e2e` — **локально на ноутбуке не гоняем** (2026-09-29: оба smoke-теста
@@ -41,6 +42,15 @@
 
 ## Что сделано (последние изменения)
 
+- 2026-10-13: **агент в GitHub Actions** (ADR-0004). Четыре воркфлоу из донора 387,
+  адаптированные под этот репозиторий: `opencode.yml` (`/oc`, `contents/pull-requests/issues:
+  write`), `opencode-triage.yml` (`issues: opened`), `opencode-review.yml` (`pull_request`),
+  `opencode-audit.yml` (`schedule 17 6 * * *` + `workflow_dispatch`). Аудит — два источника:
+  вывод `eslint`/`tsc` (job `code-audit`: код возврата игнорируется, вывод уходит в отчёт и в
+  разбор агента) + Lighthouse по `APP_URL` из Variables (job пропускается, если переменной нет); оба отчёта артефактами,
+  разбор — один вызов агента, `if: always()`. Плюс `scripts/lighthouse-summary.mjs`
+  (пороги perf 70 / a11y 90 / bp 80 / seo 80), раздел «Агент в GitHub Actions» в `AGENTS.md`,
+  таблица воркфлоу в `README.md`. `ci.yml` и `deploy.yml` не тронуты.
 - 2026-09-29: **перенос харнеса завершён**, всё запушено в `main` (CI + деплой зелёные).
   Фазы 1–4 (скиллы, CONTEXT/MEMORY/ADR, секции AGENTS.md) — раньше; фазы 5–7:
   `opencode.jsonc` (permissions субагентов, shadcn MCP, плагин `opencode-notify`,
@@ -63,6 +73,10 @@
 
 ## Открытые вопросы
 
+- **Ручные шаги Andrew для агента в Actions:** добавить секрет `OPENCODE_API_KEY` и Variable
+  `APP_URL` (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions;
+  GitHub App `opencode-agent` уже установлен. Разрешение «Allow GitHub Actions to create and
+  approve pull requests» нужно и агенту (`/oc исправь`), и `release-please`.
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
 - Починить 9 lint-ошибок и 2 tsc-ошибки в `video-stream/route.ts` (задачи в
@@ -78,3 +92,4 @@
 | [0001](docs/adr/0001-record-architecture-decisions.md) | Ведём ADR (`docs/adr/`) |
 | [0002](docs/adr/0002-hybrid-task-tracking.md) | Гибридный трекинг: `ai/tasks` + GitHub Issues |
 | [0003](docs/adr/0003-ci-lint-and-build.md) | CI: lint (non-blocking) + build, без e2e |
+| [0004](docs/adr/0004-agent-workflows-in-github-actions.md) | Агент в Actions: `/oc`, триаж, ревью, аудит (код + Lighthouse) |

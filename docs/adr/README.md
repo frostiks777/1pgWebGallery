@@ -36,3 +36,4 @@
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted | 2026-09-28 |
 | [0002](0002-hybrid-task-tracking.md) | Гибридный трекинг задач: `ai/tasks` + GitHub Issues | Accepted | 2026-09-28 |
 | [0003](0003-ci-lint-and-build.md) | CI: lint (non-blocking) + build, без e2e | Accepted | 2026-09-28 |
+| [0004](0004-agent-workflows-in-github-actions.md) | Агент в GitHub Actions: `/oc`, триаж, ревью, аудит | Accepted | 2026-10-13 |

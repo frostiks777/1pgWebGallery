@@ -182,6 +182,36 @@ equal the directory name, `description` is the trigger). `apply-design` and
 `apply-design-v2` are inherited from the course project and do not apply here — delete them
 if they get in the way.
 
+## Агент в GitHub Actions
+
+Тот же opencode работает не только в этом терминале: GitHub App `opencode-agent`, модель
+`opencode/mimo-v2.6-flash-free` (та же, что в `opencode.jsonc`), ключ в секрете
+`OPENCODE_API_KEY`. Решения — `docs/adr/0004-agent-workflows-in-github-actions.md`.
+
+| Файл | Событие | Что делает |
+|---|---|---|
+| `opencode.yml` | `issue_comment` / `pull_request_review_comment` | ручной вызов: комментарий с `/oc` или `/opencode` |
+| `opencode-triage.yml` | `issues: opened` | комментарий с разбором новой задачи |
+| `opencode-review.yml` | `pull_request` (opened/synchronize/reopened/ready_for_review) | замечания к PR |
+| `opencode-audit.yml` | `schedule` (`17 6 * * *`) + `workflow_dispatch` | `eslint`/`tsc` + Lighthouse → issue; `scripts/lighthouse-summary.mjs` |
+
+Что из этого важно агенту, работающему в терминале:
+
+- **Новые issue уже разбирает `opencode-triage.yml`.** Перед своим разбором посмотри
+  комментарий агента в задаче; твой разбор — дополнение, а не дубль.
+- **PR открывается человеком → авторевью отработает само.** Комментарии агента в PR — часть
+  процесса, а не ошибка; отвечай на них по существу.
+- **PR от агента (`pull_request.user.type == 'Bot'`) авторевью пропускает** — сознательно,
+  чтобы агент не ревьюил себя и не жег минуты Actions.
+- **Аудит считает каждую ошибку линтера и типов новой находкой** (baseline пустой:
+  `npx eslint .` и `npx tsc --noEmit` чистые). Исключения, которые аудиту не по делу:
+  необходимость исходящего HTTPS к Google Fonts у `next build` и невозможность гонять e2e
+  локально (`.agents/shared/checks.md`).
+- **Пуш в `main` деплоит прод.** Ветку с агентными изменениями открывать через PR, мержат его
+  руками.
+- Прогоны и их логи — вкладка Actions; ссылку на конкретный run можно сразу разбирать с
+  `gh run view <id> --log`.
+
 ## Hygiene of context window
 
 - **Two-iteration rule:** if the same check (`npx eslint .` / `npx tsc --noEmit` /
@@ -248,18 +278,12 @@ Keep messages short, in Russian, no secrets.
 - All user-facing strings stay Russian; the e2e specs select on them.
 - `git push` to `main` deploys to production — don't push without a green local verify.
 
-## Known baseline issues (verified 2026-09-28 — not caused by your change)
+## Known baseline issues (verified 2026-10-13 — not caused by your change)
 
-- `npx eslint .` reports **9** errors, all `react-hooks/set-state-in-effect`:
-  `src/app/page.tsx` lines 118, 178, 224, 242, 296, 354, 394 and
-  `src/components/gallery/Lightbox.tsx` lines 89, 107. Tracked as its own task in `ai/inbox.md` —
-  fix it as a separate reviewed change, restructure the effects rather than suppressing the rule,
-  and never let it block or silently ride along in an unrelated diff. (Older notes said 14; the
-  count is 9.)
+- `npx eslint .` — **0 ошибок**: прежние 9 `react-hooks/set-state-in-effect` починены коммитом
+  `8a922af` (#12) — эффекты перестроены, правило не подавлено. `ci.yml` из ADR-0003 пока держит
+  `continue-on-error` у шага Lint «на время baseline» — снимать отдельным коммитом.
+- `npx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
+  починены коммитом `4370e29`.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
-  network-restricted sandbox.
-- `npx tsc --noEmit` reports **2** errors, both TS2345 in `src/app/api/video-stream/route.ts`
-  (lines 145, 159): the `webdav` client's `createReadStream` returns its own `ReadableLike`,
-  which `Readable.toWeb()` won't take — the existing `as unknown as ReadableStream` cast is on
-  the result, not the argument. `next build` doesn't catch it (that file isn't in the
-  type-checked set). Tracked in `ai/inbox.md`; not caused by your change.
+  network-restricted sandbox. It also emits 11 Turbopack tracing warnings (baseline).
