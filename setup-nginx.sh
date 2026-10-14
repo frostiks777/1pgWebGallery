@@ -53,94 +53,70 @@ if [ ! -d "$PROJECT_PATH" ]; then
     fi
 fi
 
-# Создание конфигурации Nginx
-echo -e "${GREEN}Создание конфигурации Nginx...${NC}"
+# -----------------------------------------------------------------------------
+# Конфигурация: bootstrap для сертификата, затем настоящий nginx.conf
+# -----------------------------------------------------------------------------
+# nginx.conf содержит блок `listen 443 ssl` со ссылками на
+# /etc/letsencrypt/live/<домен>/, поэтому `nginx -t` на нём падает, пока
+# сертификата нет. Отсюда порядок: сначала минимальный HTTP-конфиг, чтобы
+# certbot прошёл проверку домена, потом ставится настоящий конфиг.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f "$REPO_DIR/nginx.conf" ]; then
+    echo -e "${RED}Ошибка: не найден nginx.conf рядом со скриптом ($REPO_DIR)${NC}"
+    exit 1
+fi
 
-cat > /etc/nginx/sites-available/photo-gallery << EOF
-# Photo Gallery Nginx Configuration
-# Generated for domain: $DOMAIN
-
-upstream photo_gallery {
-    server 127.0.0.1:3000;
-    keepalive 64;
+install_site_conf() {
+    cp "$REPO_DIR/nginx.conf" /etc/nginx/sites-available/photo-gallery
+    sed -i "s/your-domain\.com/$DOMAIN/g" /etc/nginx/sites-available/photo-gallery
+    if nginx -t; then
+        systemctl reload nginx
+        echo -e "${GREEN}Конфиг из nginx.conf установлен, домен: $DOMAIN${NC}"
+    else
+        echo -e "${RED}nginx -t не прошёл на конфиге из репозитория — смотрите вывод выше${NC}"
+        exit 1
+    fi
 }
 
+echo -e "${GREEN}Bootstrap-конфиг (только для получения сертификата)...${NC}"
+cat > /etc/nginx/sites-available/photo-gallery << EOF
+# Временный конфиг, только чтобы пройти проверку домена certbot'ом.
+# Ниже он будет заменён полным nginx.conf из репозитория.
 server {
     listen 80;
     listen [::]:80;
     server_name $DOMAIN www.$DOMAIN;
 
-    access_log /var/log/nginx/photo-gallery.access.log;
-    error_log /var/log/nginx/photo-gallery.error.log;
-
-    # Gzip
-    gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss image/svg+xml;
-
-    # Root
-    root $PROJECT_PATH/public;
-
-    # Next.js static files
-    location /_next/static/ {
-        alias $PROJECT_PATH/.next/static/;
-        expires 365d;
-        access_log off;
-        add_header Cache-Control "public, max-age=31536000, immutable";
-    }
-
-    # Demo photos
-    location /demo-photos/ {
-        alias $PROJECT_PATH/public/demo-photos/;
-        expires 30d;
-        access_log off;
-    }
-
-    # Static files
-    location ~* \.(jpg|jpeg|png|gif|webp|ico|svg|woff|woff2)$ {
-        expires 30d;
-        access_log off;
-    }
-
-    # API routes
-    location /api/ {
-        proxy_pass http://photo_gallery;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_connect_timeout 300;
-        proxy_send_timeout 300;
-        proxy_read_timeout 300;
-        proxy_buffering off;
-    }
-
-    # Main proxy
     location / {
-        proxy_pass http://photo_gallery;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
-
-    # Security
-    client_max_body_size 50M;
-    server_tokens off;
-
-    # Deny hidden files
-    location ~ /\. {
-        deny all;
     }
 }
 EOF
+nginx -t || { echo -e "${RED}Ошибка в конфигурации Nginx${NC}"; exit 1; }
+systemctl reload nginx
+
+# Каталог для кэша миниатюр — без него proxy_cache не стартует
+install -d -m 755 -o www-data -g www-data /var/cache/nginx/images
+echo -e "${GREEN}Каталог кэша создан: /var/cache/nginx/images (max_size=1g)${NC}"
+
+# Ротация логов. Без пакета logrotate конфиг в /etc/logrotate.d/ не
+# выполняется, и логи растут до конца диска (issue #9).
+if ! command -v logrotate &> /dev/null; then
+    echo -e "${YELLOW}logrotate не установлен. Устанавливаем...${NC}"
+    apt update
+    apt install -y logrotate
+fi
+if [ -f "$REPO_DIR/logrotate-photo-gallery.conf" ]; then
+    cp "$REPO_DIR/logrotate-photo-gallery.conf" /etc/logrotate.d/photo-gallery
+    chmod 644 /etc/logrotate.d/photo-gallery
+    logrotate -d /etc/logrotate.d/photo-gallery >/dev/null 2>&1 \
+        && echo -e "${GREEN}Ротация логов настроена${NC}" \
+        || echo -e "${YELLOW}ВНИМАНИЕ: logrotate -d ругнулся, проверьте вручную${NC}"
+else
+    echo -e "${YELLOW}ВНИМАНИЕ: logrotate-photo-gallery.conf не найден, пропускаю${NC}"
+fi
 
 # Активация сайта
 echo -e "${GREEN}Активация конфигурации...${NC}"
@@ -153,44 +129,45 @@ if [ "$REMOVE_DEFAULT" = "y" ]; then
     echo -e "${GREEN}Default сайт удален${NC}"
 fi
 
-# Проверка конфигурации
-echo -e "${GREEN}Проверка конфигурации Nginx...${NC}"
-if nginx -t; then
-    echo -e "${GREEN}Конфигурация корректна!${NC}"
-else
-    echo -e "${RED}Ошибка в конфигурации Nginx${NC}"
-    exit 1
-fi
-
-# Перезапуск Nginx
-echo -e "${GREEN}Перезапуск Nginx...${NC}"
-systemctl reload nginx
 systemctl enable nginx
 
 echo ""
 echo -e "${GREEN}======================================${NC}"
-echo -e "${GREEN}  Nginx настроен успешно!${NC}"
+echo -e "${GREEN}  Bootstrap-конфиг установлен${NC}"
 echo -e "${GREEN}======================================${NC}"
 echo ""
-echo -e "Сайт будет доступен по адресу: ${YELLOW}http://$DOMAIN${NC}"
-echo ""
 
-# Предложение настроить SSL
+# SSL
 read -p "Настроить SSL сертификат (Let's Encrypt)? (y/n): " SETUP_SSL
 if [ "$SETUP_SSL" = "y" ]; then
     if ! command -v certbot &> /dev/null; then
         echo -e "${YELLOW}Установка Certbot...${NC}"
         apt install -y certbot python3-certbot-nginx
     fi
-    
+
     echo -e "${GREEN}Получение SSL сертификата...${NC}"
     certbot --nginx -d $DOMAIN -d www.$DOMAIN
-    
-    echo -e "${GREEN}SSL настроен!${NC}"
-    echo -e "Сайт доступен по адресу: ${YELLOW}https://$DOMAIN${NC}"
+else
+    echo -e "${YELLOW}SSL пропущен. Полный конфиг из nginx.conf ставится только"
+    echo -e "  вместе с сертификатом: он ссылается на /etc/letsencrypt/live/$DOMAIN/,${NC}"
+    echo -e "  и без сертификата nginx -t не пройдёт.${NC}"
+    echo ""
+    echo -e "  Получите сертификат (certbot certonly --webroot ...) и запустите"
+    echo -e "  этот скрипт повторно — он поставит nginx.conf целиком.${NC}"
+    exit 0
 fi
 
+# Сертификат есть — ставим настоящий конфиг вместо bootstrap
+echo -e "${GREEN}Установка полного конфига из nginx.conf...${NC}"
+install_site_conf
+
 echo ""
+echo -e "${GREEN}======================================${NC}"
+echo -e "${GREEN}  Nginx настроен успешно!${NC}"
+echo -e "${GREEN}======================================${NC}"
+echo -e "Сайт доступен по адресу: ${YELLOW}https://$DOMAIN${NC}"
+echo ""
+
 echo -e "${YELLOW}Не забудьте:${NC}"
 echo "1. Убедитесь, что DNS запись $DOMAIN указывает на этот сервер"
 echo "2. Запустите Photo Gallery: systemctl start photo-gallery"
