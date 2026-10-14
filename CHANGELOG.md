@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.0...v1.1.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **nginx:** кэш миниатюр, отключение логов /api/images и ротация логов ([#3](https://github.com/frostiks777/1pgWebGallery/issues/3), [#9](https://github.com/frostiks777/1pgWebGallery/issues/9)) ([e524a7d](https://github.com/frostiks777/1pgWebGallery/commit/e524a7dafcd4a75eeb2a1f2c3ab618334481e40c))
+* **setup-nginx:** конфиг копируется из nginx.conf вместо своего шаблона ([#25](https://github.com/frostiks777/1pgWebGallery/issues/25)) ([9c08216](https://github.com/frostiks777/1pgWebGallery/commit/9c082166153014092ef38a7ee1963320b5e3fd4b))
+
 ## [1.1.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.0.0...v1.1.0) (2026-10-13)
 
 
