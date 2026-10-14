@@ -61,7 +61,29 @@
   перебивает `/api/`, заголовки не наследуются), HSTS продублирован из-за особенности
   `add_header`. Новый `logrotate-photo-gallery.conf` с reopen по `USR1`.
   `setup-nginx.sh` больше не содержит своего шаблона конфига — копирует `nginx.conf`
-  из репозитория. **На сервер эти конфиги ещё не применены.**
+  из репозитория. **Применено на сервере вручную 2026-10-14, проверено:** `nginx -t`
+  успешен, сайт отдаёт `HTTP/2 200`, все четыре preload-шрифта 200 (были 404), кэш
+  миниатюр `MISS` → `HIT`, `logrotate -f` создаёт `.1` и nginx продолжает писать в
+  новые файлы. Задачи #2, #3, #9, #25, #27 закрыты.
+
+### Доступ к проду
+
+ssh пользователем `pgagent` на `95.81.124.37:22333`, ключ `~/.ssh/id_rsa` (Windows).
+Владелец решил оставить доступ. В sudoers разрешена ровна одна команда —
+`/usr/local/sbin/pg-cleanup` (три guard-проверки: `WorkingDirectory=release`,
+наличие `.data/dir-meta` и `release/.next`); `sudo -n true` не проходит.
+
+Полезное на будущее:
+
+- `du -sh <dir>/*` **не показывает dotfiles** — именно в них на сервере лежали
+  3.1G мёртвого `.next/` и 3.0G `.data/`. Нужен `du -sh <dir>/.[!.]*`.
+- git из-под `pgagent` ругается на «dubious ownership» (каталог принадлежит root).
+  Обход без записи в конфиг:
+  `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=<path> git ...`
+- `journalctl --vacuum-size` не трогает архивные журналы под ACL — помогает только
+  `SystemMaxUse` в `/etc/systemd/journald.conf.d/` + рестарт `systemd-journald`.
+- `nginx -t` от `pgagent` не проходит (`bind()` на 443/80 требует root), но
+  синтаксис проверяется сборкой временного `main.conf` в `/tmp` с логами в `/tmp`.
 - 2026-10-13: **агент в GitHub Actions** (ADR-0004). Четыре воркфлоу из донора 387,
   адаптированные под этот репозиторий: `opencode.yml` (`/oc`, `contents/pull-requests/issues:
   write`), `opencode-triage.yml` (`issues: opened`), `opencode-review.yml` (`pull_request`),
