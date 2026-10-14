@@ -260,43 +260,65 @@ sudo certbot renew --dry-run
 
 ---
 
-## 6.5. Настройка Nginx кэширования (Рекомендуется для производительности)
+## 6.5. Настройка Nginx кэширования (рекомендуется для производительности)
+
+> Актуальная версия этой секции синхронизирована с `nginx.conf` в корне репозитория.
+> Если вы ставите сервер через `setup-nginx.sh`, этот шаг выполняется автоматически —
+> скрипт копирует `nginx.conf` целиком, а не собирает конфиг из шаблона.
 
 ### 6.5.1 Добавление кэша изображений в конфигурацию
-Отредактируйте `/etc/nginx/sites-available/photo-gallery` и добавьте в начало файла (ДО блока server):
+
+Директива `proxy_cache_path` должна стоять **вне** блока `server` (контекст `http`):
 
 ```nginx
-# Кэш для оптимизированных изображений
-proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:100m max_size=10g inactive=30d use_temp_path=off;
+proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:10m max_size=1g inactive=7d use_temp_path=off;
 ```
 
-Добавьте location для API изображений ВНУТРИ блока server:
+| Параметр | Значение | Почему |
+|---|---|---|
+| `max_size` | `1g` | На типовом VPS раздел 20 ГБ. Прежние `10g` — это не «с запасом», а способ съесть весь раздел (issue #27): `max_size` ограничивает только размер кэша, но не свободное место на диске |
+| `inactive` | `7d` | Миниатюры не меняются, но и хранить месяцами незачем: 7 дней достаточно для любого повторного запроса |
+| `keys_zone` | `10m` | Метаданные в памяти. ~80k ключей при 128k записей кэша — достаточно |
+| `use_temp_path=off` | — | Пишем сразу в конечный путь, без промежуточного `/var/cache/nginx/tmp` |
+
+Локация для изображений — **внутри** блока `server`, и **перед** общим `location /api/`:
 
 ```nginx
-    # Кэширование API изображений - добавить внутри server блока
     location /api/images {
         proxy_pass http://photo_gallery;
         proxy_http_version 1.1;
+
+        # Заголовки — полный набор, как в location /api/
         proxy_set_header Host $host;
-        
-        # Включить кэш Nginx
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        access_log off;
+
         proxy_cache images_cache;
-        proxy_cache_valid 200 30d;
+        proxy_cache_valid 200 7d;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_use_stale error timeout updating;
         proxy_cache_background_update on;
         proxy_cache_lock on;
-        
-        # Заголовки
-        add_header X-Cache-Status $upstream_cache_status;
-        add_header Cache-Control "public, max-age=2592000, immutable";
-        
-        # Увеличенные таймауты для обработки изображений
-        proxy_connect_timeout 120s;
-        proxy_send_timeout 120s;
-        proxy_read_timeout 120s;
+
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Cache-Status $upstream_cache_status always;
     }
 ```
+
+Четыре требования, которые нельзя нарушать:
+
+1. **Все шесть `proxy_set_header` обязательны.** Префикс `/api/images` длиннее `/api/` и перебивает его, поэтому заголовки не наследуются. Без `X-Forwarded-For` в `src/proxy.ts` ip становится `'unknown'` для всех гостей сразу, и rate-limit (`API_RATE_LIMIT`, по умолчанию 3000/мин) достаётся общему бакету.
+2. **`access_log off` обязателен.** Иначе каждый запрос миниатюры пишется в лог. На проде логи только этого сайта занимали 79 МБ и росли без ротации (issue #9).
+3. **`add_header` внутри location ПОЛНОСТЬЮ заменяет унаследованные от `server {}`.** Если в локации есть хоть один `add_header`, HSTS из блока `server` перестаёт отдаваться для этого пути. Поэтому HSTS продублирован явно.
+4. **Буферизацию здесь не выключать.** В `location /api/` стоит `proxy_buffering off` — это нужно для стриминга видео, но для кэширования ответ должен буферизоваться.
+
+`Cache-Control` добавлять не нужно: приложение само отдаёт `public, max-age=31536000, immutable`
+(`src/app/api/images/route.ts`), а второй заголовок с тем же именем только собьёт клиентский кэш.
 
 ### 6.5.2 Создание директории кэша
 ```bash
@@ -311,13 +333,70 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 6.5.4 Очистка кэша (при необходимости)
+### 6.5.4 Проверка, что кэш работает
+
 ```bash
-# Очистить кэш Nginx
+# Первый запрос — MISS, второй — HIT
+curl -sI 'https://<домен>/api/images?path=<файл>' | grep -i x-cache-status
+curl -sI 'https://<домен>/api/images?path=<файл>' | grep -i x-cache-status
+
+# Размер кэша на диске
+sudo du -sh /var/cache/nginx/images
+```
+
+Если в ответе нет заголовка `X-Cache-Status`, значит на сервере старая версия
+конфига — `nginx -T | grep -A5 'location /api/images'`.
+
+### 6.5.5 Очистка кэша (при необходимости)
+```bash
+# Кэш nginx
 sudo rm -rf /var/cache/nginx/images/*
 
-# Очистить кэш приложения
-sudo rm -rf /var/www/apps/photo-gallery/.cache/images/*
+# Миниатюры приложения
+sudo rm -rf /var/www/apps/photo-gallery/.data/thumbs   # либо *.webp в .data
+```
+
+> Не трогайте `/var/www/apps/photo-gallery/.data/dir-meta/` — это скрытые фото,
+> отметки панорам и обложки, то есть настройки владельца, а не кэш.
+> Прежняя версия этой секции предлагала чистить `.cache/images` — такого пути
+> в коде больше нет, каталог остался от ранних экспериментов.
+
+---
+
+## 6.6. Ротация логов (без неё диск кончится)
+
+На проде конфиг `/etc/logrotate.d/nginx` лежал, но **пакета `logrotate` в системе
+не было** — `logrotate: command not found`. Ротация не выполнялась ни разу, логи
+росли неограниченно, пока не съели свободное место (issue #9, #27).
+
+### 6.6.1 Установка пакета
+
+```bash
+command -v logrotate || sudo apt install -y logrotate
+```
+
+### 6.6.2 Установка конфига
+
+```bash
+sudo cp logrotate-photo-gallery.conf /etc/logrotate.d/photo-gallery
+sudo logrotate -d /etc/logrotate.d/photo-gallery     # проверка, ничего не делает
+```
+
+`logrotate-photo-gallery.conf` лежит в корне репозитория. Он ротирует только
+логи этого сайта; `/var/log/nginx/access.log` на этой же машине принадлежит
+дефолтному vhost и сюда не относится.
+
+### 6.6.3 Ротация вместо reload
+
+В `postrotate` используется `kill -USR1` по `/run/nginx.pid`. Это reopen: nginx
+закрывает старые файловые дескрипторы и открывает новые, не трогая конфиг и не
+рвёт активные соединения. `systemctl reload nginx` здесь не нужен.
+
+### 6.6.4 Проверка
+
+```bash
+sudo logrotate -f /etc/logrotate.d/photo-gallery
+ls -la /var/log/nginx/ | grep photo-gallery     # должны появиться .1 или .gz
 ```
 
 ---
