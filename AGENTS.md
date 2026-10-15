@@ -48,18 +48,23 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 - `npx eslint .` — must not report a *new* error (baseline below).
 - `npx next build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
   (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
-  `npx next dev` + loading the route, and say so explicitly. Build emits 11 pre-existing Turbopack
-  "Dynamic filesystem access causes tracing of the whole project" warnings from the `fs.*Sync` calls
-  on computed paths in `src/app/api/images/route.ts` and `api/video-stream/route.ts` — the codebase
-  already opts some of these out with `/*turbopackIgnore: true*/`; do the same for new ones instead
-  of letting tracing balloon the standalone bundle.
+`npx next dev` + loading the route, and say so explicitly. The build should emit **no**
+  "Dynamic filesystem access causes tracing of the whole project" warnings: every `fs.*Sync`
+  on a computed path carries `/*turbopackIgnore: true*/` on its argument (#7). A new one means
+  someone added filesystem access without it — annotate the call rather than letting tracing
+  balloon the standalone bundle. Note the flip side: annotated paths are no longer swept into
+  the bundle for free, so a file the app must ship at runtime (e.g. `public/logo.svg`) has to
+  be named in `outputFileTracingIncludes` in `next.config.ts`.
 - `npm run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
   dev-ресурсы (клиентские чанки, HMR-сокет) с origin, которого нет в `allowedDevOrigins`.
   HTML отдавался, JS не грузился — скриншот выглядел нормально, а селекторы карточек
-  упирались в таймаут. Теперь `localhost`, и отдельно `expect.timeout: 15_000`
-  (параметр `timeout` ограничивает тест, а ассерты живут по своему дефолту в 5 с).
+  упирались в таймаут. Теперь `localhost` плюс `expect.timeout: 15_000` (параметр `timeout`
+  ограничивает тест, а ассерты живут по своему дефолту в 5 с). **Флак при этом закрыт не
+  полностью:** на холодной машине первый прогон всё ещё изредка падает — первопричина
+  медленного старта не разобрана, см. #13. Не считай вопрос закрытым и не лечи его ещё одним
+  увеличением таймаута.
   `playwright.config.ts` boots its own `npx next dev -p 3100` (`reuseExistingServer` вне
   CI, так что он не мешает твоему dev-серверу на 3000); другой адрес — через
   `PLAYWRIGHT_BASE_URL`, но **не** `127.0.0.1` — это вернёт тот же баг. НЕ поднимай
@@ -322,4 +327,5 @@ Keep messages short, in Russian, no secrets.
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
   (#13), а остаточный флак — в дефолтном `expect.timeout` 5 с.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
-  network-restricted sandbox. It also emits 11 Turbopack tracing warnings (baseline).
+  network-restricted sandbox. It should emit **no** Turbopack tracing warnings (#7); the 11 that
+  used to be baseline are annotated out.
