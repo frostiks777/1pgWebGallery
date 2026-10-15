@@ -325,7 +325,7 @@ Keep messages short, in Russian, no secrets.
   починены коммитом `4370e29`.
 - `npm run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
-  (#13), а остаточный флак — в дефолтном `expect.timeout` 5 с.
+  (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
   network-restricted sandbox. It should emit **no** Turbopack tracing warnings (#7); the 11 that
   used to be baseline are annotated out.
