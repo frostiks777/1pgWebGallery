@@ -56,9 +56,9 @@ const STALE_LOCK_MS = 30_000
 // event belongs to a peer worktree. Long enough for a local server, short
 // enough that a wedged lookup cannot stall the whole event loop.
 const LOOKUP_TIMEOUT_MS = 5_000
-// A negative verdict (the session lives in another worktree) cannot go stale.
-// A negative one can: the lookup may have failed or timed out while the server
-// was busy at start-up, so it is retried at most once per this window.
+// A `peer: true` verdict cannot go stale - a worktree does not move. A
+// `peer: false` one can: the lookup may have failed or timed out while the
+// server was busy at start-up, so it is retried at most once per this window.
 const PEER_VERDICT_TTL_MS = 60_000
 // The only event types this plugin acts on. Everything else on the stream is
 // dropped without an await — see the note at the subscription below.
@@ -363,8 +363,12 @@ const TelegramAutostartPlugin = {
       remember(sessionID, peer)
       if (cached === undefined) {
         // Logged once per session: if the location shape ever changes, this is
-        // where it becomes visible instead of looking like silent silence.
-        log("info", `session ${sessionID} → ${where ?? "unresolved"} → ${peer ? "peer worktree" : "this worktree"}`)
+        // where it becomes visible instead of looking like silent silence. An
+        // unresolved lookup must say so — claiming "this worktree" here would
+        // repeat the very silence this line exists to expose.
+        const verdict =
+          where === null ? "treated as this worktree (fail-open)" : peer ? "peer worktree" : "this worktree"
+        log("info", `session ${sessionID}: ${where ?? "unresolved"} → ${verdict}`)
       }
       return peer
     }

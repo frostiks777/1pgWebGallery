@@ -30,7 +30,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const root = mkdtempSync(join(tmpdir(), "telegram-autostart-smoke-"))
 const bridge = join(root, "telegram-bot")
 const log = join(root, "calls.log")
-const record = (line) => writeFileSync(log, line, { flag: "a" })
 process.on("exit", () => {
   try {
     rmSync(root, { recursive: true, force: true })
@@ -43,9 +42,20 @@ writeFileSync(
   join(bridge, ".env"),
   "TELEGRAM_BOT_TOKEN=smoke-token\nTELEGRAM_ALLOWED_CHAT_ID=1\nTELEGRAM_NOTIFY=on\n",
 )
+// The fake bot stays alive until the run tears the temp directory down. It must
+// outlive the plugin's liveness probe (`tasklist` on Windows, `process.kill` on
+// POSIX, which the second setup() call awaits), otherwise the probe sees a dead
+// pid, the plugin spawns a second bot, and the "exactly once" assert turns into
+// a race on how fast the probe finishes.
 writeFileSync(
   join(bridge, "bot.mjs"),
-  `import { appendFileSync } from "node:fs"\nappendFileSync(${JSON.stringify(log)}, "bot-started\\n")\nsetTimeout(() => process.exit(0), 250)\n`,
+  [
+    'import { appendFileSync, existsSync } from "node:fs"',
+    `appendFileSync(${JSON.stringify(log)}, "bot-started\\n")`,
+    `const alive = setInterval(() => { if (!existsSync(${JSON.stringify(log)})) process.exit(0) }, 50)`,
+    "alive.unref()",
+    "setInterval(() => {}, 1 << 30)",
+  ].join("\n"),
 )
 writeFileSync(
   join(bridge, "notify.mjs"),

@@ -65,15 +65,16 @@ is **0 errors**.
 ## 2a. Telegram plugin smoke (only when you touch the plugin)
 
 ```bash
-node scripts/telegram-autostart-smoke.mjs
+bun run test:plugin-smoke
 ```
 
 `bunx tsc --noEmit` does **not** cover `.opencode/plugins/*.js` (`tsconfig.json` matches
 `**/*.ts(x)`), so for changes to the Telegram bridge plugin this script is the only check
 that exercises the opencode v2 plugin API: event names, the `data` payload, peer-worktree
 filtering, and the single-bot guard. It needs no `node_modules`, no network and no
-credentials - it builds a throwaway fake bridge in the temp directory. Run it whenever
-`AGENTS.md` says the plugin must keep reporting `session.execution.*`.
+credentials - it builds a throwaway fake bridge in the temp directory, so plain
+`node scripts/telegram-autostart-smoke.mjs` works too. Run it whenever `AGENTS.md` says the
+plugin must keep reporting `session.execution.*`.
 
 ## 3. Build
 
@@ -133,6 +134,7 @@ evidence the UI looks right; look at the pixels before calling the task done.
 
 ## Done means
 
-Steps 2–3 pass (3 may fall back per above, with that fallback stated in the result); step 4
-passes — and only a UI change additionally needs step 5 — or the task file records a
-specific, honest blocker instead of a task marked done on a failing check.
+Steps 2-3 pass (3 may fall back per above, with that fallback stated in the result); step 4
+passes - and only a UI change additionally needs step 5 - or the task file records a
+specific, honest blocker instead of a task marked done on a failing check. A change to
+`.opencode/plugins/telegram-autostart.js` also means step 2a passes.
