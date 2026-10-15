@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.2...v1.1.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **proxy:** bound the in-memory rate map ([#6](https://github.com/frostiks777/1pgWebGallery/issues/6)) ([d25437a](https://github.com/frostiks777/1pgWebGallery/commit/d25437aec57af849f57ae206258d2dc7f264e732))
+
 ## [1.1.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.1...v1.1.2) (2026-10-15)
 
 
