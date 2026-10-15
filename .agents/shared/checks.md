@@ -134,7 +134,7 @@ evidence the UI looks right; look at the pixels before calling the task done.
 
 ## Done means
 
-Steps 2-3 pass (3 may fall back per above, with that fallback stated in the result); step 4
-passes - and only a UI change additionally needs step 5 - or the task file records a
+Steps 2–3 pass (3 may fall back per above, with that fallback stated in the result); step 4
+passes — and only a UI change additionally needs step 5 — or the task file records a
 specific, honest blocker instead of a task marked done on a failing check. A change to
 `.opencode/plugins/telegram-autostart.js` also means step 2a passes.

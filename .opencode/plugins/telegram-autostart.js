@@ -53,8 +53,10 @@ const SPAM_WINDOW_MS = 60_000
 // died mid-startup, and may be broken.
 const STALE_LOCK_MS = 30_000
 // How long to wait on a single `ctx.session.get` while deciding whether an
-// event belongs to a peer worktree. Long enough for a local server, short
-// enough that a wedged lookup cannot stall the whole event loop.
+// event belongs to a peer worktree. Only the event types in HANDLED_EVENTS can
+// reach this lookup, so it delays the sequential read of ctx.event.subscribe —
+// never the Node event loop — and the bound keeps a wedged lookup from holding
+// the stream for long enough to overflow it.
 const LOOKUP_TIMEOUT_MS = 5_000
 // A `peer: true` verdict cannot go stale - a worktree does not move. A
 // `peer: false` one can: the lookup may have failed or timed out while the

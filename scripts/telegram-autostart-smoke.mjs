@@ -75,10 +75,19 @@ const knownSessions = new Map([
   ["ses_peer_old", { location: { directory: OTHER_DIR } }],
 ])
 
+// Counts every lookup the plugin performs. Bulk traffic below asserts this does
+// not grow: the guard must sit *below* the event-type dispatch, so an event the
+// plugin does not act on can never block the sequential read of the stream.
+// Without that ordering this counter jumps on every foreign event, and the
+// stream can overflow on a real machine (docs: "volatile by contract: a slow
+// consumer overflows and fails the stream").
+let lookups = 0
+
 const ctx = {
   location: { directory: root, project: { id: "p1", directory: root, canonical: root } },
   session: {
     get: async ({ sessionID }) => {
+      lookups += 1
       const found = knownSessions.get(sessionID)
       if (!found) throw new Error(`session not found: ${sessionID}`)
       return found
@@ -119,8 +128,8 @@ push({ type: "session.execution.failed", data: { sessionID: "ses_unknown", error
 // Unrelated traffic: silent.
 push({ type: "session.message.updated", data: { sessionID: "ses_own" } })
 
-// What the run is waiting for before it may assert anything: one bot spawn, the
-// two expected notifications, and nothing else yet.
+// What the run is waiting for before it may assert anything: one bot spawn and
+// the two expected notifications.
 const READY = /bot-started[\s\S]*notify:Ошибка сессии\|late join/
 // The effects under test are detached `node notify.mjs` processes with no upper
 // bound, and a cold Windows runner starts them far slower than a warm laptop —
@@ -134,8 +143,36 @@ while (Date.now() < deadline) {
   if (READY.test(out)) break
   await sleep(100)
 }
-// One more tick so a stray extra notification would already have landed.
-await sleep(500)
+
+// Three of the asserts below are about *absence* (no "peer known", no "peer old",
+// exactly two notifications), so a single fixed tick would let a late extra
+// notification slip past the assertion that claims to catch it. Wait for the log
+// to stop changing instead: a real quiet window, bounded by the same deadline.
+const QUIET_MS = 1_500
+let quietSince = Date.now()
+let seen = ""
+while (Date.now() < deadline) {
+  await sleep(100)
+  const now = readFileSync(log, "utf8")
+  if (now !== seen) {
+    seen = now
+    quietSince = Date.now()
+  } else if (Date.now() - quietSince >= QUIET_MS) {
+    break
+  }
+}
+
+// Now the bulk traffic: events the plugin must drop without ever resolving a
+// session. The counter is read before and after, so the assert fails if a lookup
+// is reached from an event the plugin does not act on.
+const lookupsBeforeBulk = lookups
+for (let i = 0; i < 10; i++) {
+  push({ type: "session.message.updated", data: { sessionID: `ses_never_seen_${i}` } })
+  push({ type: "session.tool.progress", data: { sessionID: `ses_never_seen_${i}` } })
+}
+await sleep(600)
+const lookupsAfterBulk = lookups
+
 if (typeof cleanup === "function") cleanup()
 
 out = readFileSync(log, "utf8")
@@ -148,9 +185,14 @@ const results = [
   ["peer that announced itself blocked", !out.includes("peer known")],
   ["peer that predates this plugin blocked", !out.includes("peer old")],
   ["interrupted:user stays silent", count(/notify:/g) === 2 && count(/notify:Ошибка сессии\|/g) === 1],
+  [
+    "bulk traffic from unseen sessions never reaches a lookup",
+    lookupsAfterBulk === lookupsBeforeBulk,
+  ],
 ]
 
 console.log(`telegram-autostart smoke → ${root.replace(/.*\\/, "")}`)
+console.log(`ctx.session.get calls: ${lookupsBeforeBulk} before bulk, ${lookupsAfterBulk} after`)
 for (const [name, ok] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${name}`)
 
 const failed = results.filter(([, ok]) => !ok)
