@@ -109,12 +109,26 @@ push({ type: "session.execution.failed", data: { sessionID: "ses_unknown", error
 // Unrelated traffic: silent.
 push({ type: "session.message.updated", data: { sessionID: "ses_own" } })
 
-await sleep(1500)
+// What the run is waiting for before it may assert anything: one bot spawn, the
+// two expected notifications, and nothing else yet.
+const READY = /bot-started[\s\S]*notify:Ошибка сессии\|late join/
+// The effects under test are detached `node notify.mjs` processes with no upper
+// bound, and a cold Windows runner starts them far slower than a warm laptop —
+// a fixed sleep passed locally and failed in review with 3 of 6 asserts down.
+// Wait for the condition instead, the same reasoning as `expect.timeout: 15_000`
+// in .agents/shared/checks.md.
+const deadline = Date.now() + Number(process.env.SMOKE_TIMEOUT_MS ?? 30_000)
+let out = ""
+while (Date.now() < deadline) {
+  out = readFileSync(log, "utf8")
+  if (READY.test(out)) break
+  await sleep(100)
+}
+// One more tick so a stray extra notification would already have landed.
+await sleep(500)
 if (typeof cleanup === "function") cleanup()
 
-// ── assertions ───────────────────────────────────────────────────────────────
-
-const out = readFileSync(log, "utf8")
+out = readFileSync(log, "utf8")
 const count = (re) => (out.match(re) || []).length
 
 const results = [

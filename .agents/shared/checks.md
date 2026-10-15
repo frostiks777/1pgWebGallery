@@ -31,10 +31,23 @@ npx eslint .
 npx tsc --noEmit
 ```
 
-`npx eslint .` and `npx tsc --noEmit` must both be clean — the 9
+`npx eslint .` and `npx tsc --noEmit` must both be clean - the 9
 `react-hooks/set-state-in-effect` errors and the 2 TS2345 in
 `src/app/api/video-stream/route.ts` that used to be the baseline are gone (`8a922af` #12,
 `4370e29` #11). A red run is your diff, not a known exception.
+
+## 2a. Telegram plugin smoke (only when you touch the plugin)
+
+```bash
+node scripts/telegram-autostart-smoke.mjs
+```
+
+`npx tsc --noEmit` does **not** cover `.opencode/plugins/*.js` (`tsconfig.json` matches
+`**/*.ts(x)`), so for changes to the Telegram bridge plugin this script is the only check
+that exercises the opencode v2 plugin API: event names, the `data` payload, peer-worktree
+filtering, and the single-bot guard. It needs no `node_modules`, no network and no
+credentials - it builds a throwaway fake bridge in the temp directory. Run it whenever
+`AGENTS.md` says the plugin must keep reporting `session.execution.*`.
 
 ## 3. Build
 

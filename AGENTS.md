@@ -130,7 +130,9 @@ the gallery. It's gitignored, and on the server it lives *outside* `release/` pr
   / `.interrupted` ("Агент закончил") and `session.execution.failed` ("Ошибка сессии").
   События v2 несут полезную нагрузку в `data`, а не в v1-`properties`, и у `session.execution.*`
   нет поля `location` — только `sessionID`; поэтому чужие worktree отсекаются через
-  `ctx.session.get({sessionID}).location.directory` с кэшем (см. #42).
+  `ctx.session.get({sessionID}).location.directory` с кэшем (механизм появился в #50,
+  в #42 был только фильтр по `event.location`, который на v2 ничего не отсекал). Первый
+  резолв каждой сессии логируется, поэтому изменение формы location видно в логе.
 - `.claude/rules/security.md` and `.cursor/rules/00-security.mdc` are generic corporate-DLP
   boilerplate copied from a template, not project policy. `.devcontainer/` likewise references a
   `pre-commit` install that has no config in this repo — there are no git hooks to satisfy.

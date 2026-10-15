@@ -56,6 +56,17 @@ const STALE_LOCK_MS = 30_000
 // event belongs to a peer worktree. Long enough for a local server, short
 // enough that a wedged lookup cannot stall the whole event loop.
 const LOOKUP_TIMEOUT_MS = 5_000
+// A negative verdict (the session lives in another worktree) cannot go stale.
+// A negative one can: the lookup may have failed or timed out while the server
+// was busy at start-up, so it is retried at most once per this window.
+const PEER_VERDICT_TTL_MS = 60_000
+// The only event types this plugin acts on. Everything else on the stream is
+// dropped without an await — see the note at the subscription below.
+const HANDLED_EVENTS = new Set([
+  "session.execution.succeeded",
+  "session.execution.interrupted",
+  "session.execution.failed",
+])
 
 // ── locating the bridge ──────────────────────────────────────────────────────
 
@@ -300,17 +311,26 @@ const TelegramAutostartPlugin = {
     //     that started earlier never announces itself to us, and long-running
     //     sessions are the normal case here, so this alone is not enough.
     //   - `ctx.session.get({ sessionID })` answers for any live session
-    //     (Session.Info.location), so an unknown id is looked up once and the
-    //     verdict cached.
+    //     (Session.Info.location.directory), so an unknown id is looked up once
+    //     and the verdict cached.
+    // Verified on v2.0.29: a session created here reports the worktree
+    // directory, the same value as ctx.location.directory — not the project's
+    // canonical root. The first resolve of each session is logged, so a future
+    // change of that shape shows up as a log line instead of silent silence.
+    //
     // Still unknown after that — session deleted, lookup failed or timed out —
     // and the event is let through, because a failed lookup must never silence
-    // notifications about finished agents.
+    // notifications about finished agents. That "let through" is not permanent:
+    // negative verdicts expire, see PEER_VERDICT_TTL_MS.
     const normalizeDir = (value) => {
       if (typeof value !== "string" || !value) return null
       return resolve(value).replace(/\\/g, "/").toLowerCase()
     }
+    // Only this plugin's own location. ctx.location.project.canonical must NOT
+    // be added here: it points at the project's main checkout, which is exactly
+    // one of the peers we want to filter out.
     const ownDirectory = normalizeDir(directory)
-    const peerSessions = new Map() // sessionID -> true when the session lives elsewhere
+    const peerSessions = new Map() // sessionID -> { peer: boolean, at: number }
 
     const lookupSessionDir = async (sessionID) => {
       let timer
@@ -329,13 +349,23 @@ const TelegramAutostartPlugin = {
       }
     }
 
+    const remember = (sessionID, peer) => {
+      if (typeof sessionID === "string") peerSessions.set(sessionID, { peer, at: Date.now() })
+      return peer
+    }
+
     const isPeerSession = async (sessionID) => {
       if (!ownDirectory || typeof sessionID !== "string") return false
       const cached = peerSessions.get(sessionID)
-      if (cached !== undefined) return cached
+      if (cached && (cached.peer || Date.now() - cached.at < PEER_VERDICT_TTL_MS)) return cached.peer
       const where = await lookupSessionDir(sessionID)
       const peer = where !== null && where !== ownDirectory
-      peerSessions.set(sessionID, peer)
+      remember(sessionID, peer)
+      if (cached === undefined) {
+        // Logged once per session: if the location shape ever changes, this is
+        // where it becomes visible instead of looking like silent silence.
+        log("info", `session ${sessionID} → ${where ?? "unresolved"} → ${peer ? "peer worktree" : "this worktree"}`)
+      }
       return peer
     }
 
@@ -345,9 +375,13 @@ const TelegramAutostartPlugin = {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
           if (event.type === "session.created") {
             const where = normalizeDir(event.data?.location?.directory ?? event.location?.directory)
-            if (where) peerSessions.set(event.data?.sessionID, where !== ownDirectory)
+            if (where) remember(event.data?.sessionID, where !== ownDirectory)
             continue
           }
+          // Hot path: the stream is volatile by contract ("a slow consumer
+          // overflows and fails the stream"), so every event this plugin does
+          // not act on returns without ever awaiting a lookup.
+          if (!HANDLED_EVENTS.has(event.type)) continue
           if (await isPeerSession(event.data?.sessionID)) continue
           if (event.type === "session.execution.succeeded") {
             notify("Агент закончил", context())
@@ -360,9 +394,7 @@ const TelegramAutostartPlugin = {
             if (event.data?.reason !== "user") notify("Агент закончил", context())
             continue
           }
-          if (event.type === "session.execution.failed") {
-            notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
-          }
+          notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
         }
       } catch (err) {
         // Durable events do not keep the subscription alive: if the stream drops,
