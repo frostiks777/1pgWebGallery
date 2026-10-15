@@ -267,9 +267,16 @@ const TelegramAutostartPlugin = {
       }
     }
 
-    const describeError = (properties) => {
-      const err = properties?.error
-      const message = err?.data?.message ?? err?.message ?? err?.name
+    //   v2 events carry `{ id, type, created, data, location?, metadata? }` — the
+//   payload is `data`, not v1's `properties` (packages/schema/src/event.ts).
+//   v1's `session.error` does not exist; failures arrive as
+//   `session.execution.failed` with `data.error: SessionError.Error`
+//   ({ type, message, status?, response? }). `session.idle` survives but is
+//   marked `// deprecated` in session-status-event.ts, so completion is taken
+//   from the durable `session.execution.succeeded`.
+    const describeError = (data) => {
+      const err = data?.error
+      const message = err?.message ?? err?.type
       if (typeof message !== "string") return "подробности не пришли"
       return message.length > 300 ? `${message.slice(0, 300)}…` : message
     }
@@ -279,16 +286,41 @@ const TelegramAutostartPlugin = {
       return agentLabel ? `${agentLabel} · ${stamp}` : stamp
     }
 
+    // The subscription is the whole server stream, not just this location, and
+    // several worktrees of this project run side by side. Without this filter a
+    // peer's finished agent would arrive labelled with this plugin's name.
+    // Paths are compared normalised: the payload and ctx.location can differ in
+    // separator style and case on Windows.
+    const normalizeDir = (value) => {
+      if (typeof value !== "string" || !value) return null
+      return resolve(value).replace(/\\/g, "/").toLowerCase()
+    }
+    const ownDirectory = normalizeDir(directory)
+    const isOwnEvent = (event) => {
+      if (!ownDirectory) return true
+      const other = normalizeDir(event.location?.directory)
+      if (!other) return true
+      return other === ownDirectory
+    }
+
     const controller = new AbortController()
     void (async () => {
       try {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
-          if (event.type === "session.idle") {
+          if (!isOwnEvent(event)) continue
+          if (event.type === "session.execution.succeeded") {
             notify("Агент закончил", context())
             continue
           }
-          if (event.type === "session.error") {
-            notify("Ошибка сессии", `${describeError(event.properties)}\n\n${context()}`)
+          if (event.type === "session.execution.interrupted") {
+            // "user" means they pressed Esc and are already looking at the
+            // keyboard; the rest (shutdown, superseded, inactivity) still
+            // mean the agent stopped without finishing.
+            if (event.data?.reason !== "user") notify("Агент закончил", context())
+            continue
+          }
+          if (event.type === "session.execution.failed") {
+            notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
           }
         }
       } catch (err) {
