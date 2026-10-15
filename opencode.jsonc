@@ -1,14 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
-  // Плагины в формате текущей версии opencode: ключ "plugin" (не "plugins").
-  // opencode-notify — нативные уведомления ОС (Windows Toast / macOS
-  // Notification Center / Linux notify-send) с кнопками Accept/Reject, когда
-  // агенту нужно разрешение или он задаёт вопрос. npm-плагины ставятся Bun при
-  // старте, отдельного npm install не нужно.
+  // Плагины. Локальный telegram-autostart из .opencode/plugins/ opencode
+  // подхватывает сам, перечислять его не нужно.
+  //
+  // opencode-notify (нативные уведомления ОС с кнопками Accept/Reject) убран
+  // 2026-10-15: последняя версия 0.3.1 вышла 2026-02-03 и осталась v1-плагином,
+  // а v1-плагины в opencode 2 не грузятся ("Expected object at [\"default\"]").
   // Второй канал — Telegram-мост, см. .agents/skills/telegram-bridge/SKILL.md;
   // ручной тост без opencode — scripts/notify.ps1.
-  "plugin": ["opencode-notify"],
 
   // Главная модель основного агента.
   "model": "opencode/mimo-v2.6-flash-free",

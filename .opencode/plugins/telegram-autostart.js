@@ -23,6 +23,16 @@
 // NOTE: children are spawned as bare `node` from PATH on purpose. `process.execPath`
 // inside the opencode binary is opencode itself, not a Node runtime, so the
 // bridge's .mjs scripts would never run under it.
+//
+// opencode v2 plugin API (v1 implementations do NOT load in v2):
+//   - default-exports `{ id, setup(ctx) }`; v1's `async ({ client }) => ({ hooks })`
+//     shape is rejected with "Missing key at [\"default\"]".
+//   - `directory` / `project` → `ctx.location.directory` / `ctx.location.project`.
+//   - v1's `client.app.log(...)` no longer exists on the context — log to console.
+//   - v1's returned `event` hook → `ctx.event.subscribe({ signal })`, torn down by the
+//     cleanup function returned from `setup`.
+//   Docs: https://opencode.ai/v2/docs/build/plugins and .../plugins/migrate-v1.
+//   Only the default export is provided: OpenCode 1 is no longer installed.
 
 import { spawn, execFile } from "node:child_process"
 import {
@@ -63,9 +73,9 @@ function parseEnvFile(path) {
 }
 
 // The plugin normally sits in <project>/.opencode/plugins/, so the bridge is
-// two levels up. `directory` (the project opencode was opened in) is the better
-// signal when it agrees, and keeps this working if the plugin file is ever moved
-// to the global plugin dir.
+// two levels up. `directory` (the location this plugin instance loaded for) is
+// the better signal when it agrees, and keeps this working if the plugin file is
+// ever moved to the global plugin dir.
 function findBridgeDir(directory) {
   const fromContext = directory ? resolve(directory) : null
   const fromFile = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
@@ -160,118 +170,167 @@ function acquireLock(lockPath) {
 
 // ── the plugin ───────────────────────────────────────────────────────────────
 
-export const TelegramAutostartPlugin = async ({ client, directory, project }) => {
-  const log = async (level, message) => {
-    try {
-      await client?.app?.log({ body: { service: "telegram-autostart", level, message } })
-    } catch {
-      // logging must never be the reason a session breaks
-    }
-  }
+const TelegramAutostartPlugin = {
+  id: "telegram-autostart",
 
-  const bridgeDir = findBridgeDir(directory)
-  if (!bridgeDir) {
-    await log("debug", "telegram-bot/ not found — plugin inactive")
-    return {}
-  }
-
-  const envPath = join(bridgeDir, ".env")
-  if (!existsSync(envPath)) {
-    await log("debug", "telegram-bot/.env not found — plugin inactive")
-    return {}
-  }
-
-  const bridgeEnv = parseEnvFile(envPath)
-  const notificationsOn = (bridgeEnv.TELEGRAM_NOTIFY ?? "").toLowerCase() === "on"
-
-  // Several agents can be in flight at once, so every message has to say which
-  // one it came from — "Агент закончил" alone is useless when four of them land.
-  const projectLabel = typeof project?.name === "string" ? project.name : undefined
-  const dirLabel = directory ? basename(resolve(directory)) : undefined
-  const agentLabel =
-    dirLabel && dirLabel !== projectLabel
-      ? [projectLabel, dirLabel].filter(Boolean).join(" · ")
-      : (projectLabel ?? dirLabel)
-
-  // ── 1. autostart the long-polling bridge ────────────────────────────────────
-  if (bridgeEnv.TELEGRAM_BOT_TOKEN && bridgeEnv.TELEGRAM_ALLOWED_CHAT_ID) {
-    const pidPath = join(bridgeDir, ".bot.pid")
-    const lockPath = join(bridgeDir, ".bot.lock")
-
-    const existing = readPid(pidPath)
-    if (existing && (await isBotAlive(existing))) {
-      await log("info", `bot already running (pid ${existing})`)
-    } else if (!acquireLock(lockPath)) {
-      // A peer session is starting the bot right now — leave it to them.
-      await log("info", "another opencode session is starting the bot")
-    } else {
+  async setup(ctx) {
+    const log = (level, message) => {
       try {
-        if (existing) {
+        const line = `[telegram-autostart] ${message}`
+        if (level === "warn" || level === "error") console.error(line)
+        else console.log(line)
+      } catch {
+        // logging must never be the reason a session breaks
+      }
+    }
+
+    const { directory, project } = ctx.location ?? {}
+    const bridgeDir = findBridgeDir(directory)
+    if (!bridgeDir) {
+      log("debug", "telegram-bot/ not found — plugin inactive")
+      return
+    }
+
+    const envPath = join(bridgeDir, ".env")
+    if (!existsSync(envPath)) {
+      log("debug", "telegram-bot/.env not found — plugin inactive")
+      return
+    }
+
+    const bridgeEnv = parseEnvFile(envPath)
+    const notificationsOn = (bridgeEnv.TELEGRAM_NOTIFY ?? "").toLowerCase() === "on"
+
+    // Several agents can be in flight at once, so every message has to say which
+    // one it came from — "Агент закончил" alone is useless when four of them land.
+    const projectLabel = typeof project?.name === "string" ? project.name : undefined
+    const dirLabel = directory ? basename(resolve(directory)) : undefined
+    const agentLabel =
+      dirLabel && dirLabel !== projectLabel
+        ? [projectLabel, dirLabel].filter(Boolean).join(" · ")
+        : (projectLabel ?? dirLabel)
+
+    // ── 1. autostart the long-polling bridge ──────────────────────────────────
+    if (bridgeEnv.TELEGRAM_BOT_TOKEN && bridgeEnv.TELEGRAM_ALLOWED_CHAT_ID) {
+      const pidPath = join(bridgeDir, ".bot.pid")
+      const lockPath = join(bridgeDir, ".bot.lock")
+
+      const existing = readPid(pidPath)
+      if (existing && (await isBotAlive(existing))) {
+        log("info", `bot already running (pid ${existing})`)
+      } else if (!acquireLock(lockPath)) {
+        // A peer session is starting the bot right now — leave it to them.
+        log("info", "another opencode session is starting the bot")
+      } else {
+        try {
+          if (existing) {
+            try {
+              unlinkSync(pidPath)
+            } catch {
+              /* stale pid file we couldn't remove — the new pid overwrites it anyway */
+            }
+          }
+          const child = runDetached("node", [join(bridgeDir, "bot.mjs")], bridgeDir)
+          child.on("error", (err) => log("warn", `failed to spawn bot.mjs: ${err?.message}`))
+          if (child.pid) writeFileSync(pidPath, String(child.pid))
+          log("info", `started bot.mjs (pid ${child.pid})`)
+        } catch (err) {
+          log("warn", `failed to start bot.mjs: ${err?.message}`)
+        } finally {
           try {
-            unlinkSync(pidPath)
+            rmdirSync(lockPath)
           } catch {
-            /* stale pid file we couldn't remove — the new pid overwrites it anyway */
+            /* already gone, or a peer stole it as stale */
           }
         }
-        const child = runDetached("node", [join(bridgeDir, "bot.mjs")], bridgeDir)
-        child.on("error", (err) => log("warn", `failed to spawn bot.mjs: ${err?.message}`))
-        if (child.pid) writeFileSync(pidPath, String(child.pid))
-        await log("info", `started bot.mjs (pid ${child.pid})`)
+      }
+    } else {
+      log("debug", "TELEGRAM_BOT_TOKEN / TELEGRAM_ALLOWED_CHAT_ID missing — bot not started")
+    }
+
+    // ── 2. session notifications ──────────────────────────────────────────────
+    if (!notificationsOn) {
+      log("debug", "TELEGRAM_NOTIFY != on — session notifications off")
+      return
+    }
+
+    const lastSent = new Map()
+
+    const notify = (title, text) => {
+      const now = Date.now()
+      if (now - (lastSent.get(title) ?? 0) < SPAM_WINDOW_MS) return
+      lastSent.set(title, now)
+      try {
+        const child = runDetached("node", [join(bridgeDir, "notify.mjs"), title, text], bridgeDir)
+        child.on("error", (err) => log("warn", `notify.mjs failed: ${err?.message}`))
       } catch (err) {
-        await log("warn", `failed to start bot.mjs: ${err?.message}`)
-      } finally {
-        try {
-          rmdirSync(lockPath)
-        } catch {
-          /* already gone, or a peer stole it as stale */
+        log("warn", `notify.mjs threw: ${err?.message}`)
+      }
+    }
+
+    //   v2 events carry `{ id, type, created, data, location?, metadata? }` — the
+//   payload is `data`, not v1's `properties` (packages/schema/src/event.ts).
+//   v1's `session.error` does not exist; failures arrive as
+//   `session.execution.failed` with `data.error: SessionError.Error`
+//   ({ type, message, status?, response? }). `session.idle` survives but is
+//   marked `// deprecated` in session-status-event.ts, so completion is taken
+//   from the durable `session.execution.succeeded`.
+    const describeError = (data) => {
+      const err = data?.error
+      const message = err?.message ?? err?.type
+      if (typeof message !== "string") return "подробности не пришли"
+      return message.length > 300 ? `${message.slice(0, 300)}…` : message
+    }
+
+    const context = () => {
+      const stamp = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+      return agentLabel ? `${agentLabel} · ${stamp}` : stamp
+    }
+
+    // The subscription is the whole server stream, not just this location, and
+    // several worktrees of this project run side by side. Without this filter a
+    // peer's finished agent would arrive labelled with this plugin's name.
+    // Paths are compared normalised: the payload and ctx.location can differ in
+    // separator style and case on Windows.
+    const normalizeDir = (value) => {
+      if (typeof value !== "string" || !value) return null
+      return resolve(value).replace(/\\/g, "/").toLowerCase()
+    }
+    const ownDirectory = normalizeDir(directory)
+    const isOwnEvent = (event) => {
+      if (!ownDirectory) return true
+      const other = normalizeDir(event.location?.directory)
+      if (!other) return true
+      return other === ownDirectory
+    }
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          if (!isOwnEvent(event)) continue
+          if (event.type === "session.execution.succeeded") {
+            notify("Агент закончил", context())
+            continue
+          }
+          if (event.type === "session.execution.interrupted") {
+            // "user" means they pressed Esc and are already looking at the
+            // keyboard; the rest (shutdown, superseded, inactivity) still
+            // mean the agent stopped without finishing.
+            if (event.data?.reason !== "user") notify("Агент закончил", context())
+            continue
+          }
+          if (event.type === "session.execution.failed") {
+            notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
+          }
         }
+      } catch (err) {
+        // Aborting on unload is the normal exit; anything else is worth a line.
+        if (!controller.signal.aborted) log("warn", `event stream failed: ${err?.message}`)
       }
-    }
-  } else {
-    await log("debug", "TELEGRAM_BOT_TOKEN / TELEGRAM_ALLOWED_CHAT_ID missing — bot not started")
-  }
+    })()
 
-  // ── 2. session notifications ───────────────────────────────────────────────
-  if (!notificationsOn) {
-    await log("debug", "TELEGRAM_NOTIFY != on — session notifications off")
-    return {}
-  }
-
-  const lastSent = new Map()
-
-  const notify = (title, text) => {
-    const now = Date.now()
-    if (now - (lastSent.get(title) ?? 0) < SPAM_WINDOW_MS) return
-    lastSent.set(title, now)
-    try {
-      const child = runDetached("node", [join(bridgeDir, "notify.mjs"), title, text], bridgeDir)
-      child.on("error", (err) => log("warn", `notify.mjs failed: ${err?.message}`))
-    } catch (err) {
-      log("warn", `notify.mjs threw: ${err?.message}`)
-    }
-  }
-
-  const describeError = (properties) => {
-    const err = properties?.error
-    const message = err?.data?.message ?? err?.message ?? err?.name
-    if (typeof message !== "string") return "подробности не пришли"
-    return message.length > 300 ? `${message.slice(0, 300)}…` : message
-  }
-
-  const context = () => {
-    const stamp = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-    return agentLabel ? `${agentLabel} · ${stamp}` : stamp
-  }
-
-  return {
-    event: async ({ event }) => {
-      if (event.type === "session.idle") {
-        notify("Агент закончил", context())
-        return
-      }
-      if (event.type === "session.error") {
-        notify("Ошибка сессии", `${describeError(event.properties)}\n\n${context()}`)
-      }
-    },
-  }
+    return () => controller.abort()
+  },
 }
+
+export default TelegramAutostartPlugin
