@@ -53,15 +53,20 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   on computed paths in `src/app/api/images/route.ts` and `api/video-stream/route.ts` — the codebase
   already opts some of these out with `/*turbopackIgnore: true*/`; do the same for new ones instead
   of letting tracing balloon the standalone bundle.
-- `npm run test:e2e` — **на ноутбуке Andrew локально не гоняем** (2026-09-29: оба smoke-теста
-  падают по таймауту 30 с на холодном старте, при этом приложение живое — на прогретом
-  `next dev` карточки есть за ~3 с). `playwright.config.ts` boots its own `npx next dev -p 3100`
-  (`reuseExistingServer` outside CI, so it won't fight your dev server on 3000); point it
-  elsewhere with `PLAYWRIGHT_BASE_URL`. НЕ поднимай `next dev` ради проверки: Next 16
-  падает с `Another next dev server is already running`, если в папке уже есть живой
-  dev-сервер, и `test:e2e` не стартует. Подробности и обходной путь — `.agents/shared/checks.md`
-  шаг 4. **Extend `tests/e2e/` rather than hand-rolling a check** for anything
-  gallery/lightbox/navigation shaped.
+- `npm run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
+  Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
+  `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
+  dev-ресурсы (клиентские чанки, HMR-сокет) с origin, которого нет в `allowedDevOrigins`.
+  HTML отдавался, JS не грузился — скриншот выглядел нормально, а селекторы карточек
+  упирались в таймаут. Теперь `localhost`, и отдельно `expect.timeout: 15_000`
+  (параметр `timeout` ограничивает тест, а ассерты живут по своему дефолту в 5 с).
+  `playwright.config.ts` boots its own `npx next dev -p 3100` (`reuseExistingServer` вне
+  CI, так что он не мешает твоему dev-серверу на 3000); другой адрес — через
+  `PLAYWRIGHT_BASE_URL`, но **не** `127.0.0.1` — это вернёт тот же баг. НЕ поднимай
+  `next dev` ради проверки: Next 16 падает с `Another next dev server is already running`,
+  если в папке уже есть живой dev-сервер, и `test:e2e` не стартует. Подробности —
+  `.agents/shared/checks.md` шаг 4. **Extend `tests/e2e/` rather than hand-rolling a
+  check** for anything gallery/lightbox/navigation shaped.
 - `eslint.config.mjs` turns off a very large set of rules (`exhaustive-deps`, `no-img-element`,
   all the `@typescript-eslint/*` strictness ones, `no-console`…). A clean lint run is a weak signal
   here — don't treat it as proof the change is correct.
@@ -306,12 +311,15 @@ Keep messages short, in Russian, no secrets.
 - All user-facing strings stay Russian; the e2e specs select on them.
 - `git push` to `main` deploys to production — don't push without a green local verify.
 
-## Known baseline issues (verified 2026-10-13 — not caused by your change)
+## Known baseline issues (verified 2026-10-15 — not caused by your change)
 
-- `npx eslint .` — **0 ошибок**: прежние 9 `react-hooks/set-state-in-effect` починены коммитом
-  `8a922af` (#12) — эффекты перестроены, правило не подавлено. `ci.yml` из ADR-0003 пока держит
-  `continue-on-error` у шага Lint «на время baseline» — снимать отдельным коммитом.
+- `npx eslint .` — **0 ошибок**. Прежние 9 `react-hooks/set-state-in-effect` починены коммитом
+  `8a922af` (#12) — эффекты перестроены, правило не подавлено. `continue-on-error` у шага
+  Lint в `ci.yml` снят 2026-10-15, линт в CI блокирующий.
 - `npx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
   починены коммитом `4370e29`.
+- `npm run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
+  «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
+  (#13), а остаточный флак — в дефолтном `expect.timeout` 5 с.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
   network-restricted sandbox. It also emits 11 Turbopack tracing warnings (baseline).
