@@ -61,8 +61,13 @@ run it on Andrew's laptop" note was wrong twice over:
   (client chunks, HMR socket) to origins missing from `allowedDevOrigins`. The server
   answered HTML fine — so a screenshot looked healthy — but the page never hydrated and
   every card selector timed out. Fixed in `fb9a0f2` (#13): `localhost`.
-- The remaining flake was Playwright's `expect.timeout` default of 5 s, which the config's
-  `timeout` does *not* touch. Now `expect: { timeout: 15_000 }`.
+- The first assertion failure came from Playwright's `expect.timeout` default of 5 s,
+  which the config's `timeout` does *not* touch. Raised to 15 s.
+
+**The flake is not fully gone.** On a cold machine the first run still fails now and then:
+15 s is much better than 5 s but not always enough, and the underlying slowness of that
+first run is undiagnosed (#13). Treat a step-4 flake as an open question to investigate,
+not as a number to raise again.
 
 Two operational notes:
 

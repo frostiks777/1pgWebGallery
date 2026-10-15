@@ -49,7 +49,7 @@ npm run test:e2e    # первый прогон на машине: npx playwrigh
 npx next build      # нужен исходящий HTTPS к fonts.googleapis.com/fonts.gstatic.com (next/font)
 ```
 
-Сеть заблокирована — это не дефект кода: запусти `npx next dev`, открой затронутый роут и **честно** напиши в отчёте, что production-сборка не проверена. 11 предупреждений Turbopack «Dynamic filesystem access…» в `src/app/api/images/route.ts` и `api/video-stream/route.ts` — baseline. Новые `fs.*Sync` на вычисляемых путях помечай `/*turbopackIgnore: true*/`.
+Сеть заблокирована — это не дефект кода: запусти `npx next dev`, открой затронутый роут и **честно** напиши в отчёте, что production-сборка не проверена. Предупреждения Turbopack «Dynamic filesystem access…» — **на версии, которой собирается CI и прод (Next 16.1.3 по `bun.lock`), их не бывает вовсе**; «11 baseline-предупреждений», что раньше стояли в этих доках, были артефактом рассинхрона `npm` с `bun.lock` (см. #36). На более новом Next из диапазона `^16.1.1` они появляются — тогда помечай вызов `/*turbopackIgnore: true*/` **на аргументе** и не забудь про обратную сторону: аннотированный путь больше не попадает в бандл сам, так что файлы, нужные на рантайме, перечисли в `outputFileTracingIncludes` в `next.config.ts`.
 
 ### Добавлен новый API-роут (`src/app/api/*/route.ts`)
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.5](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.4...v1.1.5) (2026-10-15)
+
+
+### Bug Fixes
+
+* **opencode:** port telegram-autostart plugin to the v2 plugin API ([349f60f](https://github.com/frostiks777/1pgWebGallery/commit/349f60f341ebb7a3e573c0d241a9ac1307cd1c5f))
+* **opencode:** port telegram-autostart plugin to the v2 plugin API ([26e35eb](https://github.com/frostiks777/1pgWebGallery/commit/26e35eb4ee3a20e9f130e0046cb94b2232b7ba22))
+* **opencode:** use v2 session execution events and the v2 event payload ([16170c1](https://github.com/frostiks777/1pgWebGallery/commit/16170c1cc62bfced23228f12cf742717c4d68bb0))
+
+
+### Performance Improvements
+
+* **images:** disable the 50 MB libvips decoded-image cache ([#4](https://github.com/frostiks777/1pgWebGallery/issues/4)) ([cef4e68](https://github.com/frostiks777/1pgWebGallery/commit/cef4e681e88644df1e7f16f430994a4aedf40c1c))
+
 ## [1.1.4](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.3...v1.1.4) (2026-10-15)
 
 
