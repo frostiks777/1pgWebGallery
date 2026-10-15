@@ -22,8 +22,9 @@
 # и лишние права увеличивают площадь, с которой агент может дотянуться до `main`
 # (пуш в `main` = деплой на прод). `id-token: write` обязателен: по нему экшен
 # обменивает OIDC-токен на токен GitHub App `opencode-agent` (на токене раннера
-# права агента были `permission: none`). Модель бесплатная, та же, что в
-# `opencode.jsonc`.
+# права агента были `permission: none`). Модель бесплатная, задаётся переменной
+# репозитория `OPENCODE_MODEL` — не обязательно та, что в `opencode.jsonc`:
+# отключение модели провайдером не должно требовать правки этого файла.
 
 name: opencode-audit
 
@@ -191,6 +192,18 @@ jobs:
           # прав на запись в репозиторий у воркфлоу нет.
           persist-credentials: false
 
+      # Пустая `OPENCODE_MODEL` даст `opencode/`, и opencode молча уедет на
+      # модель по умолчанию. Такая же проверка стоит у `APP_URL` выше.
+      - name: Проверить переменную модели
+        env:
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+        run: |
+          if [ -z "$OPENCODE_MODEL" ]; then
+            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            exit 1
+          fi
+          echo "Модель агента: opencode/$OPENCODE_MODEL"
+
       - name: Скачать отчёт о проверках
         uses: actions/download-artifact@v4
         with:
@@ -212,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/mimo-v2.6-flash-free
+          model: opencode/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: разбор отчётов не публикуется, хотя дефолт
           # opencode для публичного репозитория — `share: true`.
           share: false

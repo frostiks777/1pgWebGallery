@@ -100,13 +100,28 @@ jobs:
           git config user.name "opencode-agent[bot]"
           git config user.email "opencode-agent@users.noreply.github.com"
 
+      # Пустая `OPENCODE_MODEL` даст `opencode/`, и opencode молча уедет на
+      # модель по умолчанию. Проверка такая же, как для `APP_URL`
+      # в `opencode-audit.yml`.
+      - name: Проверить переменную модели
+        env:
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+        run: |
+          if [ -z "$OPENCODE_MODEL" ]; then
+            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            exit 1
+          fi
+          echo "Модель агента: opencode/$OPENCODE_MODEL"
+
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/mimo-v2.6-flash-free
+          # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
+          # здесь: переключение не должно требовать правки четырёх воркфлоу.
+          model: opencode/${{ vars.OPENCODE_MODEL }}
           # Репозиторий публичный, а дефолт opencode для публичных репозиториев —
           # `share: true`: сессия агента публикуется по ссылке. В сессии попадает
           # вывод команд и куски кода, поэтому решение зафиксировано явно:
