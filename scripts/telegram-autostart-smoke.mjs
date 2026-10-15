@@ -25,6 +25,11 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".opencode", "plugins", "telegram-autostart.js")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// The plugin reads this once at import time. Shortening it is the only way to
+// exercise the retry of a negative verdict inside a run that lives ~3 seconds.
+const TTL_MS = Number(process.env.PEER_VERDICT_TTL_MS ?? 300)
+process.env.PEER_VERDICT_TTL_MS = String(TTL_MS)
+
 // ── a fake bridge that records what the plugin did ───────────────────────────
 
 const root = mkdtempSync(join(tmpdir(), "telegram-autostart-smoke-"))
@@ -173,6 +178,16 @@ for (let i = 0; i < 10; i++) {
 await sleep(600)
 const lookupsAfterBulk = lookups
 
+// A negative verdict (an unresolvable session) must be retried once the TTL has
+// passed, otherwise one transient failed lookup mislabels that session for the
+// rest of the plugin's life. The quiet window above already outlived the
+// shortened TTL, so a single extra execution event has to cost exactly one
+// lookup. `ses_peer_old` is the control: a positive verdict never expires.
+const lookupsBeforeTtl = lookups
+push({ type: "session.execution.succeeded", data: { sessionID: "ses_unknown" } })
+await sleep(400)
+const lookupsAfterTtl = lookups
+
 if (typeof cleanup === "function") cleanup()
 
 out = readFileSync(log, "utf8")
@@ -189,10 +204,16 @@ const results = [
     "bulk traffic from unseen sessions never reaches a lookup",
     lookupsAfterBulk === lookupsBeforeBulk,
   ],
+  [
+    "negative verdict is re-resolved after the TTL",
+    lookupsAfterTtl === lookupsBeforeTtl + 1,
+  ],
 ]
 
 console.log(`telegram-autostart smoke → ${root.replace(/.*\\/, "")}`)
-console.log(`ctx.session.get calls: ${lookupsBeforeBulk} before bulk, ${lookupsAfterBulk} after`)
+console.log(
+  `ctx.session.get calls: ${lookupsBeforeBulk} before bulk, ${lookupsAfterBulk} after, ${lookupsAfterTtl} after the TTL retry (TTL ${TTL_MS}ms)`,
+)
 for (const [name, ok] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${name}`)
 
 const failed = results.filter(([, ok]) => !ok)

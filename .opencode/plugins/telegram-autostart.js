@@ -61,9 +61,14 @@ const LOOKUP_TIMEOUT_MS = 5_000
 // A `peer: true` verdict cannot go stale - a worktree does not move. A
 // `peer: false` one can: the lookup may have failed or timed out while the
 // server was busy at start-up, so it is retried at most once per this window.
-const PEER_VERDICT_TTL_MS = 60_000
+// Overridable only so scripts/telegram-autostart-smoke.mjs can shorten it and
+// actually exercise the retry; the default is what production runs with.
+const PEER_VERDICT_TTL_MS = Number(process.env.PEER_VERDICT_TTL_MS ?? 60_000)
 // The only event types this plugin acts on. Everything else on the stream is
-// dropped without an await — see the note at the subscription below.
+// dropped without an await — see the note at the subscription below. This set
+// is a hot-path optimisation, not the source of truth for what an event means:
+// the branches below decide that, and an unexpected type added here must fall
+// through rather than be reported as a failure.
 const HANDLED_EVENTS = new Set([
   "session.execution.succeeded",
   "session.execution.interrupted",
@@ -400,7 +405,9 @@ const TelegramAutostartPlugin = {
             if (event.data?.reason !== "user") notify("Агент закончил", context())
             continue
           }
-          notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
+          if (event.type === "session.execution.failed") {
+            notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
+          }
         }
       } catch (err) {
         // Durable events do not keep the subscription alive: if the stream drops,
