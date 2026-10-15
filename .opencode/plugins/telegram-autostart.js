@@ -184,7 +184,7 @@ const TelegramAutostartPlugin = {
       }
     }
 
-    const { directory, project } = ctx.location ?? {}
+    const { directory } = ctx.location ?? {}
     const bridgeDir = findBridgeDir(directory)
     if (!bridgeDir) {
       log("debug", "telegram-bot/ not found — plugin inactive")
@@ -202,12 +202,10 @@ const TelegramAutostartPlugin = {
 
     // Several agents can be in flight at once, so every message has to say which
     // one it came from — "Агент закончил" alone is useless when four of them land.
-    const projectLabel = typeof project?.name === "string" ? project.name : undefined
-    const dirLabel = directory ? basename(resolve(directory)) : undefined
-    const agentLabel =
-      dirLabel && dirLabel !== projectLabel
-        ? [projectLabel, dirLabel].filter(Boolean).join(" · ")
-        : (projectLabel ?? dirLabel)
+    // v2 dropped the project name: `ctx.location.project` only carries
+    // { id, directory, canonical } (Location.Info), so the location's own folder
+    // name — the worktree name — is the label.
+    const agentLabel = directory ? basename(resolve(directory)) : undefined
 
     // ── 1. autostart the long-polling bridge ──────────────────────────────────
     if (bridgeEnv.TELEGRAM_BOT_TOKEN && bridgeEnv.TELEGRAM_ALLOWED_CHAT_ID) {
@@ -287,27 +285,37 @@ const TelegramAutostartPlugin = {
     }
 
     // The subscription is the whole server stream, not just this location, and
-    // several worktrees of this project run side by side. Without this filter a
-    // peer's finished agent would arrive labelled with this plugin's name.
-    // Paths are compared normalised: the payload and ctx.location can differ in
-    // separator style and case on Windows.
+    // several worktrees of this project run side by side. A peer finishing must
+    // not arrive labelled with this worktree's name.
+    //
+    // `session.execution.*` carries only `{ sessionID }` — no location at all —
+    // so the directory has to be learned from `session.created`, whose payload
+    // does carry `location` (session-event.ts, `Created`). Sessions we have
+    // never seen are let through on purpose: this plugin can finish loading
+    // after its own session was created, and going silent about finished agents
+    // is a worse failure than an occasionally mislabelled message.
     const normalizeDir = (value) => {
       if (typeof value !== "string" || !value) return null
       return resolve(value).replace(/\\/g, "/").toLowerCase()
     }
     const ownDirectory = normalizeDir(directory)
-    const isOwnEvent = (event) => {
-      if (!ownDirectory) return true
-      const other = normalizeDir(event.location?.directory)
-      if (!other) return true
-      return other === ownDirectory
+    const peerSessions = new Set()
+    const isPeer = (event) => {
+      if (!ownDirectory) return false
+      const id = event.data?.sessionID
+      return typeof id === "string" && peerSessions.has(id)
     }
 
     const controller = new AbortController()
     void (async () => {
       try {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
-          if (!isOwnEvent(event)) continue
+          if (event.type === "session.created") {
+            const where = normalizeDir(event.data?.location?.directory ?? event.location?.directory)
+            if (where && where !== ownDirectory) peerSessions.add(event.data?.sessionID)
+            continue
+          }
+          if (isPeer(event)) continue
           if (event.type === "session.execution.succeeded") {
             notify("Агент закончил", context())
             continue
@@ -324,8 +332,10 @@ const TelegramAutostartPlugin = {
           }
         }
       } catch (err) {
-        // Aborting on unload is the normal exit; anything else is worth a line.
-        if (!controller.signal.aborted) log("warn", `event stream failed: ${err?.message}`)
+        // The Execution.* events this plugin acts on are durable, so a dropped
+        // stream is not expected; keep this off console.error to avoid noise in
+        // the TUI and just note it once.
+        if (!controller.signal.aborted) log("debug", `event stream ended: ${err?.message}`)
       }
     })()
 
