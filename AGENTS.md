@@ -58,8 +58,11 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
   dev-ресурсы (клиентские чанки, HMR-сокет) с origin, которого нет в `allowedDevOrigins`.
   HTML отдавался, JS не грузился — скриншот выглядел нормально, а селекторы карточек
-  упирались в таймаут. Теперь `localhost`, и отдельно `expect.timeout: 15_000`
-  (параметр `timeout` ограничивает тест, а ассерты живут по своему дефолту в 5 с).
+  упирались в таймаут. Теперь `localhost` плюс `expect.timeout: 15_000` (параметр `timeout`
+  ограничивает тест, а ассерты живут по своему дефолту в 5 с). **Флак при этом закрыт не
+  полностью:** на холодной машине первый прогон всё ещё изредка падает — первопричина
+  медленного старта не разобрана, см. #13. Не считай вопрос закрытым и не лечи его ещё одним
+  увеличением таймаута.
   `playwright.config.ts` boots its own `npx next dev -p 3100` (`reuseExistingServer` вне
   CI, так что он не мешает твоему dev-серверу на 3000); другой адрес — через
   `PLAYWRIGHT_BASE_URL`, но **не** `127.0.0.1` — это вернёт тот же баг. НЕ поднимай
@@ -320,6 +323,6 @@ Keep messages short, in Russian, no secrets.
   починены коммитом `4370e29`.
 - `npm run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
-  (#13), а остаточный флак — в дефолтном `expect.timeout` 5 с.
+  (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
   network-restricted sandbox. It also emits 11 Turbopack tracing warnings (baseline).
