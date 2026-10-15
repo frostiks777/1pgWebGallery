@@ -118,6 +118,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # Служебную модель opencode (заголовок сессии) приравниваем к основной,
+          # иначе он берёт `opencode/gpt-5.4-nano` и получает `Model access is
+          # disabled` в каждом прогоне. На результат не влияет, но в логе выглядит
+          # как поломка. `OPENCODE_CONFIG_CONTENT` — inline-конфиг с наивысшим
+          # приоритетом, репозиторный `opencode.jsonc` не затрагивается.
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"opencode/${{ vars.OPENCODE_MODEL }}"}'
         with:
           # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
           # здесь: переключение не должно требовать правки четырёх воркфлоу.
