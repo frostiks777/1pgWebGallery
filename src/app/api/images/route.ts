@@ -20,6 +20,13 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   sharp = require('sharp');
   sharp!.concurrency(1);
+  // libvips keeps a 50 MB decoded-image cache by default (sharp/lib/utility.js:
+  // "Default cache settings of 50MB, 20 files, 100 items"). On the ~800 MB prod
+  // box that ceiling is pure overhead: every generated thumbnail is already
+  // cached on disk (local .data/ or colocated .thumbs/ on WebDAV), so a cache
+  // hit only ever saves re-decoding the original inside the SAME request that
+  // was going to encode it anyway.
+  sharp!.cache({ memory: 0 });
   console.info('[Images] sharp loaded OK — image optimisation is ACTIVE');
 } catch (err) {
   console.error('[Images] *** SHARP FAILED TO LOAD — images will NOT be optimised! ***');
