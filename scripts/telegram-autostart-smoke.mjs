@@ -25,10 +25,13 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".opencode", "plugins", "telegram-autostart.js")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// The plugin reads this once at import time. Shortening it is the only way to
-// exercise the retry of a negative verdict inside a run that lives ~3 seconds.
+// The plugin reads these once at import time. Shortening them is the only way
+// to exercise the TTL retry and the lookup timeout inside a run that lives
+// ~3 seconds.
 const TTL_MS = Number(process.env.PEER_VERDICT_TTL_MS ?? 300)
+const LOOKUP_TIMEOUT_MS = Number(process.env.LOOKUP_TIMEOUT_MS ?? 300)
 process.env.PEER_VERDICT_TTL_MS = String(TTL_MS)
+process.env.LOOKUP_TIMEOUT_MS = String(LOOKUP_TIMEOUT_MS)
 
 // ── a fake bridge that records what the plugin did ───────────────────────────
 
@@ -74,26 +77,33 @@ const OTHER_DIR = join(root, "other-worktree")
 
 // Sessions the server knows about; anything missing from this map makes
 // ctx.session.get() throw, which is how the fail-open path gets exercised.
+// `ses_hanging` never settles, which is the only way to reach the lookup
+// timeout: a wedged request must not hold the stream forever.
+const HANGING = Symbol("never settles")
 const knownSessions = new Map([
   ["ses_own", { location: { directory: root } }],
   ["ses_peer_known", { location: { directory: OTHER_DIR } }],
   ["ses_peer_old", { location: { directory: OTHER_DIR } }],
+  ["ses_hanging", HANGING],
 ])
 
-// Counts every lookup the plugin performs. Bulk traffic below asserts this does
-// not grow: the guard must sit *below* the event-type dispatch, so an event the
-// plugin does not act on can never block the sequential read of the stream.
-// Without that ordering this counter jumps on every foreign event, and the
-// stream can overflow on a real machine (docs: "volatile by contract: a slow
-// consumer overflows and fails the stream").
+// Counts every lookup the plugin performs, in total and per session. Bulk
+// traffic below asserts the total does not grow: the guard must sit *below* the
+// event-type dispatch, so an event the plugin does not act on can never block
+// the sequential read of the stream. Without that ordering this counter jumps on
+// every foreign event, and the stream can overflow on a real machine (docs:
+// "volatile by contract: a slow consumer overflows and fails the stream").
 let lookups = 0
+const lookupsBySession = new Map()
 
 const ctx = {
   location: { directory: root, project: { id: "p1", directory: root, canonical: root } },
   session: {
     get: async ({ sessionID }) => {
       lookups += 1
+      lookupsBySession.set(sessionID, (lookupsBySession.get(sessionID) ?? 0) + 1)
       const found = knownSessions.get(sessionID)
+      if (found === HANGING) return new Promise(() => {})
       if (!found) throw new Error(`session not found: ${sessionID}`)
       return found
     },
@@ -115,8 +125,14 @@ const push = (event) => queue.push({ id: `evt_${queue.length}`, created: 0, data
 
 const { default: plugin } = await import(pathToFileURL(PLUGIN).href)
 const cleanup = await plugin.setup(ctx)
-// A second setup() in the same process must not start a second bot.
-await plugin.setup(ctx)
+// A second setup() in the same process must not start a second bot. It gets its
+// own empty event stream on purpose: two instances consuming one shared queue
+// would split the scenario between them nondeterministically, and every count
+// below would measure whichever instance happened to wake first.
+const cleanupSecond = await plugin.setup({
+  ...ctx,
+  event: { subscribe: () => (async function* () {})() },
+})
 
 push({ type: "session.created", data: { sessionID: "ses_peer_known", location: { directory: OTHER_DIR } } })
 push({ type: "session.created", data: { sessionID: "ses_own", location: { directory: root } } })
@@ -181,14 +197,24 @@ const lookupsAfterBulk = lookups
 // A negative verdict (an unresolvable session) must be retried once the TTL has
 // passed, otherwise one transient failed lookup mislabels that session for the
 // rest of the plugin's life. The quiet window above already outlived the
-// shortened TTL, so a single extra execution event has to cost exactly one
-// lookup. `ses_peer_old` is the control: a positive verdict never expires.
-const lookupsBeforeTtl = lookups
+// shortened TTL, so a single extra execution event has to cost exactly one more
+// lookup. `ses_peer_old` is the control: a positive verdict never expires, so it
+// must not be looked up again.
+//
+// The hanging session comes first on purpose: if the lookup bound were removed,
+// the stream would stall on it forever, and nothing pushed after it would be
+// processed — which is what `ses_after_hang` measures. Counting the lookup call
+// itself would prove nothing, because the call happens either way.
+push({ type: "session.execution.succeeded", data: { sessionID: "ses_hanging" } })
+push({ type: "session.execution.succeeded", data: { sessionID: "ses_after_hang" } })
 push({ type: "session.execution.succeeded", data: { sessionID: "ses_unknown" } })
-await sleep(400)
-const lookupsAfterTtl = lookups
+push({ type: "session.execution.succeeded", data: { sessionID: "ses_peer_old" } })
+await sleep(1_200)
+
+const lookupsOf = (id) => lookupsBySession.get(id) ?? 0
 
 if (typeof cleanup === "function") cleanup()
+if (typeof cleanupSecond === "function") cleanupSecond()
 
 out = readFileSync(log, "utf8")
 const count = (re) => (out.match(re) || []).length
@@ -205,14 +231,24 @@ const results = [
     lookupsAfterBulk === lookupsBeforeBulk,
   ],
   [
+    "a hanging lookup times out and the stream keeps flowing",
+    lookupsOf("ses_hanging") === 1 && lookupsOf("ses_after_hang") === 1,
+  ],
+  [
     "negative verdict is re-resolved after the TTL",
-    lookupsAfterTtl === lookupsBeforeTtl + 1,
+    lookupsOf("ses_unknown") === 2,
+  ],
+  [
+    "positive verdict (peer) is never re-resolved",
+    lookupsOf("ses_peer_old") === 1,
   ],
 ]
 
 console.log(`telegram-autostart smoke → ${root.replace(/.*\\/, "")}`)
 console.log(
-  `ctx.session.get calls: ${lookupsBeforeBulk} before bulk, ${lookupsAfterBulk} after, ${lookupsAfterTtl} after the TTL retry (TTL ${TTL_MS}ms)`,
+  `ctx.session.get: ${lookupsBeforeBulk} before bulk, ${lookupsAfterBulk} after | per session: ` +
+    [...lookupsBySession].map(([id, n]) => `${id}=${n}`).join(", ") +
+    ` (TTL ${TTL_MS}ms, lookup bound ${LOOKUP_TIMEOUT_MS}ms)`,
 )
 for (const [name, ok] of results) console.log(`${ok ? "PASS" : "FAIL"}  ${name}`)
 

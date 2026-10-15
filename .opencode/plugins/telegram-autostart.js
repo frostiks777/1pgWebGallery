@@ -56,8 +56,10 @@ const STALE_LOCK_MS = 30_000
 // event belongs to a peer worktree. Only the event types in HANDLED_EVENTS can
 // reach this lookup, so it delays the sequential read of ctx.event.subscribe —
 // never the Node event loop — and the bound keeps a wedged lookup from holding
-// the stream for long enough to overflow it.
-const LOOKUP_TIMEOUT_MS = 5_000
+// the stream for long enough to overflow it. Overridable only so
+// scripts/telegram-autostart-smoke.mjs can shorten it and reach the timeout
+// branch; the default is what production runs with.
+const LOOKUP_TIMEOUT_MS = Number(process.env.LOOKUP_TIMEOUT_MS ?? 5_000)
 // A `peer: true` verdict cannot go stale - a worktree does not move. A
 // `peer: false` one can: the lookup may have failed or timed out while the
 // server was busy at start-up, so it is retried at most once per this window.
