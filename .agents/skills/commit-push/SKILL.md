@@ -18,9 +18,9 @@ git log --oneline -10
 Затем прогнать чек-чейн из `.agents/shared/checks.md` и починить проблемы до коммита:
 
 ```bash
-npx eslint .        # ровно 9 baseline-ошибок, новых нет
-npx tsc --noEmit
-npm run test:e2e    # для gallery/lightbox/navigation изменений
+bun run lint        # 0 ошибок (прежние 9 baseline-ошибок починены в 8a922af, #12)
+bunx tsc --noEmit
+bun run test:e2e    # для gallery/lightbox/navigation изменений
 ```
 
 Пропускать проверки можно только по явной просьбе пользователя.

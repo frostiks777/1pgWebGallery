@@ -3,7 +3,14 @@
   "version": "1.1.5",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20.9.0",
+    "npm": ">=10.9.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "onFail": "error"
+    }
   },
   "scripts": {
     "dev": "bunx next dev -p 3000",

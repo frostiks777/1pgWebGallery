@@ -11,7 +11,7 @@ description: Use before adding a new dependency, abstraction, wrapper, helper, o
 
 Любое из:
 
-- Соблазн добавить новую зависимость (`npm install <pkg>`).
+- Соблазн добавить новую зависимость (`bun add <pkg>`; `npm install` отвергается, #36).
 - Соблазн вынести 3–5 строк в отдельный файл / утилиту / обёртку.
 - Соблазн создать новую директорию (`src/lib/x/`, `src/components/y/`) под одну функцию.
 - Соблазн сделать wrapper / adapter / facade.

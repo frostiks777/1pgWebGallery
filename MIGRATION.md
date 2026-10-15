@@ -133,14 +133,14 @@ rm -rf .cache/medium/*
 ```bash
 # Остановить dev сервер, если запущен
 # Затем пересобрать
-npm run build
+bun run build
 # или
 bun run build
 ```
 
 ### 4. Запустить проект
 ```bash
-npm run start
+bun run start
 # или
 bun run start
 ```
@@ -199,7 +199,7 @@ bun run start
 chmod -R 755 .cache/
 
 # Проверить что Sharp установлен
-npm list sharp
+bun why sharp
 ```
 
 ### Проблема: Ошибки TypeScript после обновления
@@ -210,7 +210,7 @@ rm -rf .next/
 rm -rf node_modules/.cache/
 
 # Пересобрать
-npm run build
+bun run build
 ```
 
 ### Проблема: WebDAV изображения не отображаются
@@ -300,8 +300,8 @@ rm -rf src/app/api/images/
 
 ### 3. Пересобрать
 ```bash
-npm run build
-npm run start
+bun run build
+bun run start
 ```
 
 ## ✅ Checklist миграции
