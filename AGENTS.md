@@ -48,13 +48,7 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 - `npx eslint .` — must not report a *new* error (baseline below).
 - `npx next build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
   (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
-`npx next dev` + loading the route, and say so explicitly. The build should emit **no**
-  "Dynamic filesystem access causes tracing of the whole project" warnings: every `fs.*Sync`
-  on a computed path carries `/*turbopackIgnore: true*/` on its argument (#7). A new one means
-  someone added filesystem access without it — annotate the call rather than letting tracing
-  balloon the standalone bundle. Note the flip side: annotated paths are no longer swept into
-  the bundle for free, so a file the app must ship at runtime (e.g. `public/logo.svg`) has to
-  be named in `outputFileTracingIncludes` in `next.config.ts`.
+`npx next dev` + loading the route, and say so explicitly. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
 - `npm run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
