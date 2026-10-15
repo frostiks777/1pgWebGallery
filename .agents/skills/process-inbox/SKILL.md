@@ -5,7 +5,7 @@ description: Turn informal notes in ai/inbox.md into tracked task files under ai
 
 # Process Inbox
 
-Route and plan only. Do not edit application code, run `npm run build`/`lint`/tests, or
+Route and plan only. Do not edit application code, run `bun run build`/`lint`/tests, or
 implement anything in this skill — that's `perform-task`'s job.
 
 ## Workspace

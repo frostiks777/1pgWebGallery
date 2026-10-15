@@ -12,12 +12,12 @@ rm -rf .cache/medium/*
 rm -rf .next
 
 # Пересобрать проект
-npm run build
+bun run build
 # или
 bun run build
 
 # Запустить
-npm run start
+bun run start
 # или  
 bun run start
 ```
@@ -90,10 +90,10 @@ ls -la .cache/images/
 ### Изображения не загружаются
 ```bash
 # Проверить что Sharp установлен
-npm list sharp
+bun why sharp
 
 # Переустановить если нужно
-npm install sharp --save
+bun add sharp
 
 # Проверить права на .cache
 chmod -R 755 .cache/
@@ -103,7 +103,7 @@ chmod -R 755 .cache/
 ```bash
 # Очистить и пересобрать
 rm -rf .next/
-npm run build
+bun run build
 ```
 
 ### Старые изображения в кэше

@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Smoke-test config for the AI dev cycle (.agents/skills/perform-task).
  * Boots `next dev` on its own and points tests at it — nothing to start by hand.
- * Run: `npx playwright test` (first time: `npx playwright install chromium`).
+ * Run: `bun run test:e2e` or `bunx playwright test` (first time in a fresh worktree:
+ * `bunx playwright install chromium`). Not `npx` — npm is refused here, see #36.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -40,7 +41,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx next dev -p 3100',
+    // bunx, not npx: `devEngines.packageManager` requires bun and npm's runner
+    // (npx included) aborts with EBADDEVENGINES. See issue #36.
+    command: 'bunx next dev -p 3100',
     url: 'http://localhost:3100',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
