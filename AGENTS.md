@@ -48,11 +48,13 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 - `npx eslint .` — must not report a *new* error (baseline below).
 - `npx next build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
   (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
-  `npx next dev` + loading the route, and say so explicitly. Build emits 11 pre-existing Turbopack
-  "Dynamic filesystem access causes tracing of the whole project" warnings from the `fs.*Sync` calls
-  on computed paths in `src/app/api/images/route.ts` and `api/video-stream/route.ts` — the codebase
-  already opts some of these out with `/*turbopackIgnore: true*/`; do the same for new ones instead
-  of letting tracing balloon the standalone bundle.
+  `npx next dev` + loading the route, and say so explicitly. The build should emit **no**
+  "Dynamic filesystem access causes tracing of the whole project" warnings: every `fs.*Sync`
+  on a computed path carries `/*turbopackIgnore: true*/` on its argument (#7). A new one means
+  someone added filesystem access without it — annotate the call rather than letting tracing
+  balloon the standalone bundle. Note the flip side: annotated paths are no longer swept into
+  the bundle for free, so a file the app must ship at runtime (e.g. `public/logo.svg`) has to
+  be named in `outputFileTracingIncludes` in `next.config.ts`.
 - `npm run test:e2e` — **на ноутбуке Andrew локально не гоняем** (2026-09-29: оба smoke-теста
   падают по таймауту 30 с на холодном старте, при этом приложение живое — на прогретом
   `next dev` карточки есть за ~3 с). `playwright.config.ts` boots its own `npx next dev -p 3100`
@@ -314,4 +316,5 @@ Keep messages short, in Russian, no secrets.
 - `npx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
   починены коммитом `4370e29`.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
-  network-restricted sandbox. It also emits 11 Turbopack tracing warnings (baseline).
+  network-restricted sandbox. It should emit **no** Turbopack tracing warnings (#7); the 11 that
+  used to be baseline are annotated out.
