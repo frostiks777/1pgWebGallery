@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.4](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.3...v1.1.4) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** модель агента в Variable, таймаут ревью 20 минут, объяснение сбоя ([#40](https://github.com/frostiks777/1pgWebGallery/issues/40)) ([7526538](https://github.com/frostiks777/1pgWebGallery/commit/7526538477a894420ec4544ac06ae11ab9267fbc))
+* **ci:** модель агента в Variable, таймаут ревью 20 минут, объяснение сбоя ([#40](https://github.com/frostiks777/1pgWebGallery/issues/40)) ([5a11a9e](https://github.com/frostiks777/1pgWebGallery/commit/5a11a9e164c420660c4857433236dfbebc26057b))
+
 ## [1.1.3](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.2...v1.1.3) (2026-10-15)
 
 
