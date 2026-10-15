@@ -35,7 +35,7 @@ function dav(): WebDAVClient | null {
 
 function localCachePath(photo: string, size: ImageSize): string {
   const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
-  return path.join(CACHE_DIR, `${hash}${thumbExt()}`);
+  return path.join(/*turbopackIgnore: true*/ CACHE_DIR, `${hash}${thumbExt()}`);
 }
 
 function davThumbPath(photo: string, size: ImageSize): string {
@@ -64,7 +64,7 @@ async function deleteOne(photoPath: string): Promise<{ path: string; ok: boolean
   for (const size of ALL_SIZES) {
     try {
       const p = localCachePath(photoPath, size);
-      if (fs.existsSync(p)) fs.unlinkSync(p);
+      if (fs.existsSync(/*turbopackIgnore: true*/ p)) fs.unlinkSync(/*turbopackIgnore: true*/ p);
     } catch {}
   }
 
