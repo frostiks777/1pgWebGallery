@@ -217,9 +217,15 @@ if they get in the way.
 
 ## Агент в GitHub Actions
 
-Тот же opencode работает не только в этом терминале: GitHub App `opencode-agent`, модель
-`opencode/mimo-v2.6-flash-free` (та же, что в `opencode.jsonc`), ключ в секрете
+Тот же opencode работает не только в этом терминале: GitHub App `opencode-agent`, ключ в секрете
 `OPENCODE_API_KEY`. Решения — `docs/adr/0004-agent-workflows-in-github-actions.md`.
+
+**Модель в CI задаётся переменной репозитория `OPENCODE_MODEL`**
+(Settings → Secrets and variables → Actions → Variables), а не строкой в воркфлоу: отключение
+бесплатной модели провайдером — регулярное событие, и переключение не должно требовать правки
+четырёх файлов. Это **не** обязательно модель из `opencode.jsonc` — там по-прежнему
+`mimo-v2.6-flash-free`, а в CI может стоять другая. Текущее значение смотри в настройках
+репозитория, не в коде.
 
 | Файл | Событие | Что делает |
 |---|---|---|

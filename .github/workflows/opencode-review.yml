@@ -41,7 +41,12 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     # Зависший прогон агента не должен держать раннер до дефолтных 360 минут.
-    timeout-minutes: 15
+    # 20 минут, а не 15: агент не зависает, а реально не укладывается в лимит на
+    # больших диффах. Run 38609684894 (PR #28, nginx + logrotate) в 17:48:00 —
+    # 18:03:06 делал новые вызовы модели до самой отмены и был убит за 81 секунду
+    # до конца. Сокращать тут нечего: сначала 15 минут уходили впустую только
+    # потому, что это читалось как зависание.
+    timeout-minutes: 20
     # Каждый push в PR отменяет предыдущий прогон ревью: старый не висит
     # в pending и не блокирует чек устаревшим статусом.
     concurrency:
@@ -54,13 +59,33 @@ jobs:
           # Достаточно прочитать diff, коммитить нечего: права только на чтение.
           persist-credentials: false
 
+      # Модель приходит из переменной репозитория. Без этой проверки пустое
+      # значение даст `opencode/` — и opencode молча уедет на модель по
+      # умолчанию, а прогон будет выглядеть успешным. Проверка такая же, как
+      # для `APP_URL` в `opencode-audit.yml`.
+      - name: Проверить переменную модели
+        env:
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+        run: |
+          if [ -z "$OPENCODE_MODEL" ]; then
+            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            exit 1
+          fi
+          echo "Модель агента: opencode/$OPENCODE_MODEL"
+
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
+        id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/mimo-v2.6-flash-free
+          # Модель задаётся переменной репозитория (`Settings → Secrets and
+          # variables → Actions → Variables → OPENCODE_MODEL`), а не строкой
+          # здесь: провайдер отключает бесплатные модели, и переключение не
+          # должно требовать правки четырёх воркфлоу. Значение переменной —
+          # идентификатор без провайдера.
+          model: opencode/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: ревью не публикуется, хотя дефолт opencode для
           # публичного репозитория — `share: true`.
           share: false
@@ -107,3 +132,39 @@ jobs:
 
             Формат замечания: что не так, почему это важно, как исправить.
             Коротко. Если замечание по вкусу, а не по существу, не пиши его.
+
+      # Молчаливый красный крест без объяснения — худший исход: непонятно,
+      # роняет ли ревью что-то важное. Комментарий прямо в PR отвечает на
+      # этот вопрос и указывает, где смотреть лог.
+      #
+      # Job при этом остаётся красным: «ревью прошло» не должно выглядеть
+      # зелёным чеком, когда замечаний на самом деле нет. Для этого шаг
+      # запускается и при падении предыдущего — `always()`, иначе до него
+      # очередь не дойдёт.
+      #
+      # Ветки `cancelled` здесь нет намеренно: она достижима только при отмене
+      # всего job, а тогда оставшиеся шаги всё равно не выполняются.
+      # По той же причине комментария не будет и при срабатывании
+      # `timeout-minutes` — этот шаг ловит только быстрые падения агента.
+      - name: Сообщить о сбое
+        if: always() && steps.review.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '**Авторевью не завершилось.** Замечаний нет — это не значит, что их нет.',
+                '',
+                `Прогон: ${runUrl}`,
+                '',
+                'Обычно это ошибка самого агента или отказ провайдера. Отдельно',
+                'отличай `Model access is disabled` в логе: она относится к служебной',
+                'модели opencode (`gpt-5.4-nano`), а не к модели этого воркфлоу, и',
+                'встречается и в успешных прогонах — чинить её не нужно.',
+                'Ревью ничего не блокирует, PR можно мержить.',
+              ].join('\n'),
+            });

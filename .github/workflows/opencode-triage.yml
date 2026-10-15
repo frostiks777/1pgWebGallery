@@ -6,7 +6,9 @@
 # GitHub App `opencode-agent` установлен на репозиторий: агент работает на токене
 # приложения, который экшен получает обменом OIDC-токена (нужен `id-token: write`).
 # На токене раннера он видел `permission: none` и падал на удалении реакции.
-# Модель бесплатная, та же, что в `opencode.jsonc`.
+# Модель бесплатная, задаётся переменной репозитория `OPENCODE_MODEL` — не
+# обязательно та, что в `opencode.jsonc`: отключение модели провайдером не должно
+# требовать правки этого файла.
 #
 # Роль воркфлоу в проекте: автотриаж — черновик постановки задачи (см. ADR-0002,
 # гибридный трекинг `ai/tasks` + GitHub Issues). Разбор агента не заменяет решение
@@ -45,13 +47,28 @@ jobs:
         with:
           persist-credentials: false
 
+      # Пустая `OPENCODE_MODEL` даст `opencode/`, и opencode молча уедет на
+      # модель по умолчанию. Проверка такая же, как для `APP_URL`
+      # в `opencode-audit.yml`.
+      - name: Проверить переменную модели
+        env:
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+        run: |
+          if [ -z "$OPENCODE_MODEL" ]; then
+            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            exit 1
+          fi
+          echo "Модель агента: opencode/$OPENCODE_MODEL"
+
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/mimo-v2.6-flash-free
+          # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
+          # здесь: переключение не должно требовать правки четырёх воркфлоу.
+          model: opencode/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: сессия агента не публикуется, хотя для публичного
           # репозитория дефолт opencode — `share: true`. В сессии видны вывод
           # команд и фрагменты кода.
