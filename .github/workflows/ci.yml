@@ -1,12 +1,12 @@
 name: CI
 
-# ADR-0003: lint (non-blocking, пока в baseline 9 ошибок
-# react-hooks/set-state-in-effect) + build (блокирующий). E2e здесь намеренно
-# нет — он остаётся локальным гейтом (`npm run test:e2e`, .agents/shared/checks.md):
-# он требует Chromium и поднимает `next dev`, а в deploy.yml сборка и так уже есть.
+# ADR-0003: lint + build, оба блокирующие. Baseline-ошибки
+# react-hooks/set-state-in-effect закрыты (9 штук), `continue-on-error`
+# у шага Lint снят 2026-10-15.
 #
-# Как только задача на baseline-ошибки из ai/inbox.md закроется —
-# убери continue-on-error у шага Lint (отдельный коммит).
+# E2e здесь намеренно нет — он остаётся локальным гейтом
+# (`npm run test:e2e`, .agents/shared/checks.md): он требует Chromium
+# и поднимает `next dev`. Возврат e2e в CI — открытый вопрос, см. issue #13.
 
 on:
   push:
@@ -34,9 +34,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Lint (non-blocking)
+      - name: Lint
         run: bun run lint
-        continue-on-error: true
 
       - name: Build (standalone output)
         run: bun run build
