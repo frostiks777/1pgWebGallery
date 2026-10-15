@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.6](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.5...v1.1.6) (2026-10-15)
+
+
+### Bug Fixes
+
+* address PR review - unblock the nightly audit, purge npx remnants ([a2e8329](https://github.com/frostiks777/1pgWebGallery/commit/a2e83299cd192d065305deee128abe8659a60145))
+* make bun the only package manager, refuse npm ([#36](https://github.com/frostiks777/1pgWebGallery/issues/36)) ([eea11b5](https://github.com/frostiks777/1pgWebGallery/commit/eea11b5ab5ba40badc9eeb19ca9678736a1676b3))
+* make bun the only package manager, refuse npm ([#36](https://github.com/frostiks777/1pgWebGallery/issues/36)) ([4294fb0](https://github.com/frostiks777/1pgWebGallery/commit/4294fb0d8b395634103385245fa47054635139af))
+* **opencode:** filter peer sessions by sessionID — the location filter in [#42](https://github.com/frostiks777/1pgWebGallery/issues/42) was a no-op ([0c5d1dd](https://github.com/frostiks777/1pgWebGallery/commit/0c5d1ddfbe734adaa5bec10c7996e6ee8935fc1d))
+
 ## [1.1.5](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.4...v1.1.5) (2026-10-15)
 
 
