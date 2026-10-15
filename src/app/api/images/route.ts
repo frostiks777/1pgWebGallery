@@ -225,7 +225,7 @@ function localThumbPath(photo: string, size: ImageSize): string | null {
   const filename = segs.pop();
   if (!filename) return null;
   const base = filename.replace(/\.[^.]+$/, '');
-  const fp = path.join(PUBLIC_ROOT, ...segs, THUMBS_SUBDIR, size, `${base}${thumbExt()}`);
+  const fp = path.join(/*turbopackIgnore: true*/ PUBLIC_ROOT, ...segs, THUMBS_SUBDIR, size, `${base}${thumbExt()}`);
   if (!fp.startsWith(PUBLIC_ROOT + path.sep)) return null;
   return fp;
 }
@@ -234,7 +234,7 @@ function readLocalThumb(photo: string, size: ImageSize): Buffer | null {
   try {
     const fp = localThumbPath(photo, size);
     if (!fp) return null;
-    return fs.existsSync(fp) ? fs.readFileSync(fp) : null;
+    return fs.existsSync(/*turbopackIgnore: true*/ fp) ? fs.readFileSync(/*turbopackIgnore: true*/ fp) : null;
   }
   catch { return null; }
 }
@@ -396,11 +396,11 @@ export async function GET(request: NextRequest) {
     if (isDemo) {
       const fp = safePublicPath(decoded);
       if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      if (!fs.existsSync(fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      if (isVideo && fs.statSync(fp).size > MAX_VIDEO_BYTES) {
+      if (!fs.existsSync(/*turbopackIgnore: true*/ fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (isVideo && fs.statSync(/*turbopackIgnore: true*/ fp).size > MAX_VIDEO_BYTES) {
         return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
       }
-      original = fs.readFileSync(fp);
+      original = fs.readFileSync(/*turbopackIgnore: true*/ fp);
     } else {
       // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
       const photosDir = process.env.PHOTOS_DIR || '/Photos';

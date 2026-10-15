@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     //    handle Range requests correctly for files under public/) ───────────
     if (isDemo) {
       const fp = safePublicPath(decoded);
-      if (!fp || !fs.existsSync(fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (!fp || !fs.existsSync(/*turbopackIgnore: true*/ fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       const target = new URL(decoded, request.url);
       return NextResponse.redirect(target, 307);
     }
@@ -202,8 +202,8 @@ export async function HEAD(request: NextRequest) {
 
     if (isDemo) {
       const fp = safePublicPath(decoded);
-      if (!fp || !fs.existsSync(fp)) return new NextResponse(null, { status: 404 });
-      const size = fs.statSync(fp).size;
+      if (!fp || !fs.existsSync(/*turbopackIgnore: true*/ fp)) return new NextResponse(null, { status: 404 });
+      const size = fs.statSync(/*turbopackIgnore: true*/ fp).size;
       return new NextResponse(null, {
         status: 200,
         headers: {
