@@ -44,6 +44,14 @@ const nextConfig: NextConfig = {
     ];
   },
   output: "standalone",
+  // The gallery reads these off disk at runtime. Before #7 they landed in the
+  // standalone bundle only as a side effect of Turbopack tracing whole-project
+  // filesystem access; with the fs call sites annotated the side effect is gone
+  // and /logo.svg + /robots.txt start 404ing in production. Name them.
+  outputFileTracingIncludes: {
+    '/api/photos': ['./public/demo-photos/**/*'],
+    '/*': ['./public/logo.svg', './public/robots.txt'],
+  },
   serverExternalPackages: ['sharp'],
   typescript: {
     ignoreBuildErrors: false,
