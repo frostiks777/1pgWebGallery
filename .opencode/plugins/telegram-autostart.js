@@ -48,7 +48,7 @@ import {
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-const SPAM_WINDOW_MS = 60_000
+const SPAM_WINDOW_MS = Number(process.env.SPAM_WINDOW_MS ?? 60_000)
 // A lock directory older than this is assumed to belong to an instance that
 // died mid-startup, and may be broken.
 const STALE_LOCK_MS = 30_000
@@ -363,23 +363,28 @@ const TelegramAutostartPlugin = {
       return peer
     }
 
-    const isPeerSession = async (sessionID) => {
-      if (!ownDirectory || typeof sessionID !== "string") return false
-      const cached = peerSessions.get(sessionID)
-      if (cached && (cached.peer || Date.now() - cached.at < PEER_VERDICT_TTL_MS)) return cached.peer
-      const where = await lookupSessionDir(sessionID)
+    // Every verdict is decided here, so the log line below cannot be skipped by
+    // one of the two callers. That matters: `session.created` seeds its own
+    // sessions before isPeerSession ever runs, so logging only in isPeerSession
+    // would leave exactly the case this line exists for — a location shape
+    // change that makes our own sessions look like peers — completely silent.
+    const decide = (sessionID, where) => {
       const peer = where !== null && where !== ownDirectory
+      const first = !peerSessions.has(sessionID)
       remember(sessionID, peer)
-      if (cached === undefined) {
-        // Logged once per session: if the location shape ever changes, this is
-        // where it becomes visible instead of looking like silent silence. An
-        // unresolved lookup must say so — claiming "this worktree" here would
-        // repeat the very silence this line exists to expose.
+      if (first) {
         const verdict =
           where === null ? "treated as this worktree (fail-open)" : peer ? "peer worktree" : "this worktree"
         log("info", `session ${sessionID}: ${where ?? "unresolved"} → ${verdict}`)
       }
       return peer
+    }
+
+    const isPeerSession = async (sessionID) => {
+      if (!ownDirectory || typeof sessionID !== "string") return false
+      const cached = peerSessions.get(sessionID)
+      if (cached && (cached.peer || Date.now() - cached.at < PEER_VERDICT_TTL_MS)) return cached.peer
+      return decide(sessionID, await lookupSessionDir(sessionID))
     }
 
     const controller = new AbortController()
@@ -388,7 +393,7 @@ const TelegramAutostartPlugin = {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
           if (event.type === "session.created") {
             const where = normalizeDir(event.data?.location?.directory ?? event.location?.directory)
-            if (where) remember(event.data?.sessionID, where !== ownDirectory)
+            decide(event.data?.sessionID, where)
             continue
           }
           // Hot path: the stream is volatile by contract ("a slow consumer

@@ -30,8 +30,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // ~3 seconds.
 const TTL_MS = Number(process.env.PEER_VERDICT_TTL_MS ?? 300)
 const LOOKUP_TIMEOUT_MS = Number(process.env.LOOKUP_TIMEOUT_MS ?? 300)
+// Zero, so every notification is counted: with the production window the second
+// message per title is swallowed, and "did the user-interrupt guard fire?" becomes
+// unanswerable from the log.
+const SPAM_WINDOW_MS = 0
 process.env.PEER_VERDICT_TTL_MS = String(TTL_MS)
 process.env.LOOKUP_TIMEOUT_MS = String(LOOKUP_TIMEOUT_MS)
+process.env.SPAM_WINDOW_MS = String(SPAM_WINDOW_MS)
 
 // ── a fake bridge that records what the plugin did ───────────────────────────
 
@@ -221,11 +226,17 @@ const count = (re) => (out.match(re) || []).length
 
 const results = [
   ["bot.mjs started exactly once", count(/bot-started/g) === 1],
-  ["own session completion notified", count(/notify:Агент закончил\|/g) === 1],
+  // Exact counts, not "at least one": with a zero spam window every notification
+  // is recorded, so the label in the log is the only thing that cannot tell them
+  // apart — and the counts can. Four "Агент закончил" are expected: our own
+  // session, the hanging one, the one after it, and the TTL-retried unknown one.
+  // Dropping the `reason !== "user"` guard makes five; muting our own session
+  // makes three.
+  ["own session completion notified", count(/notify:Агент закончил\|/g) === 4],
   ["fail-open on unresolvable session", out.includes("notify:Ошибка сессии|late join")],
   ["peer that announced itself blocked", !out.includes("peer known")],
   ["peer that predates this plugin blocked", !out.includes("peer old")],
-  ["interrupted:user stays silent", count(/notify:/g) === 2 && count(/notify:Ошибка сессии\|/g) === 1],
+  ["interrupted:user stays silent", count(/notify:Ошибка сессии\|/g) === 1],
   [
     "bulk traffic from unseen sessions never reaches a lookup",
     lookupsAfterBulk === lookupsBeforeBulk,
