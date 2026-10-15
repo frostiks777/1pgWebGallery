@@ -16,6 +16,13 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   reporter: [['list']],
   timeout: 60_000,
+  // `timeout` above bounds the *test*; `expect.timeout` is a separate knob and
+  // defaults to 5s. On a cold dev server the first `toBeVisible()` on a card
+  // needs longer than that, so the assertion failed while the test budget was
+  // nearly untouched — the retry then passed on the warm server.
+  expect: {
+    timeout: 15_000,
+  },
   use: {
     // `localhost`, deliberately NOT 127.0.0.1: Next 16 blocks dev resources
     // (client chunks, HMR socket) from origins that aren't in

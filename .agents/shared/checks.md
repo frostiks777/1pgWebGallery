@@ -1,8 +1,8 @@
 # Checks perform-task must run before committing
 
 Shared by `.agents/skills/perform-task/SKILL.md`. Read `AGENTS.md`'s "Known baseline
-issues" section first — checks below are scoped against that baseline, not a demand for a
-perfectly clean repo on day one.
+issues" section first — lint and types are expected to be clean, so anything red is a
+regression; `npx next build` is the one check with an environment-dependent baseline.
 
 ## Package manager
 
@@ -31,12 +31,10 @@ npx eslint .
 npx tsc --noEmit
 ```
 
-`npx eslint .` must not report a *new* error. `AGENTS.md`'s "Known baseline issues" lists
-what's already broken and out of scope — 9 `react-hooks/set-state-in-effect` errors, plus 2
-TS2345 in `src/app/api/video-stream/route.ts`. A task touching `page.tsx`/`Lightbox.tsx`
-may still trip one of those 9 pre-existing lines merely by being in the same file; don't
-fail the task over a line your diff didn't touch, but do fail it over anything your diff
-*did* introduce or change.
+`npx eslint .` and `npx tsc --noEmit` must both be clean — the 9
+`react-hooks/set-state-in-effect` errors and the 2 TS2345 in
+`src/app/api/video-stream/route.ts` that used to be the baseline are gone (`8a922af` #12,
+`4370e29` #11). A red run is your diff, not a known exception.
 
 ## 3. Build
 
@@ -50,35 +48,34 @@ your sandbox, run `npx next dev -p 3000` instead, load the affected route(s) you
 say plainly in the task's `## Result` that a full production build could not be verified
 here so a human (or a later run with normal network access) should confirm it once.
 
-## 4. Smoke test — **на этой машине не гонять**
+## 4. Smoke test
 
 ```bash
 npm run test:e2e
 ```
 
-**Локально на ноутбуке Andrew это не запускается** (проверено 2026-09-29): тесты падают
-по `Test timeout of 30000ms exceeded` в ожидании `.obs-photo-card`, хотя приложение живое —
-на прогретом `next dev` те же 8 демо-карточек рендерятся за ~3 с, а API отвечает 200 за
-~200 мс. Тянет не железо, а цепочка «холодный старт + 30-секундный таймаут теста», и
-`next build`/`next dev` на этом ноутбуке вообще не тянет.
+**This works locally** (verified 2026-10-15: `3 passed`, ~28 s). The long-standing "don't
+run it on Andrew's laptop" note was wrong twice over:
 
-Что делать вместо этого:
+- `baseURL` was `http://127.0.0.1:3100`, and Next 16 refuses to serve dev resources
+  (client chunks, HMR socket) to origins missing from `allowedDevOrigins`. The server
+  answered HTML fine — so a screenshot looked healthy — but the page never hydrated and
+  every card selector timed out. Fixed in `fb9a0f2` (#13): `localhost`.
+- The remaining flake was Playwright's `expect.timeout` default of 5 s, which the config's
+  `timeout` does *not* touch. Now `expect: { timeout: 15_000 }`.
 
-- Для изменений в документации, конфигурации, CI, воркфлоу и скиллах — **шаги 2 и 3
-  (`npx eslint .`, `npx tsc --noEmit`) достаточны**. Сборку подтверждает GitHub Actions.
-- Для изменений в UI: собрать не локально, а отдать их Andrew'у либо дождаться CI — и
-  записать в `## Result` задачи честный блокер («локально e2e не гоняем, сетевой доступ
-  к шрифтам отсутствует»), а не «всё зелёное».
-- `npx next dev` вручную не поднимать без нужды: Next 16 падает с
-  `Another next dev server is already running`, если в папке уже есть живой dev-сервер
-  (даже на другом порту) — из-за этого `test:e2e` может не стартовать вовсе.
+Two operational notes:
 
-Если Andrew всё же попросит прогнать e2e: сначала `npx next dev -p 3100` вручную,
-дождаться «Ready», один раз открыть `/` чтобы прогреть компиляцию, и только потом
-`PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npx playwright test`.
+- **Never pass `PLAYWRIGHT_BASE_URL=http://127.0.0.1:...`** — it overrides `baseURL` and
+  reinstates the bug above. Any other host is fine; omit the variable to get the default.
+- **Don't start `next dev` by hand for this.** `playwright.config.ts`'s `webServer` boots
+  `npx next dev -p 3100` itself, and `reuseExistingServer` is on outside CI so it won't
+  fight your dev server on 3000. Next 16 fails with `Another next dev server is already
+  running` if the folder already has a live dev server, which kills the run before it
+  starts. Cold start costs ~1 min of compile time, which is why `webServer.timeout` is
+  120 s.
 
-First run on a machine: `npx playwright install chromium`. This starts `next dev` itself
-(see `playwright.config.ts`'s `webServer`) — nothing to start by hand. When a task changes
+First run on a machine: `npx playwright install chromium`. When a task changes
 gallery, lightbox, or navigation behavior, extend `tests/e2e/gallery.smoke.spec.ts` (or add
 a new spec under `tests/e2e/`) to cover it, rather than writing a one-off manual check that
 leaves no regression coverage behind.
@@ -88,12 +85,10 @@ leaves no regression coverage behind.
 For any change a user would actually see, take a screenshot and look at it —
 `page.screenshot()` in a throwaway Playwright script, saved under `.agents-runs/<task-id>/`
 (gitignored), is fine for this. "The build succeeded" and "the smoke test passed" are not
-evidence the UI looks right; look at the pixels before calling the task done. Локально на
-этом ноутбуке — см. блокер в шаге 4.
+evidence the UI looks right; look at the pixels before calling the task done.
 
 ## Done means
 
-Steps 2–3 pass (2 may skip only pre-existing baseline lines; 3 may fall back per above, with
-that fallback stated in the result); step 4 is skipped on Andrew's laptop per its own block
-note, and only a UI change additionally needs step 5 — or the task file records a specific,
-honest blocker instead of a task marked done on a failing check.
+Steps 2–3 pass (3 may fall back per above, with that fallback stated in the result); step 4
+passes — and only a UI change additionally needs step 5 — or the task file records a
+specific, honest blocker instead of a task marked done on a failing check.
