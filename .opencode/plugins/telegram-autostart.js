@@ -6,8 +6,9 @@
 //   1. Make sure `node telegram-bot/bot.mjs` (long-polling getUpdates) is running,
 //      so questions asked from the phone get answered. Started detached, guarded
 //      by a pid file so N parallel opencode sessions don't start N bots.
-//   2. Notify on `session.idle` ("Агент закончил") and `session.error` ("Ошибка
-//      сессии"), rate-limited to one message per event type per minute.
+//   2. Notify on `session.execution.succeeded` / `session.execution.interrupted`
+//      ("Агент закончил") and `session.execution.failed` ("Ошибка сессии"),
+//      rate-limited to one message per event type per minute.
 //
 // Gating:
 //   - No `telegram-bot/bot.mjs` or no `telegram-bot/.env`  → plugin does nothing.
@@ -51,6 +52,10 @@ const SPAM_WINDOW_MS = 60_000
 // A lock directory older than this is assumed to belong to an instance that
 // died mid-startup, and may be broken.
 const STALE_LOCK_MS = 30_000
+// How long to wait on a single `ctx.session.get` while deciding whether an
+// event belongs to a peer worktree. Long enough for a local server, short
+// enough that a wedged lookup cannot stall the whole event loop.
+const LOOKUP_TIMEOUT_MS = 5_000
 
 // ── locating the bridge ──────────────────────────────────────────────────────
 
@@ -289,21 +294,49 @@ const TelegramAutostartPlugin = {
     // not arrive labelled with this worktree's name.
     //
     // `session.execution.*` carries only `{ sessionID }` — no location at all —
-    // so the directory has to be learned from `session.created`, whose payload
-    // does carry `location` (session-event.ts, `Created`). Sessions we have
-    // never seen are let through on purpose: this plugin can finish loading
-    // after its own session was created, and going silent about finished agents
-    // is a worse failure than an occasionally mislabelled message.
+    // so the directory has to come from somewhere else:
+    //   - `session.created` does put `location` in its payload, but only for
+    //     sessions born while this plugin is already subscribed. A peer session
+    //     that started earlier never announces itself to us, and long-running
+    //     sessions are the normal case here, so this alone is not enough.
+    //   - `ctx.session.get({ sessionID })` answers for any live session
+    //     (Session.Info.location), so an unknown id is looked up once and the
+    //     verdict cached.
+    // Still unknown after that — session deleted, lookup failed or timed out —
+    // and the event is let through, because a failed lookup must never silence
+    // notifications about finished agents.
     const normalizeDir = (value) => {
       if (typeof value !== "string" || !value) return null
       return resolve(value).replace(/\\/g, "/").toLowerCase()
     }
     const ownDirectory = normalizeDir(directory)
-    const peerSessions = new Set()
-    const isPeer = (event) => {
-      if (!ownDirectory) return false
-      const id = event.data?.sessionID
-      return typeof id === "string" && peerSessions.has(id)
+    const peerSessions = new Map() // sessionID -> true when the session lives elsewhere
+
+    const lookupSessionDir = async (sessionID) => {
+      let timer
+      try {
+        const session = await Promise.race([
+          ctx.session.get({ sessionID }),
+          new Promise((res) => {
+            timer = setTimeout(() => res(null), LOOKUP_TIMEOUT_MS)
+          }),
+        ])
+        return normalizeDir(session?.location?.directory)
+      } catch {
+        return null
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+
+    const isPeerSession = async (sessionID) => {
+      if (!ownDirectory || typeof sessionID !== "string") return false
+      const cached = peerSessions.get(sessionID)
+      if (cached !== undefined) return cached
+      const where = await lookupSessionDir(sessionID)
+      const peer = where !== null && where !== ownDirectory
+      peerSessions.set(sessionID, peer)
+      return peer
     }
 
     const controller = new AbortController()
@@ -312,10 +345,10 @@ const TelegramAutostartPlugin = {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
           if (event.type === "session.created") {
             const where = normalizeDir(event.data?.location?.directory ?? event.location?.directory)
-            if (where && where !== ownDirectory) peerSessions.add(event.data?.sessionID)
+            if (where) peerSessions.set(event.data?.sessionID, where !== ownDirectory)
             continue
           }
-          if (isPeer(event)) continue
+          if (await isPeerSession(event.data?.sessionID)) continue
           if (event.type === "session.execution.succeeded") {
             notify("Агент закончил", context())
             continue
@@ -332,10 +365,12 @@ const TelegramAutostartPlugin = {
           }
         }
       } catch (err) {
-        // The Execution.* events this plugin acts on are durable, so a dropped
-        // stream is not expected; keep this off console.error to avoid noise in
-        // the TUI and just note it once.
-        if (!controller.signal.aborted) log("debug", `event stream ended: ${err?.message}`)
+        // Durable events do not keep the subscription alive: if the stream drops,
+        // notifications go quiet for good, so say so plainly instead of logging
+        // something that reads like "plugin inactive".
+        if (!controller.signal.aborted) {
+          log("warn", `event stream ended (${err?.message}) — notifications stay off until this plugin reloads`)
+        }
       }
     })()
 

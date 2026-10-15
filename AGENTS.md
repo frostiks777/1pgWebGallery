@@ -126,7 +126,11 @@ the gallery. It's gitignored, and on the server it lives *outside* `release/` pr
   artifacts. Never `git add -A` here and never let the token reach a commit. The plugin at
   `.opencode/plugins/telegram-autostart.js` (also tracked) autostarts `bot.mjs` as a singleton —
   it must stay one process, since a second poller on the same token makes Telegram answer 409 and
-  splits the update stream between them — and reports `session.idle`/`session.error`.
+  splits the update stream between them — and reports `session.execution.succeeded`
+  / `.interrupted` ("Агент закончил") and `session.execution.failed` ("Ошибка сессии").
+  События v2 несут полезную нагрузку в `data`, а не в v1-`properties`, и у `session.execution.*`
+  нет поля `location` — только `sessionID`; поэтому чужие worktree отсекаются через
+  `ctx.session.get({sessionID}).location.directory` с кэшем (см. #42).
 - `.claude/rules/security.md` and `.cursor/rules/00-security.mdc` are generic corporate-DLP
   boilerplate copied from a template, not project policy. `.devcontainer/` likewise references a
   `pre-commit` install that has no config in this repo — there are no git hooks to satisfy.
