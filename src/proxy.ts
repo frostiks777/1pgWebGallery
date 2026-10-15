@@ -79,7 +79,8 @@ export function proxy(req: NextRequest) {
   // route, so a per-IP budget trips on ordinary browsing — the "Too Many
   // Requests" failure 24be971 fixed (same commit raised the default 300 -> 3000).
   // Note the prefix match also covers `POST /api/images/generate`; the auth check
-  // below still runs for every path.
+  // below still runs for every path. Whether that coverage is wanted is an open
+  // question — evidence in `MEMORY.md`, «Открытые вопросы».
   const isImageRequest = req.nextUrl.pathname.startsWith('/api/images');
 
   if (!isImageRequest && !checkRateLimit(ip)) {
