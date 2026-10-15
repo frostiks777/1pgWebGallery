@@ -20,11 +20,18 @@ production build from. Do not "fix" that with `--no-save` pins — the next npm 
 them. `npx --force` does downgrade the error to a warning and will run; that is the exact
 door #36 came in through, so don't.
 
-Install bun with `npm install -g bun` (an officially documented method). Once installed, the
+Install bun with `npm install -g bun` (an officially documented method). A global install is
+not blocked by the guard, so the bootstrap works. Once installed, the
 `package.json` scripts work as written — `dev`/`build`/`start`/`lint` all shell out to
 **`bunx`**, and `build`'s `NODE_OPTIONS='…' bunx next build` prefix is POSIX-shell syntax;
 bun's own shell handles it on Windows. CI is unaffected either way: there bun is already
 installed and no workflow calls npm.
+
+**The guard needs npm ≥ 10.9.0**, where `devEngines` was introduced (npm/cli 4d57928,
+#7766). An older npm ignores the field silently and the drift comes back with no warning —
+that is why `engines.npm` is pinned in `package.json`. On such a machine, fall back to
+checking the version by hand: `bunx next --version` must equal the `next` entry in
+`bun.lock`.
 
 ## 1. Install (only if needed)
 

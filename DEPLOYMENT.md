@@ -77,7 +77,7 @@ cd photo-gallery
 
 ### 3.3 Установка зависимостей
 ```bash
-npm install
+bun install --frozen-lockfile
 ```
 
 ### 3.4 Создание файла конфигурации
@@ -100,7 +100,7 @@ WEBDAV_LOGON_PASSWORD=your-gallery-access-password
 
 ### 3.6 Сборка проекта
 ```bash
-npm run build
+bun run build
 ```
 
 > ⚠️ Если сборка падает с ошибкой памяти, добавьте swap:
@@ -692,8 +692,8 @@ sudo systemctl start photo-gallery     # Запуск
 ```bash
 cd /var/www/apps/photo-gallery
 git pull
-npm install
-npm run build
+bun install --frozen-lockfile
+bun run build
 sudo systemctl restart photo-gallery
 ```
 Обратите внимание: `photo-gallery.service` теперь запускает

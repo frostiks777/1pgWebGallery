@@ -29,13 +29,13 @@
 
 ## Проверки (baseline перечитан 2026-10-15)
 
-- `npx eslint .` — **чисто** (0 ошибок). Прежние 9 ошибок
+- `bun run lint` — **чисто** (0 ошибок). Прежние 9 ошибок
   `react-hooks/set-state-in-effect` починены коммитом `8a922af` (#12).
-- `npx tsc --noEmit` — **чисто** (0 ошибок). Прежние 2 ошибки TS2345 в
+- `bunx tsc --noEmit` — **чисто** (0 ошибок). Прежние 2 ошибки TS2345 в
   `src/app/api/video-stream/route.ts` починены коммитом `4370e29` (#11).
 - `ci.yml` — `continue-on-error` у шага Lint **снят 2026-10-15** (ADR-0003 этого требовал),
   линт в CI теперь блокирующий.
-- `npx next build` — требует исходящий HTTPS к `fonts.googleapis.com`/`fonts.gstatic.com`;
+- `bun run build` — требует исходящий HTTPS к `fonts.googleapis.com`/`fonts.gstatic.com`;
   даёт 11 baseline-предупреждений Turbopack о tracing (computed-path `fs.*Sync`), см. #7.
 - `bun run test:e2e` — **работает локально** (2026-10-15: `3 passed`, ~28 с). Старый блокер
   «на ноутбуке не гоняем» был неверным: `baseURL` был `127.0.0.1`, а Next 16 не пускает
@@ -44,7 +44,7 @@
   прогона, но **флак не устранён**: на холодной машине он всё ещё воспроизводится. Первопричина
   медленного первого прогона не разобрана — открытый пункт #13.
 - Скрипты `package.json` (`dev`/`build`/`start`/`lint`) вызывают `bunx` и падают без `bun` —
-  запускать инструменты напрямую через `npx` (см. `AGENTS.md` → «Commands»).
+  запускать инструменты напрямую через `bun run` / `bunx` (см. `AGENTS.md` → «Commands»).
 
 ## Что сделано (последние изменения)
 

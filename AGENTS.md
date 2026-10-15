@@ -52,16 +52,16 @@ different tree than CI and prod — a "green" local build then measured the wron
 Playwright minor bump demanded a browser build that was not in the local cache.
 
 Corollary for this file: **before asserting anything about build behaviour, check
-`npx next --version` against `bun.lock`.** A claim measured on a drifted tree is worthless.
+`bunx next --version` against `bun.lock`.** A claim measured on a drifted tree is worthless.
 
 ### Checks every change goes through
 
 Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 
-- `npx eslint .` — must not report a *new* error (baseline below).
-- `npx next build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
+- `bun run lint` — must not report a *new* error (baseline below).
+- `bun run build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
   (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
-`npx next dev` + loading the route, and say so explicitly. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
+`bun run dev` + loading the route, and say so explicitly. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
 - `bun run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
@@ -72,7 +72,7 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   полностью:** на холодной машине первый прогон всё ещё изредка падает — первопричина
   медленного старта не разобрана, см. #13. Не считай вопрос закрытым и не лечи его ещё одним
   увеличением таймаута.
-  `playwright.config.ts` boots its own `npx next dev -p 3100` (`reuseExistingServer` вне
+  `playwright.config.ts` boots its own `bunx next dev -p 3100` (`reuseExistingServer` вне
   CI, так что он не мешает твоему dev-серверу на 3000); другой адрес — через
   `PLAYWRIGHT_BASE_URL`, но **не** `127.0.0.1` — это вернёт тот же баг. НЕ поднимай
   `next dev` ради проверки: Next 16 падает с `Another next dev server is already running`,
@@ -255,7 +255,7 @@ if they get in the way.
 - **PR от агента (`pull_request.user.type == 'Bot'`) авторевью пропускает** — сознательно,
   чтобы агент не ревьюил себя и не жег минуты Actions.
 - **Аудит считает каждую ошибку линтера и типов новой находкой** (baseline пустой:
-  `npx eslint .` и `npx tsc --noEmit` чистые). Исключения, которые аудиту не по делу:
+  `bun run lint` и `bunx tsc --noEmit` чистые). Исключения, которые аудиту не по делу:
   необходимость исходящего HTTPS к Google Fonts у `next build` и невозможность гонять e2e
   локально (`.agents/shared/checks.md`).
 - **Пуш в `main` деплоит прод.** Ветку с агентными изменениями открывать через PR, мержат его
@@ -265,8 +265,8 @@ if they get in the way.
 
 ## Hygiene of context window
 
-- **Two-iteration rule:** if the same check (`npx eslint .` / `npx tsc --noEmit` /
-  `bun run test:e2e` / `npx next build`) is still red after two consecutive fix attempts:
+- **Two-iteration rule:** if the same check (`bun run lint` / `bunx tsc --noEmit` /
+  `bun run test:e2e` / `bun run build`) is still red after two consecutive fix attempts:
   (1) state in one sentence why the current approach is wrong, (2) state an alternative in one
   sentence, (3) ask the user via `question(...)` which way to go.
 - If the dialog has grown and progress is zero, propose `/compact` or a fresh session with
@@ -333,14 +333,14 @@ Keep messages short, in Russian, no secrets.
 
 ## Known baseline issues (verified 2026-10-15 — not caused by your change)
 
-- `npx eslint .` — **0 ошибок**. Прежние 9 `react-hooks/set-state-in-effect` починены коммитом
+- `bun run lint` — **0 ошибок**. Прежние 9 `react-hooks/set-state-in-effect` починены коммитом
   `8a922af` (#12) — эффекты перестроены, правило не подавлено. `continue-on-error` у шага
   Lint в `ci.yml` снят 2026-10-15, линт в CI блокирующий.
-- `npx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
+- `bunx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
   починены коммитом `4370e29`.
 - `bun run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
   (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
-- `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
+- `bun run build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
   network-restricted sandbox. It should emit **no** Turbopack tracing warnings (#7); the 11 that
   used to be baseline are annotated out.

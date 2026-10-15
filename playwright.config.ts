@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Smoke-test config for the AI dev cycle (.agents/skills/perform-task).
  * Boots `next dev` on its own and points tests at it — nothing to start by hand.
- * Run: `npx playwright test` (first time: `npx playwright install chromium`).
+ * Run: `bun run test:e2e` or `bunx playwright test` (first time in a fresh worktree:
+ * `bunx playwright install chromium`). Not `npx` — npm is refused here, see #36.
  */
 export default defineConfig({
   testDir: './tests/e2e',

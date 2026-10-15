@@ -247,20 +247,19 @@ gallery its own folder, and use HTTPS endpoints.
 | `bun run test:e2e` | Playwright smoke specs |
 
 > ⚠️ The first four scripts shell out to **`bunx`**, and `build` prefixes a POSIX-only
-> `NODE_OPTIONS='…'`. Without `bun` on `PATH` they fail with `'bunx' is not recognized` —
-> they do **not** fall back to npm. Call the tools directly instead:
->
-> ```bash
-> npx next dev -p 3000     # instead of: bun run dev
-> npx next build           # instead of: bun run build
-> npx eslint .             # instead of: bun run lint
-> ```
+> `NODE_OPTIONS='…'`, which bun's own shell handles. If `bun` is not on `PATH` they fail
+> with `'bunx' is not recognized'` — they do **not** fall back to npm.
 >
 > `bun.lock` is the committed lockfile and CI installs with `bun install --frozen-lockfile`, so
-> install the same way. **`npm install` and `npm run` are refused** (`EBADDEVENGINES`) — see
-> [#36](https://github.com/frostiks777/1pgWebGallery/issues/36). If you have no bun yet:
-> `npm install -g bun`. With caret ranges and no committed `package-lock.json`, npm would
-> silently resolve a different tree than CI and production build from.
+> install the same way. **All of npm is refused** — `npm install`, `npm run` and `npx` — with
+> `EBADDEVENGINES`; see [#36](https://github.com/frostiks777/1pgWebGallery/issues/36). If you have
+> no bun yet: `npm install -g bun` (a global install is not blocked). With caret ranges and no
+> committed `package-lock.json`, npm would silently resolve a different tree than CI and
+> production build from.
+>
+> The guard relies on `devEngines`, which npm has understood since **10.9.0**. On an older npm the
+> field is ignored silently and the drift returns — check `bunx next --version` against `bun.lock`
+> if you are unsure.
 
 `next build` fetches Google Fonts at build time, so it needs outbound HTTPS to
 `fonts.googleapis.com` and `fonts.gstatic.com`. In a network-restricted sandbox it fails for
@@ -273,7 +272,7 @@ that reason alone, not because of a defect.
 There is no unit-test framework; the suite is Playwright smoke specs in `tests/e2e/`.
 
 ```bash
-npx playwright install chromium   # first time only
+bunx playwright install chromium   # first time only
 bun run test:e2e
 ```
 

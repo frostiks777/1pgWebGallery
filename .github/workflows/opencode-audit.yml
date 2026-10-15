@@ -66,7 +66,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Проверки падают кодом возврата, если в проекте снова появится ошибка
-      # (сейчас baseline пустой, `npx eslint .` и `npx tsc --noEmit` чистые).
+      # (сейчас baseline пустой, `bun run lint` и `bunx tsc --noEmit` чистые).
       # Код возврата игнорируем намеренно: в этом воркфлоу проверка не блокирует
       # прогон, а её вывод попадает в отчёт и дальше в разбор агента. Блокирующая
       # проверка живёт отдельно в `ci.yml`.
@@ -138,12 +138,14 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           mkdir -p audit-report/lighthouse
-          npx --yes lighthouse@12 --version
+          # bunx, not npx: `devEngines.packageManager` requires bun, so npm's runner
+          # aborts with EBADDEVENGINES inside a checkout. See issue #36.
+          bunx --yes lighthouse@12 --version
           set +e
           # `--output-path` — это префикс имени файла, а не папка: без суффикса
           # Lighthouse пишет `audit-report.report.json` в корень репозитория.
           # Поэтому задаём `audit-report/lighthouse/report`, а дальше ищем файл по glob.
-          npx --yes lighthouse@12 "$APP_URL" \
+          bunx --yes lighthouse@12 "$APP_URL" \
             --only-categories=performance,accessibility,best-practices,seo \
             --output=json \
             --output=html \
@@ -256,9 +258,9 @@ jobs:
                разметки), от находок на стороне хостинга или CDN — вторые в отдельный
                раздел «вне нашего контроля».
             2. **Считай каждую ошибку eslint/tsc новой.** Baseline в проекте пустой:
-               `npx eslint .` и `npx tsc --noEmit` проходят чисто, любая ошибка в
+               `bun run lint` и `bunx tsc --noEmit` проходят чисто, любая ошибка в
                отчёте — регрессия, а не известная проблема. Две исключенные из CI
-               зоны, которые всё равно не считать находкой: `npx next build` требует
+               зоны, которые всё равно не считать находкой: `bun run build` требует
                исходящего HTTPS к Google Fonts (это ограничение среды, не дефект
                кода), а e2e локально не гоняем (`.agents/shared/checks.md`).
                По Lighthouse ориентируйся на пороги из отчёта —

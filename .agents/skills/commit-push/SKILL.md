@@ -18,7 +18,7 @@ git log --oneline -10
 Затем прогнать чек-чейн из `.agents/shared/checks.md` и починить проблемы до коммита:
 
 ```bash
-bun run lint        # ровно 9 baseline-ошибок, новых нет
+bun run lint        # 0 ошибок (прежние 9 baseline-ошибок починены в 8a922af, #12)
 bunx tsc --noEmit
 bun run test:e2e    # для gallery/lightbox/navigation изменений
 ```
