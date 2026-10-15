@@ -36,7 +36,7 @@ description: Use when the task has more than 3 steps, changes ≥ 2 files, or is
 ```markdown
 - [ ] **Шаг N.** <что делается одной фразой>
   - Файлы: `<path1>`, `<path2>`
-  - Проверка: <`npx eslint .` | `npx tsc --noEmit` | `npm run test:e2e` | ручной визуальный чек | другое>
+  - Проверка: <`bun run lint` | `bunx tsc --noEmit` | `bun run test:e2e` | ручной визуальный чек | другое>
   - (опц.) Субагент: <`explore` | `general`>
 ```
 

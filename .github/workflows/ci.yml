@@ -5,7 +5,7 @@ name: CI
 # у шага Lint снят 2026-10-15.
 #
 # E2e здесь намеренно нет — он остаётся локальным гейтом
-# (`npm run test:e2e`, .agents/shared/checks.md): он требует Chromium
+# (`bun run test:e2e`, .agents/shared/checks.md): он требует Chromium
 # и поднимает `next dev`. Возврат e2e в CI — открытый вопрос, см. issue #13.
 
 on:

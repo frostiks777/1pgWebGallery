@@ -24,22 +24,35 @@ Next.js 16 (App Router, Turbopack) + React 19 + Tailwind 4, `webdav` client, `sh
 in `src/components/ui/`, framer-motion, lucide. There is **no unit-test framework** — only
 Playwright e2e smoke tests.
 
-## Commands (verified on this checkout, 2026-09-28)
+## Commands (verified 2026-10-15)
 
-`package.json` scripts `dev`/`build`/`start`/`lint` all shell out to **`bunx`**, and `build`'s
-`NODE_OPTIONS='…' bunx next build` prefix is POSIX-shell syntax. Without `bun` on PATH, all four
-fail with `'bunx' is not recognized` — they do **not** transparently fall back to npm. Run the
-tools directly instead:
+**bun is required.** Install it with `npm install -g bun` (an officially documented method).
 
 ```bash
-npx next dev -p 3000        # not: npm run dev
-npx next build               # not: npm run build
-npx eslint .                 # not: npm run lint
-npm run test:e2e             # this one is plain `playwright test`, works as-is
+bun run dev                  # dev server on :3000
+bun run build                # production build
+bun run lint                 # ESLint
+bun run test:e2e             # Playwright smoke specs
+bunx tsc --noEmit            # no script for this one
 ```
 
-`bun.lock` is the committed lockfile and CI uses `bun install --frozen-lockfile`. `npm install`
-works for local dev and only writes a gitignored `package-lock.json` beside it — don't commit it.
+The `package.json` scripts shell out to **`bunx`**, and `build`'s `NODE_OPTIONS='…'` prefix is
+POSIX-shell syntax — bun's own shell handles it on Windows, verified.
+
+**Everything npm is refused, including `npx` and `npm run`** — not just `npm install`.
+`devEngines` is evaluated before `install`, `ci`, `run`, and npm's runner (`npx`) validates it
+too, so `npx eslint .` aborts with `EBADDEVENGINES`. That is the intended state, not a broken
+checkout. `npx --force` downgrades the error to a warning and does work — do not use it as a
+workaround; it is the exact door #36 came in through.
+
+`bun.lock` is the committed lockfile, it is the **only** source of truth for versions, and CI
+uses `bun install --frozen-lockfile` — so install locally with `bun install --frozen-lockfile`.
+Issue #36: caret ranges + no committed `package-lock.json` meant npm silently installed a
+different tree than CI and prod — a "green" local build then measured the wrong Next, and a
+Playwright minor bump demanded a browser build that was not in the local cache.
+
+Corollary for this file: **before asserting anything about build behaviour, check
+`npx next --version` against `bun.lock`.** A claim measured on a drifted tree is worthless.
 
 ### Checks every change goes through
 
@@ -49,7 +62,7 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 - `npx next build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
   (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
 `npx next dev` + loading the route, and say so explicitly. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
-- `npm run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
+- `bun run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
   dev-ресурсы (клиентские чанки, HMR-сокет) с origin, которого нет в `allowedDevOrigins`.
@@ -253,7 +266,7 @@ if they get in the way.
 ## Hygiene of context window
 
 - **Two-iteration rule:** if the same check (`npx eslint .` / `npx tsc --noEmit` /
-  `npm run test:e2e` / `npx next build`) is still red after two consecutive fix attempts:
+  `bun run test:e2e` / `npx next build`) is still red after two consecutive fix attempts:
   (1) state in one sentence why the current approach is wrong, (2) state an alternative in one
   sentence, (3) ask the user via `question(...)` which way to go.
 - If the dialog has grown and progress is zero, propose `/compact` or a fresh session with
@@ -311,8 +324,10 @@ Keep messages short, in Russian, no secrets.
   issue after pushing. Single-line mechanical fixes may skip both.
 - Run the checks from `.agents/shared/checks.md` before committing; a red check caused by your
   diff means the task is not done.
-- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`); never commit `package-lock.json`,
-  `next-env.d.ts` churn, `.data/`, or `telegram-bot/` state.
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`); never commit `package-lock.json`
+  (it is not a lockfile for this repo — `bun.lock` is, and npm may not even run), `bun.lock`
+  changes that came from an npm-era install, `next-env.d.ts` churn, `.data/`, or
+  `telegram-bot/` state.
 - All user-facing strings stay Russian; the e2e specs select on them.
 - `git push` to `main` deploys to production — don't push without a green local verify.
 
@@ -323,7 +338,7 @@ Keep messages short, in Russian, no secrets.
   Lint в `ci.yml` снят 2026-10-15, линт в CI блокирующий.
 - `npx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
   починены коммитом `4370e29`.
-- `npm run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
+- `bun run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
   (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
 - `npx next build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a

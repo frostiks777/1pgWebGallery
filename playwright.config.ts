@@ -40,7 +40,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx next dev -p 3100',
+    // bunx, not npx: `devEngines.packageManager` requires bun and npm's runner
+    // (npx included) aborts with EBADDEVENGINES. See issue #36.
+    command: 'bunx next dev -p 3100',
     url: 'http://localhost:3100',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

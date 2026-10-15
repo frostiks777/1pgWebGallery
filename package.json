@@ -5,6 +5,12 @@
   "engines": {
     "node": ">=20.9.0"
   },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "dev": "bunx next dev -p 3000",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' bunx next build",

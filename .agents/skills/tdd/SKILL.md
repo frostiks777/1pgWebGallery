@@ -30,7 +30,7 @@ description: Use when adding a new function, route handler, hook, or complex UI 
    - Прогнать тест → он должен быть красным (Red).
 3. 🟩 Реализовать **минимум** кода, чтобы тест стал зелёным (Green).
 4. 🔁 Рефакторинг, пока тест всё ещё зелёный (Refactor).
-5. ✅ Финальная проверка: `npm run lint`, `npm run typecheck`, `npm test`.
+5. ✅ Финальная проверка: `bun run lint`, `bunx tsc --noEmit`, `bun run test:e2e`.
 ```
 
 **Тест-кейсы, которые обязательно покрыть для Fastify route:**
@@ -54,7 +54,7 @@ description: Use when adding a new function, route handler, hook, or complex UI 
    - Желательно использовать `user-event` (не `fireEvent`).
    - Прогнать → должен быть красным (Red).
 3. 🟩 Реализовать компонент → 🟢.
-4. (Опц.) Визуальная проверка через `npm run dev` + browser-инструмент.
+4. (Опц.) Визуальная проверка через `bun run dev` + browser-инструмент.
 5. ✅ Финальная проверка: lint / typecheck / test.
 ```
 

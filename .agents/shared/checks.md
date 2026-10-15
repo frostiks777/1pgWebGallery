@@ -2,56 +2,75 @@
 
 Shared by `.agents/skills/perform-task/SKILL.md`. Read `AGENTS.md`'s "Known baseline
 issues" section first — lint and types are expected to be clean, so anything red is a
-regression; `npx next build` is the one check with an environment-dependent baseline.
+regression; `bun run build` is the one check with an environment-dependent baseline.
 
 ## Package manager
 
-`bun.lock` is the committed lockfile and CI uses `bun install --frozen-lockfile`; running
-`npm install` locally is fine, it just regenerates an ignored `package-lock.json` alongside it.
+`bun.lock` is the committed lockfile and it is the **only** source of truth for versions.
+CI uses `bun install --frozen-lockfile`, so local installs must be bun too — issue #36.
 
-The `package.json` scripts (`dev`/`build`/`start`/`lint`) all shell out to **`bunx`**, and
-`build`'s `NODE_OPTIONS='…' bunx next build` prefix is POSIX-shell syntax. Without `bun` on
-PATH they fail with `'bunx' is not recognized` — they do **not** fall back to npm. So the
-commands below call the tools directly through `npx`, which works with or without bun.
-(`npm run test:e2e` is plain `playwright test` and does work as-is.) CI is unaffected: there
-bun is installed.
+**Everything npm is refused by design — including `npx` and `npm run`, not just
+`npm install`.** `package.json` carries
+`devEngines.packageManager = { name: "bun", onFail: "error" }`, and npm evaluates it before
+`install`, `ci`, `run` *and* its own runner, so `npm install`, `npm ci`, `npm run <script>`
+and `npx <anything>` all abort with `EBADDEVENGINES`. This is deliberate, not an obstacle to
+work around: with caret ranges and no committed `package-lock.json`, npm re-resolves to the
+newest matching versions and your `node_modules` silently stops matching what CI and
+production build from. Do not "fix" that with `--no-save` pins — the next npm command reverts
+them. `npx --force` does downgrade the error to a warning and will run; that is the exact
+door #36 came in through, so don't.
+
+Install bun with `npm install -g bun` (an officially documented method). Once installed, the
+`package.json` scripts work as written — `dev`/`build`/`start`/`lint` all shell out to
+**`bunx`**, and `build`'s `NODE_OPTIONS='…' bunx next build` prefix is POSIX-shell syntax;
+bun's own shell handles it on Windows. CI is unaffected either way: there bun is already
+installed and no workflow calls npm.
 
 ## 1. Install (only if needed)
 
 ```bash
-npm install
+bun install --frozen-lockfile
 ```
 
-Skip if `node_modules` already matches `package.json`/`bun.lock`.
+Skip if `node_modules` already matches `package.json`/`bun.lock`. Before making any claim
+about build behaviour, confirm you are on the locked version — `bunx next --version` must
+equal the `next` version in `bun.lock`.
+
+In a fresh worktree the browser for the locked Playwright is usually missing too:
+
+```bash
+bunx playwright install chromium   # first run only; e2e fails with "Executable doesn't exist at..."
+```
 
 ## 2. Lint + type-check
 
 ```bash
-npx eslint .
-npx tsc --noEmit
+bun run lint
+bunx tsc --noEmit
 ```
 
-`npx eslint .` and `npx tsc --noEmit` must both be clean — the 9
+Both must be clean — the 9
 `react-hooks/set-state-in-effect` errors and the 2 TS2345 in
 `src/app/api/video-stream/route.ts` that used to be the baseline are gone (`8a922af` #12,
-`4370e29` #11). A red run is your diff, not a known exception.
+`4370e29` #11). A red run is your diff, not a known exception. The current baseline for both
+is **0 errors**.
 
 ## 3. Build
 
 ```bash
-npx next build
+bun run build
 ```
 
 Needs outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com` (`next/font` fetches
 Google Fonts at build time) - see the baseline note in `AGENTS.md`. If that's blocked in
-your sandbox, run `npx next dev -p 3000` instead, load the affected route(s) yourself, and
+your sandbox, run `bun run dev` instead, load the affected route(s) yourself, and
 say plainly in the task's `## Result` that a full production build could not be verified
 here so a human (or a later run with normal network access) should confirm it once.
 
 ## 4. Smoke test
 
 ```bash
-npm run test:e2e
+bun run test:e2e        # or: bunx playwright test — NOT `npm run test:e2e`
 ```
 
 **This works locally** (verified 2026-10-15: `3 passed`, ~28 s). The long-standing "don't
@@ -74,13 +93,13 @@ Two operational notes:
 - **Never pass `PLAYWRIGHT_BASE_URL=http://127.0.0.1:...`** — it overrides `baseURL` and
   reinstates the bug above. Any other host is fine; omit the variable to get the default.
 - **Don't start `next dev` by hand for this.** `playwright.config.ts`'s `webServer` boots
-  `npx next dev -p 3100` itself, and `reuseExistingServer` is on outside CI so it won't
+  `bunx next dev -p 3100` itself, and `reuseExistingServer` is on outside CI so it won't
   fight your dev server on 3000. Next 16 fails with `Another next dev server is already
   running` if the folder already has a live dev server, which kills the run before it
   starts. Cold start costs ~1 min of compile time, which is why `webServer.timeout` is
   120 s.
 
-First run on a machine: `npx playwright install chromium`. When a task changes
+First run on a machine: `bunx playwright install chromium`. When a task changes
 gallery, lightbox, or navigation behavior, extend `tests/e2e/gallery.smoke.spec.ts` (or add
 a new spec under `tests/e2e/`) to cover it, rather than writing a one-off manual check that
 leaves no regression coverage behind.

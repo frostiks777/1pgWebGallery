@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Use before reporting a task as done — «закончил», «готово», «можно коммитить», «всё работает», «проверь». Run the repo's check chain from `.agents/shared/checks.md` (`npx eslint .`, `npx tsc --noEmit`, `npx next build`, `npm run test:e2e`) and report exact results. If anything is red, fix and re-run; never declare done with a red checker. Combined with `commit-push` for the final gate.
+description: Use before reporting a task as done — «закончил», «готово», «можно коммитить», «всё работает», «проверь». Run the repo's check chain from `.agents/shared/checks.md` (`bun run lint`, `bunx tsc --noEmit`, `bun run build`, `bun run test:e2e`) and report exact results. If anything is red, fix and re-run; never declare done with a red checker. Combined with `commit-push` for the final gate.
 ---
 
 # Verify
@@ -16,16 +16,23 @@ description: Use before reporting a task as done — «закончил», «г�
 ```bash
 git status --short
 git diff --stat
-npx eslint .
-npx tsc --noEmit
+bun run lint
+bunx tsc --noEmit
 ```
 
 | Команда | Что должно быть | Источник истины |
 |---|---|---|
-| `npx eslint .` | ровно 9 baseline-ошибок `react-hooks/set-state-in-effect`, **новых нет** | `eslint.config.mjs`, `AGENTS.md` → «Known baseline issues» |
-| `npx tsc --noEmit` | 0 ошибок | `tsconfig.json` |
+| `bun run lint` | **0 ошибок** (прежние 9 `react-hooks/set-state-in-effect` починены в `8a922af`, #12) | `eslint.config.mjs`, `AGENTS.md` → «Known baseline issues» |
+| `bunx tsc --noEmit` | 0 ошибок | `tsconfig.json` |
 
-Важно: скрипты `package.json` (`dev`/`build`/`start`/`lint`) вызывают `bunx` и падают без `bun` в PATH — запускай инструменты напрямую через `npx` (см. `AGENTS.md` → «Commands»). Прогон через `npm run lint` без `bun` даст ложный красный.
+Важно: **весь npm, включая `npx` и `npm run`, отвергается** — `devEngines.packageManager`
+требует bun и срабатывает перед `install`, `ci`, `run` и внутри раннера npm. Красный
+`EBADDEVENGINES` — это не сбой твоего диффа, а попытка запустить чек не тем пакетным
+менеджером. Запускай через `bun run` / `bunx` (см. `AGENTS.md` → «Commands»). Не обходи
+через `npx --force`: это возвращает ровно тот дрейф версий, который #36 и закрывает.
+
+Перед любым утверждением о поведении сборки сверь версию: `bunx next --version` должна
+совпадать с `next` в `bun.lock`. Чек, снятый на подплывшем дереве, ничего не доказывает.
 
 Новая ошибка линта на строке, которую твой diff **не трогал**, — это baseline, а не провал задачи. Всё, что diff затронул или добавил, обязано быть чистым.
 
@@ -34,7 +41,7 @@ npx tsc --noEmit
 ### Изменения затронули галерею / лайтбокс / навигацию
 
 ```bash
-npm run test:e2e    # первый прогон на машине: npx playwright install chromium
+bun run test:e2e    # первый прогон в новом worktree: bunx playwright install chromium
 ```
 
 Расширяй `tests/e2e/gallery.smoke.spec.ts` (или добавляй новый spec), а не проверяй руками — иначе регрессия останется без покрытия.
@@ -46,10 +53,10 @@ npm run test:e2e    # первый прогон на машине: npx playwrigh
 ### Изменения уровня сборки / next.config / маршрутов
 
 ```bash
-npx next build      # нужен исходящий HTTPS к fonts.googleapis.com/fonts.gstatic.com (next/font)
+bun run build      # нужен исходящий HTTPS к fonts.googleapis.com/fonts.gstatic.com (next/font)
 ```
 
-Сеть заблокирована — это не дефект кода: запусти `npx next dev`, открой затронутый роут и **честно** напиши в отчёте, что production-сборка не проверена. Предупреждения Turbopack «Dynamic filesystem access…» — **на версии, которой собирается CI и прод (Next 16.1.3 по `bun.lock`), их не бывает вовсе**; «11 baseline-предупреждений», что раньше стояли в этих доках, были артефактом рассинхрона `npm` с `bun.lock` (см. #36). На более новом Next из диапазона `^16.1.1` они появляются — тогда помечай вызов `/*turbopackIgnore: true*/` **на аргументе** и не забудь про обратную сторону: аннотированный путь больше не попадает в бандл сам, так что файлы, нужные на рантайме, перечисли в `outputFileTracingIncludes` в `next.config.ts`.
+Сеть заблокирована — это не дефект кода: запусти `bun run dev`, открой затронутый роут и **честно** напиши в отчёте, что production-сборка не проверена. Предупреждения Turbopack «Dynamic filesystem access…» — **на версии, которой собирается CI и прод (Next 16.1.3 по `bun.lock`), их не бывает вовсе**; «11 baseline-предупреждений», что раньше стояли в этих доках, были артефактом рассинхрона `npm` с `bun.lock` (см. #36). На более новом Next из диапазона `^16.1.1` они появляются — тогда помечай вызов `/*turbopackIgnore: true*/` **на аргументе** и не забудь про обратную сторону: аннотированный путь больше не попадает в бандл сам, так что файлы, нужные на рантайме, перечисли в `outputFileTracingIncludes` в `next.config.ts`.
 
 ### Добавлен новый API-роут (`src/app/api/*/route.ts`)
 
@@ -75,10 +82,10 @@ git remote -v                 # remote не менялся
 
 ```markdown
 ✅ Verify:
-- `npx eslint .`: 9 baseline-ошибок, новых нет (список совпадает с AGENTS.md).
-- `npx tsc --noEmit`: 0 ошибок.
-- `npm run test:e2e`: 1/1 passed (gallery.smoke).
-- (опц.) `npx next build`: ok.
+- `bun run lint`: 0 ошибок.
+- `bunx tsc --noEmit`: 0 ошибок.
+- `bun run test:e2e`: 1/1 passed (gallery.smoke).
+- (опц.) `bun run build`: ok.
 
 Что **не** проверялось: <перечислить честно>.
 ```

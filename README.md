@@ -76,7 +76,7 @@ progress bar, Framer Motion animations, responsive from phone to desktop.
 git clone https://github.com/frostiks777/1pgWebGallery.git
 cd 1pgWebGallery
 
-bun install        # or: npm install
+bun install --frozen-lockfile
 cp .env.example .env.local
 ```
 
@@ -244,7 +244,7 @@ gallery its own folder, and use HTTPS endpoints.
 | `bun run build` | Production build |
 | `bun run start` | Serve the production build |
 | `bun run lint` | ESLint |
-| `npm run test:e2e` | Playwright smoke specs |
+| `bun run test:e2e` | Playwright smoke specs |
 
 > ⚠️ The first four scripts shell out to **`bunx`**, and `build` prefixes a POSIX-only
 > `NODE_OPTIONS='…'`. Without `bun` on `PATH` they fail with `'bunx' is not recognized` —
@@ -256,9 +256,11 @@ gallery its own folder, and use HTTPS endpoints.
 > npx eslint .             # instead of: bun run lint
 > ```
 >
-> `bun.lock` is the committed lockfile and CI installs with `bun install --frozen-lockfile`.
-> `npm install` works for local development but writes a gitignored `package-lock.json` —
-> don't commit it.
+> `bun.lock` is the committed lockfile and CI installs with `bun install --frozen-lockfile`, so
+> install the same way. **`npm install` and `npm run` are refused** (`EBADDEVENGINES`) — see
+> [#36](https://github.com/frostiks777/1pgWebGallery/issues/36). If you have no bun yet:
+> `npm install -g bun`. With caret ranges and no committed `package-lock.json`, npm would
+> silently resolve a different tree than CI and production build from.
 
 `next build` fetches Google Fonts at build time, so it needs outbound HTTPS to
 `fonts.googleapis.com` and `fonts.gstatic.com`. In a network-restricted sandbox it fails for
@@ -272,7 +274,7 @@ There is no unit-test framework; the suite is Playwright smoke specs in `tests/e
 
 ```bash
 npx playwright install chromium   # first time only
-npm run test:e2e
+bun run test:e2e
 ```
 
 The specs boot their own dev server on port 3100 and run in demo mode, so no WebDAV
