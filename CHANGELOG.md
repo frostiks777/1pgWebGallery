@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.1...v1.1.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **e2e:** raise expect.timeout and rewrite the baseline docs to match reality ([#11](https://github.com/frostiks777/1pgWebGallery/issues/11), [#12](https://github.com/frostiks777/1pgWebGallery/issues/12), [#13](https://github.com/frostiks777/1pgWebGallery/issues/13), [#15](https://github.com/frostiks777/1pgWebGallery/issues/15)) ([a9bfa01](https://github.com/frostiks777/1pgWebGallery/commit/a9bfa01f71d36639cbdb16d497d11bb4c26981f0))
+
 ## [1.1.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.0...v1.1.1) (2026-10-14)
 
 
