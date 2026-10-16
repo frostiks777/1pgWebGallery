@@ -1,15 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import fsp from 'fs/promises';
+import os from 'os';
 import crypto from 'crypto';
+import { pipeline } from 'stream/promises';
+import type { Readable } from 'stream';
 import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
-import { hasFfmpeg, extractVideoPosterBuffer } from '@/lib/ffmpeg';
+import { hasFfmpeg, withFfmpegSlotTracked, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Streams a WebDAV video to a scratch file, extracts one poster frame from it,
+ * and deletes the file — all inside the single global ffmpeg slot.
+ *
+ * The alternative (`getFileContents(..., { format: 'binary' })` → Buffer) pulls
+ * 96–134 MB per video into the heap. This job walks the WHOLE gallery, so that
+ * was the single easiest way to exhaust the 823 MB prod box (MEMORY.md,
+ * 2026-10-16). At most one source video exists on disk at a time.
+ */
+async function videoPosterViaFile(
+  client: WebDAVClient,
+  photoPath: string,
+  width?: number,
+): Promise<Buffer> {
+  const p = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
+  const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vgen-'));
+  const videoPath = path.join(workDir, 'src.mp4');
+  try {
+    return await withFfmpegSlotTracked(async () => {
+      const src = client.createReadStream(p) as unknown as Readable;
+      await pipeline(src, fs.createWriteStream(videoPath));
+      return extractVideoPosterFromFile(videoPath, { width });
+    });
+  } finally {
+    fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 interface GenerateStatus {
   running: boolean;
@@ -287,7 +319,9 @@ async function runGeneration(scopePath?: string) {
           // Fetch original and generate
           status.lastPhoto = `${path.basename(photoPath)} [${size}]`;
           let original: Buffer;
-          if (client) {
+          if (client && isVideoFile(photoPath)) {
+            original = await videoPosterViaFile(client, photoPath);
+          } else if (client) {
             const p = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
             const ab = await withTimeout(
               client.getFileContents(p, { format: 'binary' }) as Promise<ArrayBuffer>,
@@ -302,9 +336,11 @@ async function runGeneration(scopePath?: string) {
             original = fs.readFileSync(fp);
           }
 
-          if (isVideoFile(photoPath)) {
+          // Demo mode (no WebDAV): small local files, the Buffer path is fine.
+          if (!client && isVideoFile(photoPath)) {
             original = await extractVideoPosterBuffer(original);
           }
+
 
           const result = await optimizeImage(original, size);
 

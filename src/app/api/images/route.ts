@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
+import fsp from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
+import { pipeline } from 'stream/promises';
+import type { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
 import { isVideoFile } from '@/lib/videoExt';
-import { hasFfmpeg, extractVideoPosterBuffer } from '@/lib/ffmpeg';
+import {
+  hasFfmpeg,
+  isFfmpegSlotBusy,
+  withFfmpegSlotTracked,
+  extractVideoPosterBuffer,
+  extractVideoPosterFromFile,
+} from '@/lib/ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sharp initialisation — the CRITICAL piece for image optimisation.
@@ -43,9 +53,16 @@ const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 // Videos with no companion photo (see src/lib/webdav.ts) are still listed in
-// the gallery, using a single extracted frame as their "photo" — guards
-// against pulling a huge upload fully into memory here.
+// the gallery, using a single extracted frame as their "photo" — the guard is
+// against spending minutes of the one CPU core on a huge upload, NOT against
+// holding it in memory (that is handled by streaming to disk instead — see
+// fetchVideoToFile below).
 const MAX_VIDEO_BYTES = Number(process.env.VIDEO_PREVIEW_MAX_MB || 300) * 1024 * 1024;
+
+// How long we will wait for a video to arrive from WebDAV before giving up.
+// The slowest observed prod pull (96 MB) took 5.5 s; 120 s leaves room for a
+// slow uplink without letting a stuck transfer pin the ffmpeg slot.
+const VIDEO_DOWNLOAD_TIMEOUT_MS = Number(process.env.VIDEO_DOWNLOAD_TIMEOUT_MS || 120_000);
 
 /**
  * Image size presets — tuned for real-world photos (3000–6000 px originals).
@@ -350,6 +367,42 @@ async function statSize(photo: string): Promise<number | null> {
   } catch { return null; }
 }
 
+/**
+ * Streams a WebDAV video straight to a temp file on disk and returns its path.
+ *
+ * The old poster path called `fetchOriginal`, i.e.
+ * `getFileContents(..., { format: 'binary' })`, which materialises the WHOLE
+ * video in the Node heap — 96 MB for C1145.MP4, 134 MB for C1150.MP4, up to
+ * `VIDEO_PREVIEW_MAX_MB` (300 MB by default) — purely so ffmpeg could read one
+ * frame from it. On the 823 MB prod box that was the difference between a
+ * working site and a dead one (MEMORY.md, 2026-10-16): RSS climbed 183 MB →
+ * 366 MB while the gallery sat idle, swap churned at 19k–43k pages/s, and the
+ * one nginx worker was starved until TLS handshakes stopped completing.
+ *
+ * Streaming keeps peak process memory flat — measured on prod: 96 MB pulled in
+ * 5.5 s with `used` going 477 MB → 461 MB, i.e. no growth at all.
+ */
+async function fetchVideoToFile(photo: string, destPath: string): Promise<void> {
+  const c = dav();
+  if (!c) throw new Error('WebDAV not configured');
+  const p = photo.startsWith('/') ? photo : '/' + photo;
+  // `createReadStream` returns a PassThrough fed by a ranged GET; piping it to
+  // a file lets the OS page cache absorb the bytes instead of the V8 heap.
+  const src = c.createReadStream(p) as unknown as Readable;
+  try {
+    await withTimeout(
+      pipeline(src, fs.createWriteStream(destPath)),
+      VIDEO_DOWNLOAD_TIMEOUT_MS,
+      `download ${p}`,
+    );
+  } catch (err) {
+    // `withTimeout` only rejects the wrapper — without destroying the stream a
+    // slow or stalled WebDAV would keep filling the disk long after we gave up.
+    src.destroy();
+    throw err;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET handler
 // ─────────────────────────────────────────────────────────────────────────────
@@ -398,6 +451,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'ffmpeg not available on server' }, { status: 501 });
     }
 
+    // Never let poster work queue up. The old code awaited an unbounded queue
+    // while every waiting entry had already pulled its entire source video off
+    // WebDAV into the heap; one visitor opening a folder of videos was enough
+    // to pin the single core for hours (MEMORY.md, 2026-10-16). One poster at
+    // a time, everyone else gets a cheap "try again" that the client retries.
+    if (isVideo && isFfmpegSlotBusy()) {
+      return NextResponse.json(
+        { error: 'Poster generation busy' },
+        { status: 503, headers: { 'Retry-After': '5' } },
+      );
+    }
+
+    // Poster width — ffmpeg scales in-process so sharp is never handed a 4K
+    // frame (a 3840x2160 JPEG costs ~8x the encode time of an 800px one).
+    const posterWidth = IMAGE_PRESETS[size].width;
+
     // ── 3. Fetch original ───────────────────────────────────────────────────
     let original: Buffer;
     if (isDemo) {
@@ -420,16 +489,38 @@ export async function GET(request: NextRequest) {
         if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
           return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
         }
-      }
-      try { original = await fetchOriginal(decoded); }
-      catch (err) {
-        console.error('[Images] fetch failed:', err);
-        return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+        // Stream to a scratch file, take one frame, delete the file — all
+        // inside the single global ffmpeg slot, so at most one source video
+        // exists on this box at any moment. See fetchVideoToFile for why this
+        // is not fetchOriginal.
+        const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vsrc-'));
+        const videoPath = path.join(workDir, 'src.mp4');
+        let poster: Buffer;
+        try {
+          poster = await withFfmpegSlotTracked(async () => {
+            await fetchVideoToFile(decoded, videoPath);
+            return extractVideoPosterFromFile(videoPath, { width: posterWidth });
+          });
+        } catch (err) {
+          console.error('[Images] video poster extraction failed:', err);
+          return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
+        } finally {
+          fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+        }
+        original = poster;
+      } else {
+        try { original = await fetchOriginal(decoded); }
+        catch (err) {
+          console.error('[Images] fetch failed:', err);
+          return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+        }
       }
     }
 
-    if (isVideo) {
-      try { original = await extractVideoPosterBuffer(original); }
+    // Demo-mode videos are small local files, so the Buffer path is still fine
+    // there; extractVideoPosterBuffer takes the ffmpeg slot internally.
+    if (isVideo && isDemo) {
+      try { original = await extractVideoPosterBuffer(original, { width: posterWidth }); }
       catch (err) {
         console.error('[Images] poster extraction failed:', err);
         return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
