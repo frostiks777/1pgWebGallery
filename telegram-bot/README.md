@@ -34,7 +34,7 @@ node unread.mjs                                  # что осталось бе�
 `.opencode/plugins/telegram-autostart.js` работает сам при старте opencode — и в GUI, и в CLI:
 
 - поднимает `telegram-bot/bot.mjs` отдельным процессом;
-- шлёт уведомления в Telegram по событиям сессии: `session.idle` («Агент закончил») и `session.error` («Ошибка сессии»);
+- шлёт уведомления в Telegram по событиям сессии: `session.execution.succeeded` / `session.execution.interrupted` («Агент закончил») и `session.execution.failed` («Ошибка сессии»);
 - антиспам: не чаще одного уведомления в минуту на тип события.
 
 | Переменная в `.env` | Что делает |
