@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.7](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.6...v1.1.7) (2026-10-16)
+
+
+### Bug Fixes
+
+* **images:** stop pulling whole videos into RAM to extract one poster frame ([7531bc0](https://github.com/frostiks777/1pgWebGallery/commit/7531bc04e9ddc86cd073a0f354a1db8d3e626b82))
+* **images:** не втягивать видео целиком в RAM ради одного кадра постера ([768d914](https://github.com/frostiks777/1pgWebGallery/commit/768d914a5eef2d7a71d1cdc1d692884ae13b6e37))
+
 ## [1.1.6](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.5...v1.1.6) (2026-10-15)
 
 
