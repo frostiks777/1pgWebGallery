@@ -61,7 +61,25 @@ jobs:
           # dir instead of nesting the dir itself.
           mkdir -p release/.next/static
           cp -r .next/static/. release/.next/static/
-          cp -r public release/public
+          # Same trailing-slash rule as the two copies above, for the same
+          # reason: release/public/ already exists (Next's standalone tracing
+          # pulls public/ in, see outputFileTracingIncludes in next.config.ts),
+          # so `cp -r public release/public` would NEST the repo's public/ one
+          # level too deep — release/public/public/logo.svg — leaving nginx
+          # (root …/release/public) 404ing on /logo.svg and /robots.txt (#37).
+          # public/. copies the *contents* into the existing dir instead.
+          cp -r public/. release/public/
+
+          # The e2e specs run `next dev`, not this bundle, so nothing else in CI
+          # can see a mis-assembled release/ — the failure would only show up as
+          # a 404 in production. These assertions (under `set -e`) fail the
+          # deploy instead. Verified against GNU cp semantics: without the
+          # trailing slash the layout is release/public/public/{logo.svg,
+          # robots.txt,demo-photos}, i.e. every one of these would fail.
+          test -f release/public/logo.svg
+          test -f release/public/robots.txt
+          test -d release/public/demo-photos
+          test ! -e release/public/public
 
       - name: Add deploy SSH key
         uses: webfactory/ssh-agent@v0.9.0
