@@ -37,5 +37,5 @@
 | [0002](0002-hybrid-task-tracking.md) | Гибридный трекинг задач: `ai/tasks` + GitHub Issues | Accepted | 2026-09-28 |
 | [0003](0003-ci-lint-and-build.md) | CI: lint (изначально non-blocking) + build, без e2e | Accepted (поправка 2026-10-15) | 2026-09-28 |
 | [0004](0004-agent-workflows-in-github-actions.md) | Агент в GitHub Actions: `/oc`, триаж, ревью, аудит | Accepted | 2026-10-13 |
-| [0005](0005-bun-only-package-manager.md) | bun — единственный пакетный менеджер, npm запрещён через `devEngines` | Proposed | 2026-10-15 |
-| [0006](0006-video-poster-pipeline.md) | Постер из видео: файл на диск, первый ключевой кадр ffmpeg | Proposed | 2026-10-16 |
+| [0005](0005-bun-only-package-manager.md) | bun — единственный пакетный менеджер, npm запрещён через `devEngines` | Accepted | 2026-10-15 |
+| [0006](0006-video-poster-pipeline.md) | Постер из видео: файл на диск, первый ключевой кадр ffmpeg | Accepted | 2026-10-16 |

@@ -1,7 +1,7 @@
 # MEMORY.md — Состояние проекта «Photo Gallery»
 
-> Дата последнего обновления: 2026-10-15 (baseline перечитан фактическим прогоном: eslint/tsc
-> чисты, e2e локально зелёный, `continue-on-error` у шага Lint в `ci.yml` снят).
+> Дата последнего обновления: 2026-10-19 (baseline перечитан фактическим прогоном 2026-10-15:
+> eslint/tsc чисты, e2e локально зелёный, `continue-on-error` у шага Lint в `ci.yml` снят).
 > 2026-10-15: **bun теперь обязателен.** `package.json` получил
 > `devEngines.packageManager = { name: "bun", onFail: "error" }`, поэтому `npm install`,
 > `npm ci`, `npm run` и **`npx`** отвергаются с `EBADDEVENGINES` — дрейф между npm и
@@ -30,11 +30,11 @@ TLS-handshake не завершался, nginx и sshd не отвечали. OO
   а не в буфер; постер — первый ключевой кадр (`-skip_frame nokey`), `-threads 1`,
   SIGKILL-таймаут, `503` вместо неограниченной очереди. Замер на проде:
   **11 582 мс → 1 405 мс**, RAM плоский. См. ADR-0006.
-- **#55** — прокси видео nginx'ом напрямую (вынесено отдельно: это убирает Node из
+- **#55 (открыто)** — прокси видео nginx'ом напрямую (вынесено отдельно: это убирает Node из
   потока байтов видео, но не чинит постер; нужны решения по хранению учётных данных
   WebDAV в nginx и по авторизации маршрута).
-- **PR #56** — #37: `cp -r public release/public` вкладывал `public/` в
-  `release/public/public/`.
+- **PR #56 (открыто, не смержен)** — #37: `cp -r public release/public` вкладывал `public/` в
+  `release/public/public/`. Фикс написан, но в `main` ещё не попал.
 - Митигация на проде: `VIDEO_PREVIEW_MAX_MB=25`, `NODE_OPTIONS=--max-old-space-size=512`.
 - Не сделано: `net.ipv4.tcp_mem` не подобран.
 
