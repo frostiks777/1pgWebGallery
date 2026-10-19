@@ -31,8 +31,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const TTL_MS = Number(process.env.PEER_VERDICT_TTL_MS ?? 300)
 const LOOKUP_TIMEOUT_MS = Number(process.env.LOOKUP_TIMEOUT_MS ?? 300)
 // Zero, so every notification is counted: with the production window the second
-// message per title is swallowed, and "did the user-interrupt guard fire?" becomes
-// unanswerable from the log.
+// message per session and event type is swallowed, and "did the user-interrupt
+// guard fire?" becomes unanswerable from the log.
 const SPAM_WINDOW_MS = 0
 process.env.PEER_VERDICT_TTL_MS = String(TTL_MS)
 process.env.LOOKUP_TIMEOUT_MS = String(LOOKUP_TIMEOUT_MS)
@@ -167,7 +167,7 @@ push({ type: "session.message.updated", data: { sessionID: "ses_own" } })
 
 // What the run is waiting for before it may assert anything: one bot spawn and
 // the two expected notifications.
-const READY = /bot-started[\s\S]*notify:Ошибка сессии\|late join/
+const READY = /bot-started[\s\S]*notify:❌ Ошибка сессии\|/
 // The effects under test are detached `node notify.mjs` processes with no upper
 // bound, and a cold Windows runner starts them far slower than a warm laptop —
 // a fixed sleep passed locally and failed in review with 3 of 6 asserts down.
@@ -246,15 +246,15 @@ const results = [
   ["bot.mjs started exactly once", count(/bot-started/g) === 1],
   // Exact counts, not "at least one": with a zero spam window every notification
   // is recorded, so the label in the log is the only thing that cannot tell them
-  // apart — and the counts can. Four "Агент закончил" are expected: our own
+  // apart — and the counts can. Four "✅ Агент закончил" are expected: our own
   // session, the hanging one, the one after it, and the TTL-retried unknown one.
   // Dropping the `reason !== "user"` guard makes five; muting our own session
   // makes three.
-  ["own session completion notified", count(/notify:Агент закончил\|/g) === 4],
-  ["fail-open on unresolvable session", out.includes("notify:Ошибка сессии|late join")],
+  ["own session completion notified", count(/notify:✅ Агент закончил\|/g) === 4],
+  ["fail-open on unresolvable session", out.includes("notify:❌ Ошибка сессии|🚨 late join")],
   ["peer that announced itself blocked", !out.includes("peer known")],
   ["peer that predates this plugin blocked", !out.includes("peer old")],
-  ["interrupted:user stays silent", count(/notify:Ошибка сессии\|/g) === 1],
+  ["interrupted:user stays silent", count(/notify:❌ Ошибка сессии\|/g) === 1],
   [
     "bulk traffic from unseen sessions never reaches a lookup",
     lookupsAfterBulk === lookupsBeforeBulk,

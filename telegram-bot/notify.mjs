@@ -30,6 +30,23 @@ loadEnvFile(join(dir, '.env'));
 const esc = (s) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Telegram работает в HTML-режиме, но разметка markdown-ом читается в
+// сообщениях агента естественнее: `**жирный**` → <b>жирный</b>.
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+
+// Лимит Telegram — 4096 символов на сообщение; режем тело, а не готовый HTML,
+// чтобы не разорвать открытый тег.
+const MAX_LENGTH = 3800;
+
+const clip = (text) => {
+  const raw = String(text ?? '');
+  if (raw.length <= MAX_LENGTH) return raw;
+  let cut = raw.slice(0, MAX_LENGTH - 1) + '…';
+  // Нечётное число `**` после обрезки оставило бы парный тег незакрытым.
+  if ((cut.match(/\*\*/g) ?? []).length % 2 === 1) cut = cut.replace(/\*\*$/, '');
+  return cut;
+};
+
 const args = process.argv.slice(2);
 const getFlag = (name) => {
   const i = args.indexOf(name);
@@ -40,16 +57,28 @@ const title = args[0] ?? 'Календарь звонков';
 const message = args[1] ?? '';
 const qid = getFlag('--id');
 const chatOverride = getFlag('--chat');
+// --dry-run печатает сообщение в консоль вместо отправки: так проверяется
+// разметка, не тревожа владельца чата.
+const dryRun = args.includes('--dry-run');
 
 const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const chatId = chatOverride ?? process.env.TELEGRAM_ALLOWED_CHAT_ID ?? '';
+
+const titleHtml = md(title);
+const head = titleHtml.includes('<b>') ? titleHtml : `<b>${titleHtml}</b>`;
+const bodyHtml = md(clip(message));
+const foot = qid ? `\n\n<code>id: ${esc(qid)}</code>` : '';
+const text = `${head}\n${bodyHtml}${foot}`;
+
+if (dryRun) {
+  console.log(text);
+  process.exit(0);
+}
 
 if (!token || !chatId) {
   console.warn('[notify] пропуск: нет TELEGRAM_BOT_TOKEN или CHAT_ID (.env не заполнен)');
   process.exit(0);
 }
-
-const text = `<b>${esc(title)}</b>\n${esc(message)}${qid ? `\n\n<code>id: ${esc(qid)}</code>` : ''}`;
 
 const body = { chat_id: chatId, text, parse_mode: 'HTML' };
 if (qid) {
