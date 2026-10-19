@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.0...v1.2.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **opencode:** resolve peer sessions via session.get, visible stream warning, smoke script ([#47](https://github.com/frostiks777/1pgWebGallery/issues/47) follow-up) ([254f5c0](https://github.com/frostiks777/1pgWebGallery/commit/254f5c0c4df39cf05d4e843562719b7f5b4f48d9))
+
 ## [1.2.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.7...v1.2.0) (2026-10-19)
 
 
