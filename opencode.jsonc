@@ -11,6 +11,18 @@
   // ручной тост без opencode — scripts/notify.ps1.
 
   // Главная модель основного агента.
+  //
+  // Бесплатные модели opencode отключаются и блокируются по IP — это
+  // регулярное событие, а не разовая поломка. 2026-10-19 GitHub-раннеру
+  // отказали по IP на `mimo-v2.6-flash-free` (403 FreeTierError), поэтому
+  // в CI (переменная репозитория OPENCODE_MODEL) стоит
+  // `nemotron-3.5-lightning-free` — она с того же IP работает.
+  //
+  // Рабочие бесплатные модели на 2026-10-19 (проверены `opencode run -m`):
+  //   opencode/mimo-v2.6-flash-free
+  //   opencode/nemotron-3.5-lightning-free
+  //   opencode/nemotron-3-ultra-free
+  // Внезапно исчезнувшая: opencode/muse-spark-1.3-contributor-free.
   "model": "opencode/mimo-v2.6-flash-free",
 
   // Все субагенты — только бесплатные модели (см. список: opencode models).
@@ -18,7 +30,7 @@
     // Исследовательский субагент: только чтение и веб. Нет edit/bash/task,
     // чтобы случайно ничего не править.
     "explore": {
-      "model": "opencode/muse-spark-1.3-contributor-free",
+      "model": "opencode/nemotron-3.5-lightning-free",
       "permission": {
         "read": "allow",
         "glob": "allow",
@@ -35,7 +47,7 @@
     },
     // Универсальный субагент для реализации: полный доступ, модель бесплатная.
     "general": {
-      "model": "opencode/muse-spark-1.3-contributor-free"
+      "model": "opencode/nemotron-3.5-lightning-free"
     }
   },
 
