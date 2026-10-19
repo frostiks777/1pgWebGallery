@@ -139,10 +139,36 @@ the gallery. It's gitignored, and on the server it lives *outside* `release/` pr
   artifacts. Never `git add -A` here and never let the token reach a commit. The plugin at
   `.opencode/plugins/telegram-autostart.js` (also tracked) autostarts `bot.mjs` as a singleton —
   it must stay one process, since a second poller on the same token makes Telegram answer 409 and
-  splits the update stream between them — and reports `session.idle`/`session.error`.
+  splits the update stream between them — and reports `session.execution.succeeded`
+  / `.interrupted` ("Агент закончил") and `session.execution.failed` ("Ошибка сессии").
+  События v2 несут полезную нагрузку в `data`, а не в v1-`properties`, и у `session.execution.*`
+  нет поля `location` — только `sessionID`; поэтому чужие worktree отсекаются через
+  `ctx.session.get({sessionID}).location.directory` с кэшем (механизм появился в #50,
+  в #42 был только фильтр по `event.location`, который на v2 ничего не отсекал). Первый
+  резолв каждой сессии логируется, поэтому изменение формы location видно в логе.
 - `.claude/rules/security.md` and `.cursor/rules/00-security.mdc` are generic corporate-DLP
   boilerplate copied from a template, not project policy. `.devcontainer/` likewise references a
   `pre-commit` install that has no config in this repo — there are no git hooks to satisfy.
+
+### Комментарии в коде
+
+Комментарий объясняет **почему**, а не **что**. Строка `// создаём массив` пересказывает код и
+тратит внимание читателя; ценность несут причина решения и внешнее ограничение — баг во внешнем
+API, лимит провайдера, требование бизнеса, сознательно выбранный «простой» вариант. Такой
+комментарий переживает границу сессии (контекст агента между запусками не сохраняется) и
+останавливает «улучшения»: exponential backoff вместо фиксированной задержки, batch покрупнее,
+«лишняя» проверка, parallel вместо sequential.
+
+- Пиши и проси комментарии формулировкой **«причины решений и ограничения, влияющие на
+  реализацию»** — просьба «добавь комментарии» по умолчанию даёт пересказ кода.
+- Сгенерированный комментарий — **черновик**: он может приписать коду мотивы, которых не было, а
+  неверный комментарий хуже отсутствующего. Сверяй с `git log`/`blame` и тестами, не додумывай.
+- Причина не излагается в 1–2 предложениях — это сигнал упростить код, а не писать эссе.
+- Язык кода и комментариев — английский (весь `src/`); русский живёт в UI-строках.
+- Чужой «почему»-комментарий при правке соседнего кода сохраняй: это реконструкция причины, а не
+  мусор. Устаревший — поправь по факту, осознанно.
+
+Приёмы, формулировки и существующие «почему» этого репозитория — `docs/agents/code-comments.md`.
 
 ## Deployment
 
@@ -238,6 +264,13 @@ if they get in the way.
 четырёх файлов. Это **не** обязательно модель из `opencode.jsonc` — там по-прежнему
 `mimo-v2.6-flash-free`, а в CI может стоять другая. Текущее значение смотри в настройках
 репозитория, не в коде.
+
+Бесплатный тир opencode блокируют и по IP: 2026-10-19 авторевью упало с `403 FreeTierError`
+(«free models aren't available from your current network») — GitHub-раннеру отказали, и
+модель из `OPENCODE_MODEL` была ни при чём. Лечится сменой значения переменной на другую
+рабочую бесплатную модель (список — `opencode models`, проверка — `opencode run -m <id> "ok"`);
+исправленную модель CI стоит держать рабочей и в `opencode.jsonc`, иначе она отвалится
+локально вместе с субагентами.
 
 | Файл | Событие | Что делает |
 |---|---|---|

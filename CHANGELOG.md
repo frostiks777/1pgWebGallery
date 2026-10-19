@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.0...v1.2.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **opencode:** resolve peer sessions via session.get, visible stream warning, smoke script ([#47](https://github.com/frostiks777/1pgWebGallery/issues/47) follow-up) ([254f5c0](https://github.com/frostiks777/1pgWebGallery/commit/254f5c0c4df39cf05d4e843562719b7f5b4f48d9))
+
+## [1.2.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.7...v1.2.0) (2026-10-19)
+
+
+### Features
+
+* **telegram:** make session notifications informative ([b7e5bb6](https://github.com/frostiks777/1pgWebGallery/commit/b7e5bb6dc184c7227f1654389831fed3235ae68b))
+* **telegram:** make session notifications informative ([0a4dab1](https://github.com/frostiks777/1pgWebGallery/commit/0a4dab1934ea4551ede95ec046e9fbb60226b8ed))
+
+
+### Bug Fixes
+
+* **opencode:** point subagents at a working free model ([3a5df67](https://github.com/frostiks777/1pgWebGallery/commit/3a5df678b24d9c8ceefd3e716067a5f236b34f09))
+* **opencode:** point subagents at a working free model ([df7804a](https://github.com/frostiks777/1pgWebGallery/commit/df7804a15c35745233f86080d7284cba7e2435de))
+
 ## [1.1.7](https://github.com/frostiks777/1pgWebGallery/compare/v1.1.6...v1.1.7) (2026-10-16)
 
 
