@@ -259,6 +259,13 @@ if they get in the way.
 `mimo-v2.6-flash-free`, а в CI может стоять другая. Текущее значение смотри в настройках
 репозитория, не в коде.
 
+Бесплатный тир opencode блокируют и по IP: 2026-10-19 авторевью упало с `403 FreeTierError`
+(«free models aren't available from your current network») — GitHub-раннеру отказали, и
+модель из `OPENCODE_MODEL` была ни при чём. Лечится сменой значения переменной на другую
+рабочую бесплатную модель (список — `opencode models`, проверка — `opencode run -m <id> "ok"`);
+исправленную модель CI стоит держать рабочей и в `opencode.jsonc`, иначе она отвалится
+локально вместе с субагентами.
+
 | Файл | Событие | Что делает |
 |---|---|---|
 | `opencode.yml` | `issue_comment` / `pull_request_review_comment` | ручной вызов: комментарий с `/oc` или `/opencode` |
