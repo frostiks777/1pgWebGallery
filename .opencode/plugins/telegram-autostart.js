@@ -6,8 +6,11 @@
 //   1. Make sure `node telegram-bot/bot.mjs` (long-polling getUpdates) is running,
 //      so questions asked from the phone get answered. Started detached, guarded
 //      by a pid file so N parallel opencode sessions don't start N bots.
-//   2. Notify on `session.idle` ("Агент закончил") and `session.error` ("Ошибка
-//      сессии"), rate-limited to one message per event type per minute.
+//   2. Notify on a finished / failed session, rate-limited to one message per
+//      session per event type per minute. The message is meant to be read on a
+//      phone: it carries the task, the worktree and branch, the last commit,
+//      the changed files, a quote of the agent's last answer, how long it ran
+//      and what it cost — not just "the agent finished".
 //
 // Gating:
 //   - No `telegram-bot/bot.mjs` or no `telegram-bot/.env`  → plugin does nothing.
@@ -168,6 +171,70 @@ function acquireLock(lockPath) {
   return false
 }
 
+// ── notification formatting ──────────────────────────────────────────────────
+// A phone screen is small and the user reads these in a hurry: every line
+// carries a fact, emoji stand in for the label, and nothing is truncated
+// silently — a cut-off line ends with "…".
+
+const truncate = (text, max) => {
+  const flat = String(text ?? "").replace(/\s+/g, " ").trim()
+  if (!flat) return undefined
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat
+}
+
+const formatDuration = (ms) => {
+  if (!Number.isFinite(ms) || ms <= 0) return undefined
+  const minutes = Math.round(ms / 60_000)
+  if (minutes < 1) return `${Math.max(1, Math.round(ms / 1000))} с`
+  if (minutes < 60) return `${minutes} мин`
+  return `${Math.floor(minutes / 60)} ч ${String(minutes % 60).padStart(2, "0")} мин`
+}
+
+const formatTokens = (n) => {
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(Math.round(n))
+}
+
+const formatCost = (usd) => {
+  if (!Number.isFinite(usd) || usd <= 0) return undefined
+  return usd < 1 ? `$${usd.toFixed(3)}` : `$${usd.toFixed(2)}`
+}
+
+// Русские числительные: 1 вызов / 2 вызова / 5 вызовов.
+const plural = (n, one, few, many) => {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
+  return many
+}
+
+// ── git snapshot of a worktree ───────────────────────────────────────────────
+
+function execIn(file, args, cwd) {
+  return new Promise((res) => {
+    execFile(file, args, { cwd, windowsHide: true, timeout: 10_000 }, (err, stdout) =>
+      res(err ? undefined : String(stdout)),
+    )
+  })
+}
+
+async function gitSummary(cwd) {
+  const [branch, commit, status] = await Promise.all([
+    execIn("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd),
+    execIn("git", ["log", "-1", "--pretty=format:%h %s"], cwd),
+    execIn("git", ["status", "--porcelain"], cwd),
+  ])
+  const files = String(status ?? "")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => line.slice(3).trim())
+    .filter(Boolean)
+  return { branch: branch?.trim(), commit: commit?.trim(), files }
+}
+
 // ── the plugin ───────────────────────────────────────────────────────────────
 
 const TelegramAutostartPlugin = {
@@ -199,13 +266,6 @@ const TelegramAutostartPlugin = {
 
     const bridgeEnv = parseEnvFile(envPath)
     const notificationsOn = (bridgeEnv.TELEGRAM_NOTIFY ?? "").toLowerCase() === "on"
-
-    // Several agents can be in flight at once, so every message has to say which
-    // one it came from — "Агент закончил" alone is useless when four of them land.
-    // v2 dropped the project name: `ctx.location.project` only carries
-    // { id, directory, canonical } (Location.Info), so the location's own folder
-    // name — the worktree name — is the label.
-    const agentLabel = directory ? basename(resolve(directory)) : undefined
 
     // ── 1. autostart the long-polling bridge ──────────────────────────────────
     if (bridgeEnv.TELEGRAM_BOT_TOKEN && bridgeEnv.TELEGRAM_ALLOWED_CHAT_ID) {
@@ -251,12 +311,16 @@ const TelegramAutostartPlugin = {
       return
     }
 
+    // The rate-limit key is the event type plus the session, NOT the message
+    // title: titles now carry the task name, so keying on them would defeat
+    // the anti-spam window. Per session, so two agents finishing side by side
+    // both get reported, while one chatty session still cannot spam.
     const lastSent = new Map()
 
-    const notify = (title, text) => {
+    const notify = (key, title, text) => {
       const now = Date.now()
-      if (now - (lastSent.get(title) ?? 0) < SPAM_WINDOW_MS) return
-      lastSent.set(title, now)
+      if (now - (lastSent.get(key) ?? 0) < SPAM_WINDOW_MS) return
+      lastSent.set(key, now)
       try {
         const child = runDetached("node", [join(bridgeDir, "notify.mjs"), title, text], bridgeDir)
         child.on("error", (err) => log("warn", `notify.mjs failed: ${err?.message}`))
@@ -279,10 +343,91 @@ const TelegramAutostartPlugin = {
       return message.length > 300 ? `${message.slice(0, 300)}…` : message
     }
 
-    const context = () => {
-      const stamp = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-      return agentLabel ? `${agentLabel} · ${stamp}` : stamp
+    // Everything below is best-effort: a session may belong to a worktree this
+    // plugin instance cannot read, and a missing piece must never cost the user
+    // the whole notification. Each part is collected on its own and skipped
+    // when it is unavailable.
+    const assistantDigest = async (sessionID) => {
+      let messages
+      try {
+        messages = await ctx.session.context({ sessionID })
+      } catch {
+        return undefined
+      }
+      if (!Array.isArray(messages)) return undefined
+      let tools = 0
+      let snippet
+      for (const message of messages) {
+        if (message?.type !== "assistant") continue
+        const parts = Array.isArray(message.content) ? message.content : []
+        for (const part of parts) {
+          if (part?.type === "tool") tools += 1
+        }
+        const text = parts
+          .filter((part) => part?.type === "text" && typeof part.text === "string")
+          .map((part) => part.text)
+          .join(" ")
+          .trim()
+        if (text) snippet = text
+      }
+      return { snippet, tools }
     }
+
+    // The body of the notification: what was being done, where, what changed
+    // and what it cost. One line per fact, emoji instead of a label word.
+    //
+    // Several agents can be in flight at once, so every message has to say which
+    // one it came from — "Агент закончил" alone is useless when four of them land.
+    // The label is the session's own worktree folder; v2 dropped the project
+    // name (`ctx.location.project` only carries { id, directory, canonical }).
+    const describe = async (sessionID) => {
+      let session
+      try {
+        session = await ctx.session.get({ sessionID })
+      } catch {
+        session = undefined
+      }
+      const dir = session?.location?.directory ?? directory
+      const lines = []
+
+      const task = truncate(session?.title, 150)
+      if (task) lines.push(`🏷 **${task}**`)
+
+      const git = await gitSummary(dir)
+      const place = [`📂 ${basename(resolve(dir))}`]
+      if (git.branch) place.push(`🌿 ${git.branch}`)
+      if (git.commit) place.push(`🔀 ${git.commit}`)
+      lines.push(place.join(" · "))
+
+      if (git.files.length) {
+        const shown = git.files.slice(0, 6).join(", ")
+        const more = git.files.length > 6 ? ` и ещё ${git.files.length - 6}` : ""
+        lines.push(`🧩 Изменено: ${git.files.length} ${plural(git.files.length, "файл", "файла", "файлов")} — ${shown}${more}`)
+      }
+
+      const digest = await assistantDigest(sessionID)
+      const quote = truncate(digest?.snippet, 400)
+      if (quote) lines.push(`📝 ${quote}`)
+
+      const footer = []
+      const created = session?.time?.created
+      const updated = session?.time?.updated
+      const duration = formatDuration(created && updated ? updated - created : undefined)
+      if (duration) footer.push(`⏱ ${duration}`)
+      if (session?.model?.providerID) footer.push(`🤖 ${session.model.providerID}/${session.model.id}`)
+      const tokens = session?.tokens
+      const total = tokens ? (tokens.input ?? 0) + (tokens.output ?? 0) + (tokens.reasoning ?? 0) : 0
+      const tokenText = formatTokens(total)
+      if (tokenText) footer.push(`🧠 ${tokenText} токенов`)
+      const cost = formatCost(session?.cost)
+      if (cost) footer.push(`💰 ${cost}`)
+      if (digest?.tools) footer.push(`🛠 ${digest.tools} ${plural(digest.tools, "вызов", "вызова", "вызовов")}`)
+      if (footer.length) lines.push(footer.join(" · "))
+
+      return lines
+    }
+
+    const stamp = () => new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
 
     // The subscription is the whole server stream, not just this location, and
     // several worktrees of this project run side by side. A peer finishing must
@@ -316,19 +461,25 @@ const TelegramAutostartPlugin = {
             continue
           }
           if (isPeer(event)) continue
+          const sessionID = event.data?.sessionID
           if (event.type === "session.execution.succeeded") {
-            notify("Агент закончил", context())
+            const lines = await describe(sessionID)
+            notify(`done:${sessionID}`, "✅ Агент закончил", `${lines.join("\n")}\n🕒 ${stamp()}`)
             continue
           }
           if (event.type === "session.execution.interrupted") {
             // "user" means they pressed Esc and are already looking at the
             // keyboard; the rest (shutdown, superseded, inactivity) still
             // mean the agent stopped without finishing.
-            if (event.data?.reason !== "user") notify("Агент закончил", context())
+            if (event.data?.reason === "user") continue
+            const lines = await describe(sessionID)
+            notify(`done:${sessionID}`, "⏸ Агент остановлен", `${lines.join("\n")}\n🕒 ${stamp()}`)
             continue
           }
           if (event.type === "session.execution.failed") {
-            notify("Ошибка сессии", `${describeError(event.data)}\n\n${context()}`)
+            const lines = await describe(sessionID)
+            const body = [`🚨 ${describeError(event.data)}`, ...lines, `🕒 ${stamp()}`].join("\n")
+            notify(`error:${sessionID}`, "❌ Ошибка сессии", body)
           }
         }
       } catch (err) {
