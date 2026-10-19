@@ -169,17 +169,51 @@
 
 - **Решение по PR #50 (ждёт Andrew).** Ветка `fix/opencode-v2-plugins`, worktree
   `C:\Users\Adm\.local\share\opencode\worktree\1d31e5\opencode-v2`. В `main` уже работает порт из
-  #42/#47; #50 доводит фильтр чужих worktree и добавляет смоук. CI и авторевью зелёные, блокеров
-  не было ни в одном из девяти раундов ревью. Мержить или закрыть — решает владелец; агент не мержит.
+  #42/#47; #50 доводит фильтр чужих worktree и добавляет смоук. Блокеров не было ни в одном из
+  **десяти** раундов ревью; раунды 1–10 закрыты по существу (проверено переигровкой мутациями).
+  Мержить или закрыть — решает владелец; агент не мержит.
   Раунд 9 нашёл **реальный баг в страховке**: лог первого вердикта жил только в `isPeerSession`, а
   свои сессии сеются веткой `session.created` — значит смена формы `location` заглушила бы все
   уведомления **без единой строки в логе** (вердикт `peer: true` не истекает). Исправлено: вердикт
   решается в одном месте (`decide`) и логируется оттуда. Там же: `SPAM_WINDOW_MS` стал
   переопределяемым, смоук ставит 0 и считает уведомления точно (иначе антиспам съедал второе
   сообщение и «гард на Esc» был непроверяем).
-  **Не закрыто из раунда 9:** дискриминация двух новых ассертов мутациями (гард Esc и `session.created`
-  с чужим каталогом) — код и смоук зелёные (10/10), но переигровку я не успел довести; описание PR
-  по-прежнему описывает старый диф и его надо переписать.
+- **PR #50, раунд 10 (2026-10-15 20:27) — 4 замечания; закрыты 2026-10-19.** Методика ревью:
+  «всё, что добавляет PR, должно дискриминироваться мутацией» — иначе механизм есть, а откатится
+  бесшромно. Мутации переигрываются локально (плагин+смоук в `%TEMP%\mut50*`, смоук резолвит
+  `.opencode/plugins/…` от каталога **скрипта**, так что копировать нужно в `mut50\.opencode\plugins\`
+  и `mut50\scripts\`):
+  - **1. Ветка `session.created` не покрыта — закрыто.** Добавлен ассерт
+    `["a peer that announced itself is resolved without a lookup", lookupsOf("ses_peer_known") === 0]`.
+    Переигровка: удалена ветка `session.created` из плагина → ассерт **падает** (остальные 11 зелёные).
+    Ценность ветки не в скорости: объявленный вердикт — единственный, кто переживает исчезновение
+    сессии с сервера (упала и удалена peer-сессия → `session.get` бросит → `where = null` →
+    fail-open → уведомление о **чужом** агенте с меткой нашего worktree).
+  - **2. Лог первого вердикта не покрыт — закрыто.** Смоук перехватывает `console.log` **до импорта**
+    плагина (`pluginLog`) и ассертит, что строка `session ses_own: … → this worktree` есть **ровно
+    одна**. Переигровка: убрана строка `log("info", …)` из `decide` → ассерт **падает**.
+  - **3. Висячая ссылка в `.agents/shared/checks.md` — закрыто.** Шаг 2а теперь называет файлы прямо:
+    «Run it whenever you touch `.opencode/plugins/telegram-autostart.js` or
+    `scripts/telegram-autostart-smoke.mjs`».
+  - **4. Описание PR устарело — закрыто:** переписано (фактические файлы, 12 ассертов, Evidence по
+    `bun run lint` / `bunx tsc --noEmit` / `bun run test:plugin-smoke`).
+  Смоук после правок: **12/12 PASS**, `bun run lint` — 0, `bunx tsc --noEmit` — 0.
+- **Чистка v1-плагинов opencode (2026-10-19, машина Andrew).** OpenCode обновлён до **v2.0.32**,
+  v1-плагины в нём не грузятся: `opencode plugin list` показывает ID «-», а в логе
+  `Plugin must export a default definition with an id and an effect or setup function
+  (Missing key at ["default"])`. Убраны:
+  - глобально в `~/.config/opencode/`: `opencode-notify.json`, `package.json` (там стояли
+    `opencode-notify@^0.3.1` и `@opencode-ai/plugin@1.18.31`), `package-lock.json`, `node_modules/`
+    и кэш `~/.cache/opencode/npm/opencode-notify@latest`. `opencode plugin remove opencode-notify`
+    **не подходит**: v1-плагин не был записан в конфиг, он подхватывался из установленного пакета;
+  - в проекте: `"plugin": ["opencode-notify"]` из `opencode.jsonc` (в `main` уже убран, PR #47);
+  - рабочий checkout `C:\My_projects_GIT\1pg_gall` стоял на устаревшей ветке `fix/keep-public-assets`
+    с **v1**-плагином → переключён на `main` и fast-forward до `origin/main` (`986b5ea`).
+    Теперь `opencode plugin list` в нём показывает `telegram-autostart  local  …` — плагин грузится,
+    и `node telegram-bot/notify.mjs` доставляет сообщение (проверено вручную: «[notify] ok»).
+  **Вывод для будущих сессий:** v1-хвосты opencode живут не только в репозитории, но и в
+  `~/.config/opencode/` и в кэше `~/.cache/opencode/npm/`. Проверка «жив ли плагин» —
+  `opencode plugin list` (ID ≠ «-») плюс запись в `~/.local/share/opencode/log/opencode.log`.
 - **Ручные шаги Andrew для агента в Actions:** добавить секрет `OPENCODE_API_KEY` и Variable
   `APP_URL` (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions;
   GitHub App `opencode-agent` уже установлен. Разрешение «Allow GitHub Actions to create and

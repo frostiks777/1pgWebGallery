@@ -128,6 +128,17 @@ const push = (event) => queue.push({ id: `evt_${queue.length}`, created: 0, data
 
 // ── scenario ─────────────────────────────────────────────────────────────────
 
+// The plugin reports the first verdict of every session through console.log.
+// That line is the only trace of a change in the location shape, so the run has
+// to see it: dropping the log from `decide` must fail the run, not pass it
+// silently. Capture before the plugin is imported, so nothing can slip past.
+const pluginLog = []
+const originalConsoleLog = console.log
+console.log = (...args) => {
+  pluginLog.push(args.map((arg) => String(arg)).join(" "))
+  originalConsoleLog(...args)
+}
+
 const { default: plugin } = await import(pathToFileURL(PLUGIN).href)
 const cleanup = await plugin.setup(ctx)
 // A second setup() in the same process must not start a second bot. It gets its
@@ -221,8 +232,15 @@ const lookupsOf = (id) => lookupsBySession.get(id) ?? 0
 if (typeof cleanup === "function") cleanup()
 if (typeof cleanupSecond === "function") cleanupSecond()
 
+// The scenario is over: stop recording the plugin's log lines before this
+// script starts printing its own report.
+console.log = originalConsoleLog
+
 out = readFileSync(log, "utf8")
 const count = (re) => (out.match(re) || []).length
+// The verdict line of our own session, logged once — the first verdict and only
+// the first one.
+const ownVerdict = pluginLog.filter((line) => line.includes("session ses_own:"))
 
 const results = [
   ["bot.mjs started exactly once", count(/bot-started/g) === 1],
@@ -252,6 +270,23 @@ const results = [
   [
     "positive verdict (peer) is never re-resolved",
     lookupsOf("ses_peer_old") === 1,
+  ],
+  // The session.created branch is what makes a peer that announced itself free:
+  // its verdict is seeded from the event payload, so the plugin never has to
+  // resolve it over the server. Without that branch the peer is still filtered
+  // (the server knows it), so the only difference is one extra lookup — and
+  // that difference has to be visible here, or the branch can be dropped
+  // without anyone noticing what it was for.
+  [
+    "a peer that announced itself is resolved without a lookup",
+    lookupsOf("ses_peer_known") === 0,
+  ],
+  // Every verdict is decided in one place and logged from there, exactly once
+  // per session. If that line is lost, a change of the location shape silences
+  // the notifications with no trace at all.
+  [
+    "the first verdict of a session is logged once",
+    ownVerdict.length === 1 && ownVerdict[0].includes("this worktree"),
   ],
 ]
 

@@ -73,8 +73,8 @@ bun run test:plugin-smoke
 that exercises the opencode v2 plugin API: event names, the `data` payload, peer-worktree
 filtering, and the single-bot guard. It needs no `node_modules`, no network and no
 credentials - it builds a throwaway fake bridge in the temp directory, so plain
-`node scripts/telegram-autostart-smoke.mjs` works too. Run it whenever `AGENTS.md` says the
-plugin must keep reporting `session.execution.*`.
+`node scripts/telegram-autostart-smoke.mjs` works too. Run it whenever you touch
+`.opencode/plugins/telegram-autostart.js` or `scripts/telegram-autostart-smoke.mjs`.
 
 ## 3. Build
 
