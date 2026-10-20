@@ -115,6 +115,14 @@ jobs:
           # Нужен ради `scripts/lighthouse-summary.mjs`; коммитить тут нечего.
           persist-credentials: false
 
+      - name: Set up Bun
+        # bun не предустановлен на ubuntu-latest, а запускать lighthouse надо через
+        # `bunx`: `devEngines.packageManager` требует bun, и `npx` в корне чекаута
+        # падает с EBADDEVENGINES. См. #36.
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Проверить адрес стенда
         env:
           APP_URL: ${{ vars.APP_URL }}
