@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.1...v1.2.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **audit:** install bun in the lighthouse job ([#68](https://github.com/frostiks777/1pgWebGallery/issues/68)) ([985840a](https://github.com/frostiks777/1pgWebGallery/commit/985840a69234ed0b828fa4e931136bbf52afa766))
+* **audit:** install bun in the lighthouse job ([#68](https://github.com/frostiks777/1pgWebGallery/issues/68)) ([1b57bbd](https://github.com/frostiks777/1pgWebGallery/commit/1b57bbd4d91c2370c8c507ec39ec593363a93633))
+
 ## [1.2.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.0...v1.2.1) (2026-10-19)
 
 
