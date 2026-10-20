@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile, videoMimeOf } from '@/lib/videoExt';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,6 +120,16 @@ function asNodeReadable(stream: unknown): Readable {
 
 export async function GET(request: NextRequest) {
   try {
+    // ── Auth check ─────────────────────────────────────────────────────────
+    if (isAuthRequired() && !validateAuthCookie(request)) {
+      return new NextResponse(null, {
+        status: 403,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Cache': 'BLOCKED',
+        },
+      });
+    }
     const { searchParams } = new URL(request.url);
     const rawPath = searchParams.get('path');
     if (!rawPath) return NextResponse.json({ error: 'Missing path' }, { status: 400 });
