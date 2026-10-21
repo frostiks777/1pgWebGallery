@@ -356,8 +356,10 @@ Keep messages short, in Russian, no secrets.
 - **Task routing (hybrid):** small, mechanical work → `ai/inbox.md` → `ai/tasks/` (see
   `## AI-assisted development cycle`). Large features and bugs, or anything touching the public
   API, top-level UI behavior, or the `.data` format → GitHub Issue first (`gh issue create`,
-  labels from `docs/agents/triage-labels.md`); put `(#NN)` in the commit message and close the
-  issue after pushing. Single-line mechanical fixes may skip both.
+  labels from `docs/agents/triage-labels.md`); put `(#NN)` in the commit message as a
+  cross-reference and put `Closes #NN` on its own line in the PR body — GitHub closes the
+  issue when the PR is merged, and shows the PR as linked on the issue. `(#NN)` alone never
+  closes anything. Single-line mechanical fixes may skip both.
 - **One issue, one change.** Once a plan is approved, split it into **atomic issues** before
   writing any code: one issue per independently verifiable change, then implement them one at
   a time. A plan phase or a "scope" is not a work unit — it is an ordering. Bundling a whole
@@ -365,7 +367,7 @@ Keep messages short, in Russian, no secrets.
   blockers that only surfaced as #74, after the merge.
   An atomic issue states one sentence of "what changes", one behaviour, and a check that can
   go red. If the work grows past the issue's stated scope, stop and open a follow-up issue
-  instead of widening the PR. One PR closes one issue (`(#NN)` in the commit).
+  instead of widening the PR. One PR closes one issue (`Closes #NN` in the PR body).
 - Run the checks from `.agents/shared/checks.md` before committing; a red check caused by your
   diff means the task is not done.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`); never commit `package-lock.json`
