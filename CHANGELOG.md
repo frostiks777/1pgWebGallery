@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.4](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.3...v1.2.4) (2026-10-21)
+
+
+### Bug Fixes
+
+* **audit:** drop the stale 'e2e not run locally' claim ([#35](https://github.com/frostiks777/1pgWebGallery/issues/35)) ([c1b3342](https://github.com/frostiks777/1pgWebGallery/commit/c1b3342581c0fa7db77845bcaacbaacdaaf9a6a1))
+* **audit:** аудит больше не открывает PR — отчёт вне git, токен раннера ([#80](https://github.com/frostiks777/1pgWebGallery/issues/80)) ([552dcde](https://github.com/frostiks777/1pgWebGallery/commit/552dcde0044816c2cff76d68a4413c13a1e98f80))
+* **audit:** аудит больше не открывает PR — отчёт вне git, токен раннера ([#80](https://github.com/frostiks777/1pgWebGallery/issues/80)) ([22ef1e6](https://github.com/frostiks777/1pgWebGallery/commit/22ef1e607583a986108f2590b845f42cc45717c8))
+
 ## [1.2.3](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.2...v1.2.3) (2026-10-21)
 
 
