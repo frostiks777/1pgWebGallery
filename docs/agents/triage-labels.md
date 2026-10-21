@@ -24,7 +24,7 @@ Besides the five triage roles above, issues carry GitHub's default type labels:
 | `enhancement` | Новое поведение/улучшение                                     |
 | `documentation` | Правки доков и `AGENTS.md`/`MEMORY.md`                       |
 
-Правило из `AGENTS.md`: дефекты — с меткой `bug`; в коммит-сообщении указывается номер issue (`(#NN)`), после пуша issue закрывается. Метки `chore` в репозитории нет, поэтому `gh issue create --label chore` падает — создавай без метки и описывай суть в теле. Действующий набор меток всегда можно посмотреть так:
+Правило из `AGENTS.md`: дефекты — с меткой `bug`; номер issue указывается в коммит-сообщении как `(#NN)` (перекрёстная ссылка), а закрывает issue closing-ключевое слово `Closes #NN` в теле PR — GitHub закрывает issue сам при мержаже. Метки `chore` в репозитории нет, поэтому `gh issue create --label chore` падает — создавай без метки и описывай суть в теле. Действующий набор меток всегда можно посмотреть так:
 
 ```bash
 gh label list
