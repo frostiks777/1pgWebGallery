@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { pipeline } from 'stream/promises';
 import type { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
 import {
   hasFfmpeg,
@@ -409,6 +410,20 @@ async function fetchVideoToFile(photo: string, destPath: string): Promise<void> 
 
 export async function GET(request: NextRequest) {
   try {
+    // ── Auth check ─────────────────────────────────────────────────────────
+    if (isAuthRequired() && !validateAuthCookie(request)) {
+      const placeholder = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAD0lEQVQImWNgoBMAAABoMZjDRQAAAAASUVORK5CYII=',
+        'base64',
+      );
+      return new NextResponse(placeholder, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Cache': 'BLOCKED',
+        },
+      });
+    }
     const { searchParams } = new URL(request.url);
     const rawPath   = searchParams.get('path');
     const sizeParam = searchParams.get('size') || 'medium';
