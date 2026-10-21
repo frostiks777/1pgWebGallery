@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.2...v1.2.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deploy:** cp -r public/. — public больше не вкладывается в release/public/public ([#37](https://github.com/frostiks777/1pgWebGallery/issues/37)) ([71a7da4](https://github.com/frostiks777/1pgWebGallery/commit/71a7da4ae5b0f1cd53fb52db5d14598a1335cf4f))
+
 ## [1.2.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.1...v1.2.2) (2026-10-20)
 
 
