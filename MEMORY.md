@@ -1,6 +1,8 @@
 # MEMORY.md — Состояние проекта «Photo Gallery»
 
-> Дата последнего обновления: 2026-10-19 (baseline перечитан фактическим прогоном 2026-10-15:
+> Дата последнего обновления: 2026-10-22 (2026-10-22: восстановлен SSH-доступ к проду —
+> новый ключ `~/.ssh/id_ed25519_1pg_prod`, подробности в «Что сделано» и «Грабли»).
+> 2026-10-19 (baseline перечитан фактическим прогоном 2026-10-15:
 > eslint/tsc чисты, e2e локально зелёный, `continue-on-error` у шага Lint в `ci.yml` снят).
 > 2026-10-15: **bun теперь обязателен.** `package.json` получил
 > `devEngines.packageManager = { name: "bun", onFail: "error" }`, поэтому `npm install`,
@@ -276,6 +278,14 @@ a11y ≥ 90, perf ≥ 70.
 - Демо-режим (без `WEBDAV_*`) — дефолт checkout и режим smoke-тестов.
 - Прод: https://ap-p-g.duckdns.org/ — Ubuntu, ~800MB RAM, 1 CPU. Сервер **никогда** не
   запускает `next build`; сборка — на раннере GitHub Actions (`deploy.yml`) + rsync.
+- SSH к проду: `pgagent@95.81.124.37:22333` (порт 22 закрыт), хост `vds2952713.my-ihor.ru`.
+  Ключ агента — `~/.ssh/id_ed25519_1pg_prod`
+  (`SHA256:cL518egbXhvzx9pRjQ39iXnKYj0/hUglh+t9PydP/2E`), он прописан и в
+  `/home/pgagent/.ssh/authorized_keys`, и в `/root/.ssh/authorized_keys` (2026-10-22).
+  Ключи владельца (ноутбук) в `authorized_keys` `pgagent` сохранены: `1pg-agent-readonly`
+  (ed25519) и `adm@PC-189` (rsa) — вход с ноутбука работает как раньше. Старый
+  `~/.ssh/id_rsa`, которым агент ходил 2026-10-14, на устройстве утрачен.
+  У `pgagent` в sudoers — только `NOPASSWD: /usr/local/sbin/pg-cleanup`.
 - AI-цикл: `ai/inbox.md` → `.agents/skills/{process-inbox,perform-task,continue}` →
   `ai/tasks/<date>/<slug>/`. Крупные фичи и баги — GitHub Issues (гибрид, см.
   `docs/agents/issue-tracker.md`). Процессные скиллы: `interview → plan → ponytail →
@@ -302,6 +312,19 @@ a11y ≥ 90, perf ≥ 70.
   запускать инструменты напрямую через `bun run` / `bunx` (см. `AGENTS.md` → «Commands»).
 
 ## Что сделано (последние изменения)
+
+- 2026-10-22: **восстановлен SSH-доступ к проду.** Ключ `~/.ssh/id_rsa`, которым агент
+  ходил 2026-10-14, на устройстве утрачен (в `authorized_keys` остались только приватные
+  ключи владельца с ноутбука — `1pg-agent-readonly`, `adm@PC-189`). Сгенерирован новый
+  `~/.ssh/id_ed25519_1pg_prod` (`SHA256:cL518egbXhvzx9pRjQ39iXnKYj0/hUglh+t9PydP/2E`);
+  он прописан в `/home/pgagent/.ssh/authorized_keys` (владелец `pgagent`, 700/600) и в
+  `/root/.ssh/authorized_keys`. Ключи владельца не тронуты. Проверено: `ssh prod-1pg` →
+  `pgagent@vds2952713.my-ihor.ru`, `ssh -i ~/.ssh/id_ed25519_1pg_prod -p 22333 root@…` → `root`.
+  Из `/root/.ssh/authorized_keys` убрана битая копия этого же ключа (потерянный `/` в base64 —
+  `…vcwbhG5…` вместо `…vcw/bhG5…`); бэкап: `/root/.ssh/authorized_keys.bak.1792616445`.
+  Алиас `prod-1pg` (Host `95.81.124.37:22333`, User `pgagent`) есть в `~/.ssh/config`
+  устройства. Из прод-конфигов изменены только `authorized_keys` (root и pgagent); sudoers,
+  fail2ban, sshd_config, nginx и код не трогались.
 
 - 2026-10-15: **порт плагина Telegram-моста на plugin API opencode 2** (#42 → #47 → #50).
   opencode обновлён до **v2.0.29**, а v1-плагины в v2 **не грузятся вообще** — загрузчик
@@ -411,6 +434,14 @@ a11y ≥ 90, perf ≥ 70.
   обязана пропускаться (fail-open), иначе уведомления замолчат совсем.
 
 ## Грабли, стоившие времени (2026-10-15)
+
+- **fail2ban на sshd: `maxretry 5`, `bantime 10m`, `findtime 10m`** — и бан выглядит как
+  `Connection refused`, а не как таймаут (в jail стоит REJECT, а не DROP), поэтому «порт упал»
+  легко спутать с «sshd сломался». Проверять это надо так: `ping`/`curl` по 80/443 живы, а
+  `/dev/tcp/<host>/22333` отдаёт RST → почти наверняка бан по IP, а не падение sshd.
+  Причина в моём случае: серия параллельных попыток входа (перебор пары user×key) превысила
+  `maxretry`. Правило: к прод-SSH — **одна попытка за раз**, без параллельного перебора.
+  Снять бан с консоли: `sudo fail2ban-client set sshd unbanip <IP>`.
 
 - **PR-воркфлоу не запускаются, пока ветка конфликтует с `main`.** GitHub не создаёт merge ref,
   и на коммите оказывается **0 check-suites** — при этом `gh pr checks` пишет «no checks reported»,
