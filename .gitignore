@@ -68,6 +68,13 @@ upload/
 # CI/CD deploy target on the server (rsync'd standalone build, not source)
 /release/
 
+# Отчёты регулярного аудита — результат прогона, а не исходники. Пока эти файлы
+# были отслеживаемыми, скачивание артефакта в рабочее дерево делало его грязным,
+# и инфраструктура opencode открывала PR с перезаписанным отчётом на каждом
+# прогоне, даже когда находок не было (#80). История замеров живёт в артефактах
+# (30 дней) и в сводке прогона.
+audit-report/
+
 # AI dev cycle (.agents/skills) — scratch run evidence, never committed
 .agents-runs/
 # The blanket `skills/` rule above (project specific) would otherwise also hide our
