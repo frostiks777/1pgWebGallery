@@ -341,6 +341,13 @@ a11y ≥ 90, perf ≥ 70.
   Заведены #91 (nginx cache key), #92 (`generate` без пароля/лимита), #93 (порог SEO
   против `noindex`). Baseline перечитан: lint/tsc 0, build успех, e2e 1 passed + 2 flaky
   (#13), plugin-smoke 12/12. Кода не менялось.
+- 2026-10-26: **уборка #73.** Удалены 8 рабочих копий (7 влитых + `hevc-video-findings`,
+  содержимое — в #52) и мусор: `.next`, `package-lock.json`, `tsconfig.tsbuildinfo`,
+  `.agents-runs`, `.opencode/node_modules`, `.opencode/package-lock.json`, `test-results`.
+  Освобождено ≈2,4 ГБ. `node_modules` основного checkout оставлен (переустановка —
+  `bun install --frozen-lockfile`); `Obsidian_Theme/` оставлен как визуальный референс;
+  `audit-report/` уже вне git после #85. Фикс #68 в `main` как `1b57bbd` (PR #77), поэтому
+  `fix/lockfile-drift` больше не нужна (локальная ветка осталась, worktree удалён).
 - 2026-10-21: **авторизация файлов (#72, PR #75).** `/api/images` и `/api/video-stream`
   проверяют cookie галереи; анонимный `/api/images` получает 1×1 placeholder с
   `Cache-Control: no-store` (nginx его не кэширует). Остаток — ключ кэша nginx (#91).
