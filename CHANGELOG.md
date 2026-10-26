@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.5](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.4...v1.2.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **gallery:** повторять 503 при загрузке миниатюр ([#98](https://github.com/frostiks777/1pgWebGallery/issues/98)) ([b1c1d59](https://github.com/frostiks777/1pgWebGallery/commit/b1c1d590ba169cd0a73f6a2e6040efd07a06d958))
+* **gallery:** повторять 503 при загрузке миниатюр ([#98](https://github.com/frostiks777/1pgWebGallery/issues/98)) ([4a811d7](https://github.com/frostiks777/1pgWebGallery/commit/4a811d7fee9007b604d6d6c188a33746dd374543))
+* **images:** резервировать слот постера до await, один путь для демо и WebDAV ([#99](https://github.com/frostiks777/1pgWebGallery/issues/99)) ([e737961](https://github.com/frostiks777/1pgWebGallery/commit/e73796118013a4948944db8634f22e2a136df93e))
+* **images:** резервировать слот постера до await, один путь для демо и WebDAV ([#99](https://github.com/frostiks777/1pgWebGallery/issues/99)) ([8da62b5](https://github.com/frostiks777/1pgWebGallery/commit/8da62b5c84dbfee0a6822843d5be291e5fb5d55f))
+* **nginx:** cookie в cache key миниатюр ([#91](https://github.com/frostiks777/1pgWebGallery/issues/91)) ([2e98353](https://github.com/frostiks777/1pgWebGallery/commit/2e983532410b338a3c519ee127ce9c8c5b2c154b))
+* **nginx:** извлекать cookie gallery-auth через map ([#91](https://github.com/frostiks777/1pgWebGallery/issues/91)) ([3580f3d](https://github.com/frostiks777/1pgWebGallery/commit/3580f3db197b8e7db3118df30e1baf88a2674dca))
+* **nginx:** не отдавать авторизованные миниатюры из кэша анонимному клиенту ([#91](https://github.com/frostiks777/1pgWebGallery/issues/91)) ([f764c20](https://github.com/frostiks777/1pgWebGallery/commit/f764c20c73bb623e0e4f584e67ff180aaa118618))
+* **nginx:** не отдавать авторизованные миниатюры из кэша анонимному клиенту ([#91](https://github.com/frostiks777/1pgWebGallery/issues/91)) ([c9a010b](https://github.com/frostiks777/1pgWebGallery/commit/c9a010be943bbbff6db1f4cac879501dbf9f5517))
+
 ## [1.2.4](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.3...v1.2.4) (2026-10-21)
 
 
