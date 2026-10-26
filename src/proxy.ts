@@ -78,12 +78,10 @@ export function proxy(req: NextRequest) {
   // Exempt on purpose: one gallery page pulls dozens of thumbnails through this
   // route, so a per-IP budget trips on ordinary browsing — the "Too Many
   // Requests" failure 24be971 fixed (same commit raised the default 300 -> 3000).
-  // Note the prefix match also covers `POST /api/images/generate`; the auth check
-  // below still runs for every path. Whether that coverage is wanted is an open
-  // question — evidence in `MEMORY.md`, «Открытые вопросы».
-  const isImageRequest = req.nextUrl.pathname.startsWith('/api/images');
+  // Only GET requests for thumbnails are exempt; POST (including generate) is rate-limited.
+  const isImageGetRequest = req.nextUrl.pathname.startsWith('/api/images') && req.method === 'GET';
 
-  if (!isImageRequest && !checkRateLimit(ip)) {
+  if (!isImageGetRequest && !checkRateLimit(ip)) {
     return NextResponse.json(
       { error: 'Too Many Requests' },
       { status: 429, headers: { 'Retry-After': '60' } },

@@ -10,6 +10,7 @@ import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
 import { hasFfmpeg, withFfmpegSlotTracked, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -470,6 +471,15 @@ export async function POST(request: NextRequest) {
       ...status,
       progress: status.total > 0 ? Math.round((status.done / status.total) * 100) : 0,
     });
+  }
+
+  // Require gallery cookie when WEBDAV_LOGON_PASSWORD is set.
+  // Without it, reject before any heavy work runs.
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } },
+    );
   }
 
   const body = await request.json().catch(() => ({})) as { path?: string };
