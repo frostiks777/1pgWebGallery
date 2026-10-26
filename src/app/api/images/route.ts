@@ -11,8 +11,8 @@ import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
 import {
   hasFfmpeg,
-  isFfmpegSlotBusy,
-  withFfmpegSlotTracked,
+  tryReservePosterSlot,
+  withFfmpegSlot,
   extractVideoPosterBuffer,
   extractVideoPosterFromFile,
 } from '@/lib/ffmpeg';
@@ -466,12 +466,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'ffmpeg not available on server' }, { status: 501 });
     }
 
-    // Never let poster work queue up. The old code awaited an unbounded queue
-    // while every waiting entry had already pulled its entire source video off
-    // WebDAV into the heap; one visitor opening a folder of videos was enough
-    // to pin the single core for hours (MEMORY.md, 2026-10-16). One poster at
-    // a time, everyone else gets a cheap "try again" that the client retries.
-    if (isVideo && isFfmpegSlotBusy()) {
+    // Never let poster work queue up. The check was previously a flag that got
+    // set *inside* the already-queued job, so every request arriving in the same
+    // tick passed it and queued anyway; the reservation is taken synchronously,
+    // before any await, which is what actually enforces "one poster at a time"
+    // (issue #99). Everyone else gets a cheap "try again" that the client
+    // retries (#98).
+    const releasePosterSlot = isVideo ? tryReservePosterSlot() : null;
+    if (isVideo && !releasePosterSlot) {
       return NextResponse.json(
         { error: 'Poster generation busy' },
         { status: 503, headers: { 'Retry-After': '5' } },
@@ -484,62 +486,72 @@ export async function GET(request: NextRequest) {
 
     // ── 3. Fetch original ───────────────────────────────────────────────────
     let original: Buffer;
-    if (isDemo) {
-      const fp = safePublicPath(decoded);
-      if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      if (!fs.existsSync(/*turbopackIgnore: true*/ fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      if (isVideo && fs.statSync(/*turbopackIgnore: true*/ fp).size > MAX_VIDEO_BYTES) {
-        return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
-      }
-      original = fs.readFileSync(/*turbopackIgnore: true*/ fp);
-    } else {
-      // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
-      const photosDir = process.env.PHOTOS_DIR || '/Photos';
-      const normalizedPhotosDir = photosDir.endsWith('/') ? photosDir : photosDir + '/';
-      if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      }
-      if (isVideo) {
-        const vsize = await statSize(decoded);
-        if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
+    // Every early return below (404/413/500) has to hand the poster slot back —
+    // otherwise one bad request would keep every later video answering 503.
+    try {
+      if (isDemo) {
+        const fp = safePublicPath(decoded);
+        if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (!fs.existsSync(/*turbopackIgnore: true*/ fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        if (isVideo && fs.statSync(/*turbopackIgnore: true*/ fp).size > MAX_VIDEO_BYTES) {
           return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
         }
-        // Stream to a scratch file, take one frame, delete the file — all
-        // inside the single global ffmpeg slot, so at most one source video
-        // exists on this box at any moment. See fetchVideoToFile for why this
-        // is not fetchOriginal.
-        const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vsrc-'));
-        const videoPath = path.join(workDir, 'src.mp4');
-        let poster: Buffer;
-        try {
-          poster = await withFfmpegSlotTracked(async () => {
-            await fetchVideoToFile(decoded, videoPath);
-            return extractVideoPosterFromFile(videoPath, { width: posterWidth });
-          });
-        } catch (err) {
-          console.error('[Images] video poster extraction failed:', err);
-          return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
-        } finally {
-          fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
-        }
-        original = poster;
+        original = fs.readFileSync(/*turbopackIgnore: true*/ fp);
       } else {
-        try { original = await fetchOriginal(decoded); }
-        catch (err) {
-          console.error('[Images] fetch failed:', err);
-          return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+        // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
+        const photosDir = process.env.PHOTOS_DIR || '/Photos';
+        const normalizedPhotosDir = photosDir.endsWith('/') ? photosDir : photosDir + '/';
+        if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
+          return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        }
+        if (isVideo) {
+          const vsize = await statSize(decoded);
+          if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
+            return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+          }
+          // Stream to a scratch file, take one frame, delete the file — all
+          // inside the single global ffmpeg slot, so at most one source video
+          // exists on this box at any moment. See fetchVideoToFile for why this
+          // is not fetchOriginal.
+          const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vsrc-'));
+          const videoPath = path.join(workDir, 'src.mp4');
+          let poster: Buffer;
+          try {
+            poster = await withFfmpegSlot(async () => {
+              await fetchVideoToFile(decoded, videoPath);
+              return extractVideoPosterFromFile(videoPath, { width: posterWidth });
+            });
+          } catch (err) {
+            console.error('[Images] video poster extraction failed:', err);
+            return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
+          } finally {
+            fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+          }
+          original = poster;
+        } else {
+          try { original = await fetchOriginal(decoded); }
+          catch (err) {
+            console.error('[Images] fetch failed:', err);
+            return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+          }
         }
       }
-    }
 
-    // Demo-mode videos are small local files, so the Buffer path is still fine
-    // there; extractVideoPosterBuffer takes the ffmpeg slot internally.
-    if (isVideo && isDemo) {
-      try { original = await extractVideoPosterBuffer(original, { width: posterWidth }); }
-      catch (err) {
-        console.error('[Images] poster extraction failed:', err);
-        return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
+      // Demo-mode videos are small local files, so the Buffer path is still fine
+      // there — but the extraction still runs inside the ffmpeg queue, so the
+      // demo mode stops being the one path where the busy check never fires.
+      if (isVideo && isDemo) {
+        try {
+          original = await withFfmpegSlot(() =>
+            extractVideoPosterBuffer(original, { width: posterWidth }),
+          );
+        } catch (err) {
+          console.error('[Images] poster extraction failed:', err);
+          return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
+        }
       }
+    } finally {
+      releasePosterSlot?.();
     }
 
     // ── 4. Optimise ─────────────────────────────────────────────────────────

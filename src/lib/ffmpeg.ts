@@ -110,28 +110,33 @@ export function withFfmpegSlot<T>(job: () => Promise<T>): Promise<T> {
   return queued;
 }
 
-let slotBusy = false;
+let posterJobsPending = 0;
 
 /**
- * True while a poster job holds the slot. Callers use this to REJECT rather
- * than queue: an unbounded queue is what turned one unlucky video open into
- * hours of pinned CPU, because every queued entry had already pulled its
- * whole source file off WebDAV and was holding it in memory while it waited.
+ * Reserves the poster slot, or reports that one is already held/waited for.
+ *
+ * Callers use this to REJECT rather than queue: an unbounded queue is what
+ * turned one unlucky video open into hours of pinned CPU, because every queued
+ * entry had already pulled its whole source file off WebDAV and was holding it
+ * in memory while it waited.
+ *
+ * Reserved **synchronously**, before any await, and only then does the work
+ * start. The previous flag was set inside the already-queued job, so N requests
+ * arriving in the same tick all saw `busy = false`, all passed the check and all
+ * queued — the unbounded queue survived the fix that was meant to remove it
+ * (issue #99). A `finally`-released counter keeps that from happening again.
+ *
+ * Returns a release function on success, `null` when the slot is taken.
  */
-export function isFfmpegSlotBusy(): boolean {
-  return slotBusy;
-}
-
-/** Runs `job` in the single global ffmpeg slot, tracking busy state for `isFfmpegSlotBusy`. */
-export function withFfmpegSlotTracked<T>(job: () => Promise<T>): Promise<T> {
-  return withFfmpegSlot(async () => {
-    slotBusy = true;
-    try {
-      return await job();
-    } finally {
-      slotBusy = false;
-    }
-  });
+export function tryReservePosterSlot(): (() => void) | null {
+  if (posterJobsPending > 0) return null;
+  posterJobsPending += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    posterJobsPending -= 1;
+  };
 }
 
 /**
@@ -203,6 +208,10 @@ export async function extractFrameAt(
  *
  * Demo-mode only, where sources are small local files. WebDAV videos must go
  * through {@link extractVideoPosterFromFile} instead — see the note there.
+ *
+ * Takes no slot of its own: the caller must hold the poster reservation and run
+ * this inside {@link withFfmpegSlot}, otherwise the demo path bypasses the
+ * serialisation the WebDAV path gets (issue #99).
  */
 export async function extractVideoPosterBuffer(
   videoBuf: Buffer,
@@ -213,11 +222,9 @@ export async function extractVideoPosterBuffer(
   const frameFile = path.join(workDir, 'poster.jpg');
   try {
     await fsp.writeFile(videoFile, videoBuf);
-    await withFfmpegSlot(async () => {
-      await extractFrameAt(videoFile, frameFile, POSTER_AT_SECONDS, {
-        quality: '2',
-        width: Math.min(opts.width ?? POSTER_MAX_WIDTH, POSTER_MAX_WIDTH),
-      });
+    await extractFrameAt(videoFile, frameFile, POSTER_AT_SECONDS, {
+      quality: '2',
+      width: Math.min(opts.width ?? POSTER_MAX_WIDTH, POSTER_MAX_WIDTH),
     });
     return await fsp.readFile(frameFile);
   } finally {
@@ -235,8 +242,9 @@ export async function extractVideoPosterBuffer(
  * 19k–43k pages/s, and nginx's single worker starved until TLS handshakes
  * stopped completing, which is what made the whole site look down.
  *
- * Callers must keep this inside {@link withFfmpegSlotTracked} and respect
- * {@link isFfmpegSlotBusy}, so exactly one source video exists per box.
+ * Callers must hold the poster reservation ({@link tryReservePosterSlot}) and
+ * call this inside {@link withFfmpegSlot}, so exactly one source video exists
+ * per box at any moment.
  */
 export async function extractVideoPosterFromFile(
   videoPath: string,
