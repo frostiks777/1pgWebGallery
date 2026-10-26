@@ -9,7 +9,7 @@ import type { Readable } from 'stream';
 import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
-import { hasFfmpeg, withFfmpegSlotTracked, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
+import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -33,7 +33,7 @@ async function videoPosterViaFile(
   const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vgen-'));
   const videoPath = path.join(workDir, 'src.mp4');
   try {
-    return await withFfmpegSlotTracked(async () => {
+    return await withFfmpegSlot(async () => {
       const src = client.createReadStream(p) as unknown as Readable;
       await pipeline(src, fs.createWriteStream(videoPath));
       return extractVideoPosterFromFile(videoPath, { width });
@@ -338,7 +338,10 @@ async function runGeneration(scopePath?: string) {
 
           // Demo mode (no WebDAV): small local files, the Buffer path is fine.
           if (!client && isVideoFile(photoPath)) {
-            original = await extractVideoPosterBuffer(original);
+            // The slot is taken here, not inside the helper — one path for both
+            // modes, so a demo batch can't run ffmpeg in parallel with a poster
+            // request (#99).
+            original = await withFfmpegSlot(() => extractVideoPosterBuffer(original));
           }
 
 
