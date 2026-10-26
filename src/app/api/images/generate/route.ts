@@ -336,10 +336,14 @@ async function runGeneration(scopePath?: string) {
             original = fs.readFileSync(fp);
           }
 
-          // Demo mode (no WebDAV): small local files, the Buffer path is fine.
-          if (!client && isVideoFile(photoPath)) {
-            original = await extractVideoPosterBuffer(original);
-          }
+// Demo mode (no WebDAV): small local files, the Buffer path is fine.
+  // extractVideoPosterBuffer no longer takes the slot internally — caller
+  // must wrap in withFfmpegSlotTracked.
+  if (!client && isVideoFile(photoPath)) {
+    original = await withFfmpegSlotTracked(async () => {
+      original = await extractVideoPosterBuffer(original);
+    });
+  }
 
 
           const result = await optimizeImage(original, size);

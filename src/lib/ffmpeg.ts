@@ -110,26 +110,29 @@ export function withFfmpegSlot<T>(job: () => Promise<T>): Promise<T> {
   return queued;
 }
 
-let slotBusy = false;
+let pending = 0;
 
 /**
- * True while a poster job holds the slot. Callers use this to REJECT rather
- * than queue: an unbounded queue is what turned one unlucky video open into
- * hours of pinned CPU, because every queued entry had already pulled its
- * whole source file off WebDAV and was holding it in memory while it waited.
+ * True while a poster job holds the slot (tracked by the pending counter).
+ * Callers use this to REJECT rather than queue: an unbounded queue is what
+ * turned one unlucky video open into hours of pinned CPU, because every queued
+ * entry had already pulled its whole source file off WebDAV into the heap;
+ * one visitor opening a folder of videos was enough to pin the single core for
+ * hours (MEMORY.md, 2026-10-16). One poster at a time, everyone else gets a
+ * cheap "try again" that the client retries.
  */
-export function isFfmpegSlotBusy(): boolean {
-  return slotBusy;
+export function isFfmpegSlotPending(): boolean {
+  return pending > 0;
 }
 
-/** Runs `job` in the single global ffmpeg slot, tracking busy state for `isFfmpegSlotBusy`. */
+/** Runs `job` in the single global ffmpeg slot, tracking pending count for `isFfmpegSlotPending`. */
 export function withFfmpegSlotTracked<T>(job: () => Promise<T>): Promise<T> {
+  pending++;
   return withFfmpegSlot(async () => {
-    slotBusy = true;
     try {
       return await job();
     } finally {
-      slotBusy = false;
+      pending--;
     }
   });
 }
@@ -213,11 +216,9 @@ export async function extractVideoPosterBuffer(
   const frameFile = path.join(workDir, 'poster.jpg');
   try {
     await fsp.writeFile(videoFile, videoBuf);
-    await withFfmpegSlot(async () => {
-      await extractFrameAt(videoFile, frameFile, POSTER_AT_SECONDS, {
-        quality: '2',
-        width: Math.min(opts.width ?? POSTER_MAX_WIDTH, POSTER_MAX_WIDTH),
-      });
+    await extractFrameAt(videoFile, frameFile, POSTER_AT_SECONDS, {
+      quality: '2',
+      width: Math.min(opts.width ?? POSTER_MAX_WIDTH, POSTER_MAX_WIDTH),
     });
     return await fsp.readFile(frameFile);
   } finally {
@@ -236,7 +237,7 @@ export async function extractVideoPosterBuffer(
  * stopped completing, which is what made the whole site look down.
  *
  * Callers must keep this inside {@link withFfmpegSlotTracked} and respect
- * {@link isFfmpegSlotBusy}, so exactly one source video exists per box.
+ * {@link isFfmpegSlotPending}, so exactly one source video exists per box.
  */
 export async function extractVideoPosterFromFile(
   videoPath: string,

@@ -11,7 +11,7 @@ import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
 import {
   hasFfmpeg,
-  isFfmpegSlotBusy,
+  isFfmpegSlotPending,
   withFfmpegSlotTracked,
   extractVideoPosterBuffer,
   extractVideoPosterFromFile,
@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
     // WebDAV into the heap; one visitor opening a folder of videos was enough
     // to pin the single core for hours (MEMORY.md, 2026-10-16). One poster at
     // a time, everyone else gets a cheap "try again" that the client retries.
-    if (isVideo && isFfmpegSlotBusy()) {
+    if (isVideo && isFfmpegSlotPending()) {
       return NextResponse.json(
         { error: 'Poster generation busy' },
         { status: 503, headers: { 'Retry-After': '5' } },
@@ -533,9 +533,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Demo-mode videos are small local files, so the Buffer path is still fine
-    // there; extractVideoPosterBuffer takes the ffmpeg slot internally.
+    // there; extractVideoPosterBuffer no longer takes the slot internally —
+    // caller must wrap in withFfmpegSlotTracked.
     if (isVideo && isDemo) {
-      try { original = await extractVideoPosterBuffer(original, { width: posterWidth }); }
+      try { original = await withFfmpegSlotTracked(async () => {
+        original = await extractVideoPosterBuffer(original, { width: posterWidth });
+      }); }
       catch (err) {
         console.error('[Images] poster extraction failed:', err);
         return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
