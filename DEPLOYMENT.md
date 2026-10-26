@@ -284,6 +284,15 @@ proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:10m m
 Локация для изображений — **внутри** блока `server`, и **перед** общим `location /api/`:
 
 ```nginx
+# Перед блоком server {} — в том же http-контексте, что и proxy_cache_path.
+# `$cookie_gallery_auth` не годится: имя переменной nginx не может содержать
+# дефис, поэтому эта переменная ищет cookie `gallery_auth`, а приложение ставит
+# `gallery-auth` — ключ кэша молча остаётся общим.
+map $http_cookie $gallery_auth_token {
+    default "";
+    "~*gallery-auth=(?<token>[^\x3b]+)" $token;
+}
+
     location /api/images {
         proxy_pass http://photo_gallery;
         proxy_http_version 1.1;
@@ -300,7 +309,7 @@ proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:10m m
 
         proxy_cache images_cache;
         proxy_cache_valid 200 7d;
-        proxy_cache_key "v2:$scheme$request_method$host$request_uri$cookie_gallery_auth";
+        proxy_cache_key "v3:$scheme$request_method$host$request_uri$gallery_auth_token";
         proxy_cache_use_stale error timeout updating;
         proxy_cache_background_update on;
         proxy_cache_lock on;
@@ -316,7 +325,7 @@ proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:10m m
 2. **`access_log off` обязателен.** Иначе каждый запрос миниатюры пишется в лог. На проде логи только этого сайта занимали 79 МБ и росли без ротации (issue #9).
 3. **`add_header` внутри location ПОЛНОСТЬЮ заменяет унаследованные от `server {}`.** Если в локации есть хоть один `add_header`, HSTS из блока `server` перестаёт отдаваться для этого пути. Поэтому HSTS продублирован явно.
 4. **Буферизацию здесь не выключать.** В `location /api/` стоит `proxy_buffering off` — это нужно для стриминга видео, но для кэширования ответ должен буферизоваться.
-5. **Cookie обязан быть в ключе кэша.** Иначе первый авторизованный `200` (запрос с паролем) ложится под общим ключом и отдаётся анонимному клиенту до 7 суток (#91). Префикс `v2:` обязателен: без него анонимный запрос (пустой cookie) вычислил бы ровно старый ключ и получил бы уже закэшированные байты. С префиксом все записи старого формата становятся недостижимы сразу, ещё до чистки.
+5. **Cookie обязан быть в ключе кэша — и извлекать его нужно через `map`.** Иначе первый авторизованный `200` (запрос с паролем) ложится под общим ключом и отдаётся анонимному клиенту до 7 суток (#91). `$cookie_gallery_auth` для этой роли **не подходит**: переменные nginx не содержат дефис, поэтому она читает cookie `gallery_auth`, которого приложение не ставит, и в ключ попадает пустая строка у всех. В `map` символ `;` записан как `\x3b`, потому что литеральная `;` завершает директиву даже внутри регулярного выражения (`invalid number of the map parameters`). Префикс `v3:` обязателен: без него анонимный запрос (пустой cookie) вычислил бы ровно старый ключ и получил бы уже закэшированные байты. С префиксом все записи старого формата становятся недостижимы сразу, ещё до чистки.
 
 `Cache-Control` добавлять не нужно: приложение само отдаёт `public, max-age=31536000, immutable`
 (`src/app/api/images/route.ts`), а второй заголовок с тем же именем только собьёт клиентский кэш.
@@ -339,7 +348,7 @@ sudo systemctl reload nginx
 sudo rm -rf /var/cache/nginx/images/*
 ```
 
-Префикс `v2:` в ключе делает старые записи недостижимыми и без чистки, поэтому
+Префикс `v3:` в ключе делает старые записи недостижимыми и без чистки, поэтому
 порядок команд не критичен; чистка нужна, чтобы не держать мёртвые файлы неделю.
 
 ### 6.5.4 Проверка, что кэш работает
@@ -352,6 +361,19 @@ curl -sI 'https://<домен>/api/images?path=<файл>' | grep -i x-cache-sta
 # Размер кэша на диске
 sudo du -sh /var/cache/nginx/images
 ```
+
+С включённым паролем обязательна вторая половина проверки — ключ кэша
+действительно различает клиентов:
+
+```bash
+# другой токен cookie не должен получить HIT с фото
+curl -sI -H 'Cookie: gallery-auth=deadbeef' \
+  'https://<домен>/api/images?path=<файл>' | grep -iE 'x-cache-status|content-type'
+```
+
+Ожидаемо `X-Cache-Status: MISS` и `image/png` (1×1 placeholder с `no-store`), а не
+`HIT` с `image/webp`. Если приходит `HIT` — ключ всё ещё общий, смотреть `map` и имя
+cookie в `src/lib/auth.ts`.
 
 Если в ответе нет заголовка `X-Cache-Status`, значит на сервере старая версия
 конфига — `nginx -T | grep -A5 'location /api/images'`.
