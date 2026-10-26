@@ -5,6 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EyeOff, Trash2, RectangleHorizontal, Star, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
+import { useRetryingImage } from './useRetryingImage';
 
 // Hover must "commit" for this long before we bother fetching a trailer —
 // avoids firing a request (and, on first view, an ffmpeg generation job)
@@ -46,13 +47,20 @@ export const PhotoCard = memo(function PhotoCard({
   thumbnailSize = 300,
   showCaption = true,
 }: PhotoCardProps) {
-  const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
   const imageUrl = useMemo(
     () => `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
     [photo.path],
   );
+
+  // Temporary 503s (ffmpeg slot busy) must not park a card on "Failed to load"
+  // until a page reload — the hook retries on its own (#98).
+  const {
+    src: imageSrc,
+    isLoading,
+    hasError,
+    onLoad: handleImageLoad,
+    onError: handleImageError,
+  } = useRetryingImage(imageUrl);
 
   // ── Video hover preview ───────────────────────────────────────────────────
   // When this photo has a companion video (same filename stem), hovering —
@@ -145,7 +153,7 @@ export const PhotoCard = memo(function PhotoCard({
             </div>
           )}
           <img
-            src={imageUrl}
+            src={imageSrc}
             alt={photo.name}
             className={cn(
               'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
@@ -156,11 +164,8 @@ export const PhotoCard = memo(function PhotoCard({
             fetchPriority="high"
             width={thumbnailSize}
             height={thumbnailSize}
-            onLoad={() => setIsLoading(false)}
-            onError={() => {
-              setHasError(true);
-              setIsLoading(false);
-            }}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
           />
           {/* Hover preview: only mounted once hover has committed, so a quick
               pass over the grid never triggers an /api/video-stream request. */}
