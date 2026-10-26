@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
+import { useRetryingImage } from './useRetryingImage';
 
 interface LightboxProps {
   photos: Photo[];
@@ -78,8 +79,6 @@ function LightboxContent({
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
 
   const thumbStripRef = useRef<HTMLDivElement>(null);
   const thumbRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
@@ -96,28 +95,30 @@ function LightboxContent({
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
   const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
 
+  // Transient failures retry themselves, and the «Повторить» button now really
+  // re-requests: the hook rewrites the URL, because setting the same `src` back
+  // on an <img> does not fire a second request (#98).
+  const {
+    src: imageSrc,
+    isLoading,
+    hasError,
+    onLoad: handleImageLoad,
+    onError: handleImageError,
+    retry: retryImage,
+  } = useRetryingImage(imageUrl);
+
   // Opening a photo that has a companion video plays the actual source video,
   // streamed with Range support, at full size with controls — see /api/video-stream.
   const trailerUrl = currentPhoto?.videoPath
     ? `/api/video-stream?path=${encodeURIComponent(currentPhoto.videoPath)}`
     : null;
 
-  const expectedUrl = useRef(imageUrl);
-
-  // Ref-only: tracks which image the <img> is currently showing, so a late
-  // load/error event from the previous photo can't clear the state of the new
-  // one. The per-image *state* reset lives in the index-changing handlers
-  // below, not in an effect (setState-in-effect).
-  useEffect(() => {
-    expectedUrl.current = imageUrl;
-  }, [imageUrl]);
-
   const goToIndex = useCallback(
     (next: number) => {
       setIndex(next);
       setZoom(1);
-      setHasError(false);
-      setIsLoading(true);
+      // Per-image load/error state is reset by useRetryingImage when imageUrl
+      // changes, so there is nothing to reset here.
     },
     [],
   );
@@ -323,28 +324,21 @@ function LightboxContent({
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-white">
             <X className="h-12 w-12 text-red-400" />
             <p className="text-base">Failed to load image</p>
-            <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
+            <Button variant="outline" onClick={retryImage}>
               Retry
             </Button>
           </div>
         )}
         <img
-          src={imageUrl}
+          src={imageSrc}
           alt={currentPhoto.name}
           className={`max-h-full max-w-full object-contain transition-all duration-300 ${
             isLoading || hasError ? 'opacity-0' : 'opacity-100'
           }`}
           style={{ transform: `scale(${zoom})` }}
           fetchPriority="high"
-          onLoad={() => {
-            if (expectedUrl.current === imageUrl) setIsLoading(false);
-          }}
-          onError={() => {
-            if (expectedUrl.current === imageUrl) {
-              setHasError(true);
-              setIsLoading(false);
-            }
-          }}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
         />
         {trailerUrl && !isLoading && !hasError && (
           <LightboxTrailer key={trailerUrl} src={trailerUrl} zoom={zoom} />

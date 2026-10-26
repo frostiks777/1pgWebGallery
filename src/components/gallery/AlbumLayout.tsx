@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { useRetryingImage } from './useRetryingImage';
 
 interface AlbumLayoutProps {
   photos: Photo[];
@@ -50,12 +51,19 @@ function AlbumCard({
   isCover?: boolean;
   onToggleCover?: (photo: Photo) => void;
 }) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
   const thumbnailUrl = photo.path.startsWith('/demo-photos/')
     ? photo.path
     : `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+
+  // Same transient-503 story as PhotoCard (#98): a failed card retries itself
+  // instead of staying crossed out until the page is reloaded.
+  const {
+    src: imageSrc,
+    isLoading,
+    hasError,
+    onLoad: handleImageLoad,
+    onError: handleImageError,
+  } = useRetryingImage(thumbnailUrl);
 
   const caption = photo.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
@@ -87,15 +95,15 @@ function AlbumCard({
                 </div>
               )}
               <img
-                src={thumbnailUrl}
+                src={imageSrc}
                 alt={photo.name}
                 className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
                 loading="lazy"
                 fetchPriority="high"
-                onLoad={() => setIsLoading(false)}
-                onError={() => { setHasError(true); setIsLoading(false); }}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
               />
             </>
           )}
