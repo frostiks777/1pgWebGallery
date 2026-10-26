@@ -5,6 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EyeOff, Trash2, RectangleHorizontal, Star, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
+import { useImageRetry } from '@/components/gallery/useImageRetry';
 
 // Hover must "commit" for this long before we bother fetching a trailer —
 // avoids firing a request (and, on first view, an ffmpeg generation job)
@@ -46,8 +47,14 @@ export const PhotoCard = memo(function PhotoCard({
   thumbnailSize = 300,
   showCaption = true,
 }: PhotoCardProps) {
-  const [hasError, setHasError] = useState(false);
+  const { src, onError, retry, isError } = useImageRetry({
+    imageUrl: `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
+    maxRetries: 2,
+    backoffMs: 5000,
+  });
+
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const imageUrl = useMemo(
     () => `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
@@ -145,7 +152,7 @@ export const PhotoCard = memo(function PhotoCard({
             </div>
           )}
           <img
-            src={imageUrl}
+            src={src}
             alt={photo.name}
             className={cn(
               'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
@@ -156,11 +163,11 @@ export const PhotoCard = memo(function PhotoCard({
             fetchPriority="high"
             width={thumbnailSize}
             height={thumbnailSize}
-            onLoad={() => setIsLoading(false)}
-            onError={() => {
-              setHasError(true);
+            onLoad={() => {
               setIsLoading(false);
+              setHasError(false);
             }}
+            onError={onError}
           />
           {/* Hover preview: only mounted once hover has committed, so a quick
               pass over the grid never triggers an /api/video-stream request. */}

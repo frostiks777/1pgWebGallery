@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
+import { useImageRetry } from '@/components/gallery/useImageRetry';
 
 interface LightboxProps {
   photos: Photo[];
@@ -95,6 +96,12 @@ function LightboxContent({
   const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
   const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
   const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
+
+  const { src: imageSrc, onError: handleOnError, retry, isError: hookIsError } = useImageRetry({
+    imageUrl,
+    maxRetries: 2,
+    backoffMs: 5000,
+  });
 
   // Opening a photo that has a companion video plays the actual source video,
   // streamed with Range support, at full size with controls — see /api/video-stream.
@@ -323,13 +330,15 @@ function LightboxContent({
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-white">
             <X className="h-12 w-12 text-red-400" />
             <p className="text-base">Failed to load image</p>
-            <Button variant="outline" onClick={() => { setHasError(false); setIsLoading(true); }}>
+            <Button variant="outline" onClick={() => {
+        retry();
+        }}>
               Retry
             </Button>
           </div>
         )}
         <img
-          src={imageUrl}
+          src={imageSrc}
           alt={currentPhoto.name}
           className={`max-h-full max-w-full object-contain transition-all duration-300 ${
             isLoading || hasError ? 'opacity-0' : 'opacity-100'
@@ -338,13 +347,9 @@ function LightboxContent({
           fetchPriority="high"
           onLoad={() => {
             if (expectedUrl.current === imageUrl) setIsLoading(false);
+            setHasError(false);
           }}
-          onError={() => {
-            if (expectedUrl.current === imageUrl) {
-              setHasError(true);
-              setIsLoading(false);
-            }
-          }}
+          onError={handleOnError}
         />
         {trailerUrl && !isLoading && !hasError && (
           <LightboxTrailer key={trailerUrl} src={trailerUrl} zoom={zoom} />

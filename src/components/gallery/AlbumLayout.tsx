@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { useImageRetry } from '@/components/gallery/useImageRetry';
 
 interface AlbumLayoutProps {
   photos: Photo[];
@@ -50,12 +51,18 @@ function AlbumCard({
   isCover?: boolean;
   onToggleCover?: (photo: Photo) => void;
 }) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
   const thumbnailUrl = photo.path.startsWith('/demo-photos/')
     ? photo.path
     : `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+
+  const { src, onError, retry, isError } = useImageRetry({
+    imageUrl: thumbnailUrl,
+    maxRetries: 2,
+    backoffMs: 5000,
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const caption = photo.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
@@ -87,7 +94,7 @@ function AlbumCard({
                 </div>
               )}
               <img
-                src={thumbnailUrl}
+                src={src}
                 alt={photo.name}
                 className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${
                   isLoading ? 'opacity-0' : 'opacity-100'
@@ -95,7 +102,7 @@ function AlbumCard({
                 loading="lazy"
                 fetchPriority="high"
                 onLoad={() => setIsLoading(false)}
-                onError={() => { setHasError(true); setIsLoading(false); }}
+                onError={onError}
               />
             </>
           )}
