@@ -54,14 +54,19 @@
   // MCP-серверы. Подключён официальный shadcn MCP — в этом репозитории
   // components.json есть, UI-компоненты в src/components/ui/ (Radix/shadcn).
   //
-  // ВАЖНО: npm-пакет называется `shadcn`, сервер запускается подкомандой `mcp`:
-  // `npx -y shadcn@latest mcp`. Имя `@shadcn/ui/mcp` невалидно
-  // (npm: EINVALIDPACKAGENAME) — из-за него процесс падал с
-  // "MCP error -32000: Connection closed". Проверка: `npx -y shadcn@latest mcp --help`
+  // ВАЖНО: npm-пакет называется `shadcn`, сервер запускается подкомандой `mcp`.
+  // Имя `@shadcn/ui/mcp` невалидно (npm: EINVALIDPACKAGENAME) — из-за него
+  // процесс падал с "MCP error -32000: Connection closed".
+  //
+  // Запуск только через `bunx`, не `npx`: в package.json стоит
+  // devEngines.packageManager = bun с onFail: "error", поэтому npm (в том числе
+  // npx) отказывается работать в этом каталоге — сервер падал с EBADDEVENGINES
+  // "Invalid name \"bun\" does not match \"npm\"" и MCP оставался отключённым.
+  // Проверка: `bunx shadcn@latest mcp --help`
   "mcp": {
     "shadcn": {
       "type": "local",
-      "command": ["npx", "-y", "shadcn@latest", "mcp"],
+      "command": ["bunx", "shadcn@latest", "mcp"],
       "enabled": true,
       "timeout": 60000
     }
