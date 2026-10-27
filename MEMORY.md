@@ -593,8 +593,9 @@ a11y ≥ 90, perf ≥ 70.
   `GOOGLE_GENERATIVE_AI_API_KEY` (в воркфлоу так и передаётся `secrets.GEMINI_API_KEY`),
   геоблок `400 User location is not supported` на раннеры не действует, ключ из проекта с
   prepay даёт `402`. Рабочая связка: ключ `AQ.…` из проекта без предоплаты +
-  `OPENCODE_MODEL=gemini-3.5-flash`, прогон 40562513857 зелёный. Бесплатный тир ограничен
-  запросами в минуту — в логе видны `429`, SDK их повторяет. Скрипт проверки —
+  `OPENCODE_MODEL=gemini-3.5-flash-lite`. Модель выбрана по квоте: у `gemini-3.6-flash` бесплатный
+  тир даёт **5 запросов в минуту**, ревью на нём падает с `RESOURCE_EXHAUSTED`, на flash-lite
+  проходит. Проверено: аудит 40562513857 и ревью PR #109 зелёные. Скрипт проверки —
   `%TEMP%\opencode\google-ci-set.sh` (вне репозитория).
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
