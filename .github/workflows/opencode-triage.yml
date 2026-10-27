@@ -6,9 +6,10 @@
 # GitHub App `opencode-agent` установлен на репозиторий: агент работает на токене
 # приложения, который экшен получает обменом OIDC-токена (нужен `id-token: write`).
 # На токене раннера он видел `permission: none` и падал на удалении реакции.
-# Модель бесплатная, задаётся переменной репозитория `OPENCODE_MODEL` — не
-# обязательно та, что в `opencode.jsonc`: отключение модели провайдером не должно
-# требовать правки этого файла.
+# Модель задаётся переменными репозитория (`OPENCODE_MODEL_SHORT`, иначе
+# `OPENCODE_MODEL`) — не обязательно та, что в `opencode.jsonc`: отключение
+# модели провайдером не должно требовать правки этого файла. Триаж — короткая
+# сессия, поэтому здесь допустима модель посильнее (см. комментарий у `model:`).
 #
 # Роль воркфлоу в проекте: автотриаж — черновик постановки задачи (см. ADR-0002,
 # гибридный трекинг `ai/tasks` + GitHub Issues). Разбор агента не заменяет решение
@@ -47,15 +48,16 @@ jobs:
         with:
           persist-credentials: false
 
-      # Пустая `OPENCODE_MODEL` даст `google/`, и opencode молча уедет на
-      # модель по умолчанию. Проверка такая же, как для `APP_URL`
-      # в `opencode-audit.yml`.
+      # Пустая модель даст `google/`, и opencode молча уедет на модель по
+      # умолчанию. Проверка такая же, как для `APP_URL` в `opencode-audit.yml`:
+      # проверяется итоговое значение, потому что `OPENCODE_MODEL_SHORT`
+      # необязательна и её отсутствие — не ошибка.
       - name: Проверить переменную модели
         env:
-          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
         run: |
           if [ -z "$OPENCODE_MODEL" ]; then
-            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            echo "::error::Не заданы ни OPENCODE_MODEL_SHORT, ни OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
           echo "Модель агента: google/$OPENCODE_MODEL"
@@ -80,11 +82,13 @@ jobs:
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}"}'
         with:
-          # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
-          # здесь: переключение не должно требовать правки четырёх воркфлоу.
-          model: google/${{ vars.OPENCODE_MODEL }}
+          # Триаж — короткая сессия: прочитать задачу и дать черновик разбора.
+          # Лимит бесплатного тира здесь не узкое место, поэтому можно взять
+          # модель сильнее (`flash` 5 RPM против 15 у `flash-lite`; на 5 RPM
+          # падало ревью диффа, а не этот разбор).
+          model: google/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
           # Решение по `share`: сессия агента не публикуется, хотя для публичного
           # репозитория дефолт opencode — `share: true`. В сессии видны вывод
           # команд и фрагменты кода.
