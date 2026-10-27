@@ -581,10 +581,22 @@ a11y ≥ 90, perf ≥ 70.
   **Вывод для будущих сессий:** v1-хвосты opencode живут не только в репозитории, но и в
   `~/.config/opencode/` и в кэше `~/.cache/opencode/npm/`. Проверка «жив ли плагин» —
   `opencode plugin list` (ID ≠ «-») плюс запись в `~/.local/share/opencode/log/opencode.log`.
-- **Ручные шаги Andrew для агента в Actions:** добавить секрет `OPENCODE_API_KEY` и Variable
-  `APP_URL` (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions;
-  GitHub App `opencode-agent` уже установлен. Разрешение «Allow GitHub Actions to create and
-  approve pull requests» нужно и агенту (`/oc исправь`), и `release-please`.
+- **Ручные шаги Andrew для агента в Actions (обновлено 2026-10-27):** добавить секрет
+  `GEMINI_API_KEY` (ключ Google AI Studio из проекта **без** включённого биллинга — иначе
+  `402 prepayment credits are depleted`) и `APP_URL` (`https://ap-p-g.duckdns.org/`) в
+  Settings → Secrets and variables → Actions; переменная `OPENCODE_MODEL` уже заведена
+  (`gemini-3.5-flash`, id **без** префикса `google/`). GitHub App `opencode-agent` установлен.
+  Секрет `OPENCODE_API_KEY` больше не читается ни одним воркфлоу — его можно удалить.
+  Разрешение «Allow GitHub Actions to create and approve pull requests» нужно и агенту
+  (`/oc исправь`), и `release-please`.
+  **Проверено 2026-10-27:** провайдер `google` читает ключ только из
+  `GOOGLE_GENERATIVE_AI_API_KEY` (в воркфлоу так и передаётся `secrets.GEMINI_API_KEY`),
+  геоблок `400 User location is not supported` на раннеры не действует, ключ из проекта с
+  prepay даёт `402`. Рабочая связка: ключ `AQ.…` из проекта без предоплаты +
+  `OPENCODE_MODEL=gemini-3.5-flash-lite`. Модель выбрана по квоте: у `gemini-3.6-flash` бесплатный
+  тир даёт **5 запросов в минуту**, ревью на нём падает с `RESOURCE_EXHAUSTED`, на flash-lite
+  проходит. Проверено: аудит 40562513857 и ревью PR #109 зелёные. Скрипт проверки —
+  `%TEMP%\opencode\google-ci-set.sh` (вне репозитория).
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
 - **`/api/images` и `generate` (обновлено 2026-10-26).** Cookie-проверка в Node добавлена
