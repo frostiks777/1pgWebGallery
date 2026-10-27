@@ -591,8 +591,11 @@ a11y ≥ 90, perf ≥ 70.
   (`/oc исправь`), и `release-please`.
   **Проверено 2026-10-27:** провайдер `google` читает ключ только из
   `GOOGLE_GENERATIVE_AI_API_KEY` (в воркфлоу так и передаётся `secrets.GEMINI_API_KEY`),
-  геоблок `400 User location is not supported` на раннеры не действует, а ключ из проекта с
-  prepay даёт `402`. Скрипт проверки — `%TEMP%\opencode\google-ci-set.sh` (вне репозитория).
+  геоблок `400 User location is not supported` на раннеры не действует, ключ из проекта с
+  prepay даёт `402`. Рабочая связка: ключ `AQ.…` из проекта без предоплаты +
+  `OPENCODE_MODEL=gemini-3.5-flash`, прогон 40562513857 зелёный. Бесплатный тир ограничен
+  запросами в минуту — в логе видны `429`, SDK их повторяет. Скрипт проверки —
+  `%TEMP%\opencode\google-ci-set.sh` (вне репозитория).
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
 - **`/api/images` и `generate` (обновлено 2026-10-26).** Cookie-проверка в Node добавлена
