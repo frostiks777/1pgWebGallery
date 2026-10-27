@@ -327,9 +327,11 @@ the `opencode-agent` GitHub App, and without it the agent's permissions resolve 
 Runs are visible in the **Actions** tab. Audit reports are kept as artifacts
 (`code-audit-report`, `lighthouse-report`) for 30 days.
 
-Repository setup it expects: the `GEMINI_API_KEY` secret (Google AI Studio key for the `google/*`
-model), an `APP_URL` variable (the Lighthouse target — the Lighthouse job is skipped without it),
-and "Allow GitHub Actions to create and approve pull requests" enabled.
+Repository setup it expects: the `OPENROUTER_API_KEY` secret (an OpenRouter key for the
+`openrouter/*` model; a regular `sk-or-v1-…` key, not a management/provisioning one), the
+`OPENCODE_MODEL` variable (model id without the provider prefix, e.g.
+`deepseek/deepseek-v4-flash`), an `APP_URL` variable (the Lighthouse target — the Lighthouse job
+is skipped without it), and "Allow GitHub Actions to create and approve pull requests" enabled.
 
 Worth knowing:
 
