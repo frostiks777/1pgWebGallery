@@ -1,0 +1,48 @@
+name: OpenRouter probe
+
+# Временный диагностический воркфлоу. Отделяет две разные поломки, которые
+# снаружи выглядят одинаково (`401` в логе агента):
+#   * значение секрета невалидно/отозвано;
+#   * секрет в порядке, но opencode его не подхватывает.
+# Печатает только код ответа и тело, где самого ключа нет. Удаляется сразу
+# после ответа.
+
+on:
+  # workflow_dispatch доступен только для дефолтной ветки, поэтому проба
+  # запускается пушем с фильтром по своему же пути.
+  push:
+    branches: [ci/openrouter-deepseek]
+    paths: ['.github/workflows/or-probe.yml']
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Спросить OpenRouter про ключ
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +e
+          if [ -z "$KEY" ]; then
+            echo "VERDICT: секрет пустой или не передан"
+            exit 0
+          fi
+          echo "key prefix: ${KEY:0:8}… len=${#KEY}"
+
+          code=$(curl -sS -o key.json -w '%{http_code}' --max-time 40 \
+            -H "Authorization: Bearer $KEY" \
+            https://openrouter.ai/api/v1/key)
+          echo "GET /api/v1/key -> $code"
+          head -c 500 key.json; echo
+
+          if [ "$code" = "200" ]; then
+            echo "VERDICT: ключ валиден — проблема в том, как opencode его передаёт"
+          elif grep -qi 'user not found' key.json; then
+            echo "VERDICT: ключ отвергнут (отозван или удалён) — значение в секрете негодное"
+          elif grep -qi 'no auth\|missing' key.json; then
+            echo "VERDICT: ключ не дошёл до OpenRouter"
+          else
+            echo "VERDICT: неожиданный ответ, см. тело выше"
+          fi
