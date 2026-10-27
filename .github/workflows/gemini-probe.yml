@@ -5,6 +5,12 @@ name: Gemini probe
 # Удалить после того, как причина станет ясна.
 
 on:
+  # workflow_dispatch недоступен, пока файла нет на дефолтной ветке, поэтому
+  # проба запускается пушем. Фильтр по пути не даёт ей срабатывать на каждый
+  # коммит ветки.
+  push:
+    branches: [ci/google-ai-studio]
+    paths: ['.github/workflows/gemini-probe.yml']
   workflow_dispatch:
 
 jobs:
