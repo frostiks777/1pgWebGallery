@@ -294,6 +294,18 @@ Studio в секрете `GEMINI_API_KEY`. Решения — `docs/adr/0004-age
 `gemini-3.5-flash-lite`. Текст ошибки «This model is currently experiencing high demand» тоже
 означает квоту, а не перегрузку сервиса.
 
+**У flash-моделей на бесплатном тире 20 запросов в СУТКИ** (`limit: 20, model:
+gemini-3.8-flash, description: Generate content requests per day limit exceeded on Free Tier`),
+и агентская сессия в это не влезает вообще: один прогон аудита израсходовал суточный лимит
+целиком, после чего Google отвечал «retry in 11h24m» и один раз не отдавал заголовки ответа
+300 секунд. Поэтому «взять модель поновее» на бесплатном тире не работает, и `OPENCODE_MODEL`
+остаётся на flash-lite. Отдельно: `-flash`-имена — алиасы на актуальную модель,
+`gemini-3.7-flash` уходит в `gemini-3.8-flash` (в ошибке видно `model: gemini-3.8-flash` при
+переменной `3.7`), так что перебор «3.7 вместо 3.8» ничего не меняет. В `opencode-audit.yml` и
+`opencode-triage.yml` осталась переменная `OPENCODE_MODEL_SHORT` с запасным `OPENCODE_MODEL`:
+она сейчас **не задана**, то есть механизм спящий, и это ожидаемо, а не поломка — смысл в ней
+появится только с платным ключом.
+
 | Файл | Событие | Что делает |
 |---|---|---|
 | `opencode.yml` | `issue_comment` / `pull_request_review_comment` | ручной вызов: комментарий с `/oc` или `/opencode` |
