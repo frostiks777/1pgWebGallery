@@ -1,0 +1,48 @@
+name: Gemini probe
+
+# Временный диагностический воркфлоу: проверяет ключ и геоблок Google с раннера,
+# не тратя прогон аудита (lint + build + Lighthouse) на выяснение одного факта.
+# Удалить после того, как причина станет ясна.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Проверить ключ и модель
+        env:
+          KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL: ${{ vars.OPENCODE_MODEL }}
+        run: |
+          set +e
+          # Ключ не печатаем: он уходит в URL, но в лог попадают только коды и
+          # тело ответа Google, где ключа нет.
+          echo "model variable: ${MODEL:-<empty>}"
+          code=$(curl -sS -o models.json -w '%{http_code}' --max-time 40 \
+            "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY")
+          echo "models -> $code"
+          head -c 500 models.json; echo
+
+          code2=$(curl -sS -o gen.json -w '%{http_code}' --max-time 60 \
+            -H 'Content-Type: application/json' \
+            -d '{"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":8}}' \
+            "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$KEY")
+          echo "generateContent -> $code2"
+          head -c 600 gen.json; echo
+
+          if [ "$code2" = "200" ]; then
+            echo "VERDICT: key and model work from the runner"
+          elif grep -qi 'location is not supported' gen.json; then
+            echo "VERDICT: geo-block applies to the runner as well"
+          elif grep -qi 'API key not valid\|API_KEY_INVALID' gen.json; then
+            echo "VERDICT: key rejected (revoked or typos)"
+          elif grep -qi 'RESOURCE_EXHAUSTED\|quota' gen.json; then
+            echo "VERDICT: quota exhausted, key is fine"
+          elif grep -qi 'not found\|NOT_FOUND' gen.json; then
+            echo "VERDICT: model id unknown for this key — check OPENCODE_MODEL"
+          else
+            echo "VERDICT: unrecognised response, see body above"
+          fi
