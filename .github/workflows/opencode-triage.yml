@@ -47,7 +47,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Пустая `OPENCODE_MODEL` даст `opencode/`, и opencode молча уедет на
+      # Пустая `OPENCODE_MODEL` даст `google/`, и opencode молча уедет на
       # модель по умолчанию. Проверка такая же, как для `APP_URL`
       # в `opencode-audit.yml`.
       - name: Проверить переменную модели
@@ -58,24 +58,27 @@ jobs:
             echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
-          echo "Модель агента: opencode/$OPENCODE_MODEL"
+          echo "Модель агента: google/$OPENCODE_MODEL"
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          # Служебную модель opencode (заголовок сессии) приравниваем к основной —
+          # Google AI Studio вместо OpenCode Console: в консоль нет доступа, а
+          # бесплатные модели `opencode/*` шлюз отдаёт только самому OpenCode —
+          # любому другому клиенту 401/403. Почему так — ADR 0004.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Служебную модель (заголовок сессии) приравниваем к основной —
           # иначе каждый прогон начинается с `Model access is disabled` от
           # отключённого дешёвого варианта провайдера. На результат не влияет,
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"opencode/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
         with:
           # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
           # здесь: переключение не должно требовать правки четырёх воркфлоу.
-          model: opencode/${{ vars.OPENCODE_MODEL }}
+          model: google/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: сессия агента не публикуется, хотя для публичного
           # репозитория дефолт opencode — `share: true`. В сессии видны вывод
           # команд и фрагменты кода.

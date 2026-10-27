@@ -10,27 +10,32 @@
   // Второй канал — Telegram-мост, см. .agents/skills/telegram-bridge/SKILL.md;
   // ручной тост без opencode — scripts/notify.ps1.
 
-  // Главная модель основного агента.
+  // Главная модель основного агента — только для локальных сессий.
+  //
+  // В CI модель другая и приходит из переменной репозитория `OPENCODE_MODEL`
+  // с префиксом `google/`: OpenCode-консоль недоступна, а бесплатные модели
+  // `opencode/*` шлюз отдаёт только самому OpenCode — остальным клиентам
+  // отвечает 401/403. Провайдер CI — Google AI Studio (`GEMINI_API_KEY`),
+  // подробности и причина — ADR 0004.
   //
   // Бесплатные модели opencode отключаются и блокируются по IP — это
-  // регулярное событие, а не разовая поломка. 2026-10-19 GitHub-раннеру
-  // отказали по IP на `mimo-v2.6-flash-free` (403 FreeTierError), поэтому
-  // в CI (переменная репозитория OPENCODE_MODEL) стоит
-  // `nemotron-3.5-lightning-free` — она с того же IP работает.
-  //
-  // Рабочие бесплатные модели на 2026-10-19 (проверены `opencode run -m`):
+  // регулярное событие, а не разовая поломка. Рабочие на 2026-10-19
+  // (проверены `opencode run -m`):
   //   opencode/mimo-v2.6-flash-free
   //   opencode/nemotron-3.5-lightning-free
   //   opencode/nemotron-3-ultra-free
   // Внезапно исчезнувшая: opencode/muse-spark-1.3-contributor-free.
   "model": "opencode/mimo-v2.6-flash-free",
 
-  // Все субагенты — только бесплатные модели (см. список: opencode models).
+  // Модель субагентам здесь НЕ задаётся: без неё субагент наследует модель
+  // родительской сессии, а она в CI приходит из переменной OPENCODE_MODEL.
+  // Закреплённая модель провайдера в этом файле пережила бы смену провайдера и
+  // уронила бы прогон: `-m google/...` не спасает от пина `opencode/...` внутри
+  // субагента. Локально субагенты работают на `model` выше.
   "agents": {
     // Исследовательский субагент: только чтение и веб. Нет edit/bash/task,
     // чтобы случайно ничего не править.
     "explore": {
-      "model": "opencode/nemotron-3.5-lightning-free",
       "permission": {
         "read": "allow",
         "glob": "allow",
@@ -44,10 +49,6 @@
         "task": "deny",
         "external_directory": "deny"
       }
-    },
-    // Универсальный субагент для реализации: полный доступ, модель бесплатная.
-    "general": {
-      "model": "opencode/nemotron-3.5-lightning-free"
     }
   },
 

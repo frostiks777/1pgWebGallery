@@ -211,7 +211,7 @@ jobs:
           # прав на запись в репозиторий у воркфлоу нет.
           persist-credentials: false
 
-      # Пустая `OPENCODE_MODEL` даст `opencode/`, и opencode молча уедет на
+      # Пустая `OPENCODE_MODEL` даст `google/`, и opencode молча уедет на
       # модель по умолчанию. Такая же проверка стоит у `APP_URL` выше.
       - name: Проверить переменную модели
         env:
@@ -221,7 +221,7 @@ jobs:
             echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
-          echo "Модель агента: opencode/$OPENCODE_MODEL"
+          echo "Модель агента: google/$OPENCODE_MODEL"
 
       - name: Скачать отчёт о проверках
         uses: actions/download-artifact@v4
@@ -261,16 +261,19 @@ jobs:
           # пусть упадёт сразу, а не ждёт ввода логина: интерактивного терминала
           # в раннере нет.
           GIT_TERMINAL_PROMPT: '0'
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          # Служебную модель opencode (заголовок сессии) приравниваем к основной —
+          # Google AI Studio вместо OpenCode Console: в консоль нет доступа, а
+          # бесплатные модели `opencode/*` шлюз отдаёт только самому OpenCode —
+          # любому другому клиенту 401/403. Почему так — ADR 0004.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Служебную модель (заголовок сессии) приравниваем к основной —
           # иначе каждый прогон начинается с `Model access is disabled` от
           # отключённого дешёвого варианта провайдера. На результат не влияет,
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"opencode/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
         with:
-          model: opencode/${{ vars.OPENCODE_MODEL }}
+          model: google/${{ vars.OPENCODE_MODEL }}
           # Токен раннера вместо токена приложения opencode-agent: у агента не
           # остаётся ни прав на запись в репозиторий, ни возможности открыть PR.
           # Почему так — в шапке файла и в #80.

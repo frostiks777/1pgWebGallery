@@ -32,7 +32,7 @@ jobs:
     # Dependabot) не должны будить агента и тратить минуты Actions: на таком PR
     # он всё равно не может выполнить запись и падает.
     # Проверка `head.repo.full_name` отсекает PR из форков: на них секреты
-    # недоступны (`OPENCODE_API_KEY` пустой), а `GITHUB_TOKEN` у форка
+    # недоступны (`GEMINI_API_KEY` пустой), а `GITHUB_TOKEN` у форка
     # read-only, поэтому агент всё равно не смог бы оставить замечания — был бы
     # только красный крест и сожжённые минуты.
     if: >
@@ -60,7 +60,7 @@ jobs:
           persist-credentials: false
 
       # Модель приходит из переменной репозитория. Без этой проверки пустое
-      # значение даст `opencode/` — и opencode молча уедет на модель по
+      # значение даст `google/` — и opencode молча уедет на модель по
       # умолчанию, а прогон будет выглядеть успешным. Проверка такая же, как
       # для `APP_URL` в `opencode-audit.yml`.
       - name: Проверить переменную модели
@@ -71,15 +71,18 @@ jobs:
             echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
-          echo "Модель агента: opencode/$OPENCODE_MODEL"
+          echo "Модель агента: google/$OPENCODE_MODEL"
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          # Служебную модель opencode (заголовок сессии) приравниваем к основной.
+          # Google AI Studio вместо OpenCode Console: в консоль нет доступа, а
+          # бесплатные модели `opencode/*` шлюз отдаёт только самому OpenCode —
+          # любому другому клиенту 401/403. Почему так — ADR 0004.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Служебную модель (заголовок сессии) приравниваем к основной.
           # Иначе он подставляет свою, дешёвый вариант у провайдера может быть
           # отключён, и каждый прогон начинается с `Model access is disabled` —
           # на результат это не влияет, но в логе выглядит как поломка и уже
@@ -89,14 +92,14 @@ jobs:
           # `OPENCODE_CONFIG_CONTENT` — inline-конфиг с наивысшим приоритетом,
           # он мержится с проектным, поэтому `opencode.jsonc` (локальные
           # сессии) не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"opencode/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
         with:
           # Модель задаётся переменной репозитория (`Settings → Secrets and
           # variables → Actions → Variables → OPENCODE_MODEL`), а не строкой
           # здесь: провайдер отключает бесплатные модели, и переключение не
           # должно требовать правки четырёх воркфлоу. Значение переменной —
           # идентификатор без провайдера.
-          model: opencode/${{ vars.OPENCODE_MODEL }}
+          model: google/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: ревью не публикуется, хотя дефолт opencode для
           # публичного репозитория — `share: true`.
           share: false
