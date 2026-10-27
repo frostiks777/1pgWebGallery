@@ -1,7 +1,8 @@
 # MEMORY.md — Состояние проекта «Photo Gallery»
 
-> Дата последнего обновления: 2026-10-26 (baseline перечитан прогоном 2026-10-26: lint/tsc —
-> 0 ошибок, build — успех, e2e — 1 passed + 2 flaky (#13), plugin-smoke — 12/12).
+> Дата последнего обновления: 2026-10-28 (baseline не перепроверялся; последний прогон —
+> 2026-10-26: lint/tsc — 0 ошибок, build — успех, e2e — 1 passed + 2 flaky (#13),
+> plugin-smoke — 12/12).
 > 2026-10-19 (baseline перечитан фактическим прогоном 2026-10-15:
 > eslint/tsc чисты, e2e локально зелёный, `continue-on-error` у шага Lint в `ci.yml` снят).
 > 2026-10-15: **bun теперь обязателен.** `package.json` получил
@@ -291,6 +292,8 @@ a11y ≥ 90, perf ≥ 70.
 ### Что требует владельца (human-in-the-loop)
 
 - мерж PR с этим обновлением памяти (агентные ветки мержит владелец);
+- мерж PR #112 (CI-агент на OpenRouter) — до него автоматика `main` падает: переменная уже
+  `deepseek/…`, а конфиг `main` подставляет `google/`; после мержа удалить `GEMINI_API_KEY`;
 - мерж PR #97: #91 **применён на проде 2026-10-26** (`map $http_cookie` → токен в
   ключе, `v3:`, кэш очищен; авторизованный путь `MISS` → `HIT` подтверждён владельцем);
 - серверные правки Фаз 1 и 2 (journald, перепись кодеков) — read-only доступ агента
@@ -347,6 +350,14 @@ a11y ≥ 90, perf ≥ 70.
 
 ## Что сделано (последние изменения)
 
+- 2026-10-28: **CI-агент переведён на OpenRouter + deepseek (PR #112).** Причина — суточная
+  квота Google: у flash-моделей 20 запросов в сутки, прогон аудита 40567185462 выел лимит
+  целиком («retry in 11h24m»), а flash-lite — качественный потолок. Четыре воркфлоу теперь:
+  секрет `OPENROUTER_API_KEY`, `openrouter/${{ vars.OPENCODE_MODEL }}`,
+  `OPENCODE_MODEL=deepseek/deepseek-v4-flash`; `OPENCODE_MODEL_SHORT` удалена (сплит моделей
+  существовал ради квоты). Проба `.github/workflows/or-probe.yml` показала, что management-ключ
+  даёт `401 User not found` на `/chat/completions` при `200` на `/api/v1/key`; секрет заменён,
+  аудит 40574142455 зелёный. ADR 0004 — «Обновление 2026-10-27 (третье)».
 - 2026-10-26: **#74, два блокера закрыты (PR #106, #107).** #98 → PR #106: карточка больше
   не остаётся «Failed to load» навсегда — `useRetryingImage` повторяет `503` с backoff и
   уважает `Retry-After`; кнопка «Повторить» меняет `src`, а не только состояние. #99 → PR
@@ -581,36 +592,22 @@ a11y ≥ 90, perf ≥ 70.
   **Вывод для будущих сессий:** v1-хвосты opencode живут не только в репозитории, но и в
   `~/.config/opencode/` и в кэше `~/.cache/opencode/npm/`. Проверка «жив ли плагин» —
   `opencode plugin list` (ID ≠ «-») плюс запись в `~/.local/share/opencode/log/opencode.log`.
-- **Ручные шаги Andrew для агента в Actions (обновлено 2026-10-27):** добавить секрет
-  `GEMINI_API_KEY` (ключ Google AI Studio из проекта **без** включённого биллинга — иначе
-  `402 prepayment credits are depleted`) и `APP_URL` (`https://ap-p-g.duckdns.org/`) в
-  Settings → Secrets and variables → Actions; переменная `OPENCODE_MODEL` уже заведена
-  (`gemini-3.5-flash`, id **без** префикса `google/`). GitHub App `opencode-agent` установлен.
-  Секрет `OPENCODE_API_KEY` больше не читается ни одним воркфлоу — его можно удалить.
-  Разрешение «Allow GitHub Actions to create and approve pull requests» нужно и агенту
-  (`/oc исправь`), и `release-please`.
-  **Проверено 2026-10-27:** провайдер `google` читает ключ только из
-  `GOOGLE_GENERATIVE_AI_API_KEY` (в воркфлоу так и передаётся `secrets.GEMINI_API_KEY`),
-  геоблок `400 User location is not supported` на раннеры не действует, ключ из проекта с
-  prepay даёт `402`. Рабочая связка: ключ `AQ.…` из проекта без предоплаты +
-  `OPENCODE_MODEL=gemini-3.5-flash-lite`. Модель выбрана по квоте: у `gemini-3.6-flash` бесплатный
-  тир даёт **5 запросов в минуту**, ревью на нём падает с `RESOURCE_EXHAUSTED`, на flash-lite
-  проходит. Проверено: аудит 40562513857 и ревью PR #109 зелёные. Скрипт проверки —
-  `%TEMP%\opencode\google-ci-set.sh` (вне репозитория).
-  **Открытый долг:** ключ, на котором всё проверялось, публиковался в открытом тексте — его нужно
-  перевыпустить и обновить `GEMINI_API_KEY`; до этого секрет в репозитории считать
-  скомпрометированным. Прежний ключ `AIza…` тоже был засвечен и подлежит отзыву. Если после
-  замены ключа агент начнёт падать с `401`/`402`, первым делом смотреть проект ключа, а не код.
-  **Обновлено 2026-10-27 (вечер):** ключ заменён владельцем, `OPENCODE_API_KEY` удалён, аудит на
-  новом ключе зелёный. Резервный провайдер — OpenRouter с платным ключом (дешёвые модели вроде
-  `deepseek/deepseek-v4-flash`, `z-ai/glm-5.3-flash`), переход — правка имени переменной
-  окружения и префикса модели в четырёх воркфлоу.
-  **Модель посильнее на бесплатном тире недоступна:** у flash-моделей **20 запросов в сутки**
-  (`gemini-3.8-flash`), один прогон аудита выбирает лимит целиком и дальше Google отвечает
-  «retry in 11h24m» либо висит без заголовков 300 с. `gemini-3.7-flash` — алиас на 3.8 (в ошибке
-  видно `model: gemini-3.8-flash`), так что перебор имён не помогает. Итог: для всех воркфлоу
-  стоит `OPENCODE_MODEL=gemini-3.5-flash-lite`, а `OPENCODE_MODEL_SHORT` (PR #111) остаётся
-  незаданной — механизм спящий до платного ключа.
+- **Ручные шаги Andrew для агента в Actions (обновлено 2026-10-28):** секрет
+  `OPENROUTER_API_KEY` — обычный `sk-or-v1-…`, **не** management/provisioning: такой отвечает
+  `401 User not found` на `/chat/completions`, хотя `GET /api/v1/key` даёт `200`; плюс `APP_URL`
+  (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions. Переменная
+  `OPENCODE_MODEL=deepseek/deepseek-v4-flash` (id **без** префикса `openrouter/`) уже заведена.
+  GitHub App `opencode-agent` установлен. Секрет `GEMINI_API_KEY` больше никем не читается —
+  удалить после мержа PR #112. Разрешение «Allow GitHub Actions to create and approve pull
+  requests» нужно и агенту (`/oc исправь`), и `release-please`.
+  **Проверено 2026-10-27:** платный ключ OpenRouter снимает и RPM, и суточный потолок, поэтому
+  квоты Google (5 RPM, 20 запросов в сутки у flash) больше не узкое место. Зелёные прогоны:
+  аудит 40574142455 (OpenRouter + deepseek после замены ключа) и авторевью PR #112 на deepseek.
+  **Ловушка окна:** `OPENCODE_MODEL` выставили в `deepseek/...` до мержа, поэтому `main` ходит
+  в Google по `google/deepseek/deepseek-v4-flash` — триаж, `/oc` и авторевью новых PR падают,
+  пока PR #112 не смержен. Обратный порядок тоже ломает: авторевью ветки берёт воркфлоу из её
+  merge-рефа, поэтому у PR конфиг OpenRouter ещё до мержа (`Model not found:
+  openrouter/gemini-3.5-flash-lite`). Окно закрывается только мержем.
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
 - **`/api/images` и `generate` (обновлено 2026-10-26).** Cookie-проверка в Node добавлена
