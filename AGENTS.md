@@ -260,6 +260,18 @@ if they get in the way.
 Тот же opencode работает не только в этом терминале: GitHub App `opencode-agent`, ключ Google AI
 Studio в секрете `GEMINI_API_KEY`. Решения — `docs/adr/0004-agent-workflows-in-github-actions.md`.
 
+**Имя переменной окружения — не то же, что имя секрета.** Провайдер `google` читает ключ только
+из `GOOGLE_GENERATIVE_AI_API_KEY` (или `GOOGLE_API_KEY`); `GEMINI_API_KEY` он молча игнорирует и
+падает с `AI_LoadAPIKeyError: API key is missing`, хотя секрет в репозитории есть и записан верно.
+Поэтому в воркфлоу стоит `GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GEMINI_API_KEY }}`.
+
+**Ключ должен быть из проекта Google без включённого биллинга.** Если у проекта включён prepay,
+запрос уходит не в бесплатный тир, а в платную квоту, и при нулевом балансе Google отвечает
+`402 RESOURCE_EXHAUSTED` / «Your prepayment credits are depleted». В консоли AI Studio бесплатный
+ключ помечен как Free tier. Геоблок (`400 User location is not supported`) на раннерах GitHub
+**не** действует — проверено запросом с `ubuntu-latest`, поэтому локальная проверка ключа с
+машины в неподдерживаемом регионе ничего не доказывает: там отказ будет даже у рабочего ключа.
+
 **Провайдер в CI — Google AI Studio (`google/*`), а не OpenCode Console.** Причина: в консоль нет
 доступа, а бесплатные модели `opencode/*` шлюз отдаёт только самому OpenCode — любому другому
 клиенту он отвечает `401 Invalid credential` / `403`. Локальные сессии это не затрагивает: в
