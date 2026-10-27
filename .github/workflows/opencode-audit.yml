@@ -30,9 +30,11 @@
 # создаются как раньше — `gh` ходит с `GITHUB_TOKEN` из env, и автором остаётся
 # `github-actions[bot]`.
 #
-# Модель бесплатная, задаётся переменной репозитория `OPENCODE_MODEL` — не
-# обязательно та, что в `opencode.jsonc`: отключение модели провайдером не
-# должно требовать правки этого файла.
+# Модель задаётся переменными репозитория (`OPENCODE_MODEL_SHORT`, иначе
+# `OPENCODE_MODEL`) — не обязательно та, что в `opencode.jsonc`: отключение
+# модели провайдером не должно требовать правки этого файла. Разбор отчётов —
+# короткая сессия, поэтому здесь допустима модель посильнее (см. комментарий
+# у `model:` ниже).
 
 name: opencode-audit
 
@@ -211,14 +213,16 @@ jobs:
           # прав на запись в репозиторий у воркфлоу нет.
           persist-credentials: false
 
-      # Пустая `OPENCODE_MODEL` даст `google/`, и opencode молча уедет на
-      # модель по умолчанию. Такая же проверка стоит у `APP_URL` выше.
+      # Пустая модель даст `google/`, и opencode молча уедет на модель по
+      # умолчанию. Такая же проверка стоит у `APP_URL` выше. Проверяется
+      # итоговое значение, а не каждая переменная: `OPENCODE_MODEL_SHORT`
+      # необязательна, и её отсутствие — не ошибка.
       - name: Проверить переменную модели
         env:
-          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
         run: |
           if [ -z "$OPENCODE_MODEL" ]; then
-            echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            echo "::error::Не заданы ни OPENCODE_MODEL_SHORT, ни OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
           echo "Модель агента: google/$OPENCODE_MODEL"
@@ -277,9 +281,14 @@ jobs:
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}"}'
         with:
-          model: google/${{ vars.OPENCODE_MODEL }}
+          # Разбор отчётов — короткая сессия: агент читает два файла и пишет
+          # вывод, десятки запросов не нужны. Поэтому лимит бесплатного тира
+          # здесь не узкое место, и можно взять модель сильнее (у `flash` 5 RPM
+          # против 15 у `flash-lite`, ревью диффа на 5 RPM падало в 429).
+          # Ревью диффа и `/oc` — длинные сессии, они остаются на `OPENCODE_MODEL`.
+          model: google/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
           # Токен раннера вместо токена приложения opencode-agent: у агента не
           # остаётся ни прав на запись в репозиторий, ни возможности открыть PR.
           # Почему так — в шапке файла и в #80.
