@@ -6,10 +6,9 @@
 # GitHub App `opencode-agent` установлен на репозиторий: агент работает на токене
 # приложения, который экшен получает обменом OIDC-токена (нужен `id-token: write`).
 # На токене раннера он видел `permission: none` и падал на удалении реакции.
-# Модель задаётся переменными репозитория (`OPENCODE_MODEL_SHORT`, иначе
-# `OPENCODE_MODEL`) — не обязательно та, что в `opencode.jsonc`: отключение
-# модели провайдером не должно требовать правки этого файла. Триаж — короткая
-# сессия, поэтому здесь допустима модель посильнее (см. комментарий у `model:`).
+# Модель задаётся переменной репозитория `OPENCODE_MODEL` — не обязательно та,
+# что в `opencode.jsonc`: отключение модели провайдером не должно требовать
+# правки этого файла.
 #
 # Роль воркфлоу в проекте: автотриаж — черновик постановки задачи (см. ADR-0002,
 # гибридный трекинг `ai/tasks` + GitHub Issues). Разбор агента не заменяет решение
@@ -49,15 +48,13 @@ jobs:
           persist-credentials: false
 
       # Пустая модель даст `openrouter/`, и opencode молча уедет на модель по
-      # умолчанию. Проверка такая же, как для `APP_URL` в `opencode-audit.yml`:
-      # проверяется итоговое значение, потому что `OPENCODE_MODEL_SHORT`
-      # необязательна и её отсутствие — не ошибка.
+      # умолчанию. Проверка такая же, как для `APP_URL` в `opencode-audit.yml`.
       - name: Проверить переменную модели
         env:
-          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
+          OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL }}
         run: |
           if [ -z "$OPENCODE_MODEL" ]; then
-            echo "::error::Не заданы ни OPENCODE_MODEL_SHORT, ни OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
+            echo "::error::Не задана переменная OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
           echo "Модель агента: openrouter/$OPENCODE_MODEL"
@@ -83,13 +80,12 @@ jobs:
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"openrouter/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"openrouter/${{ vars.OPENCODE_MODEL }}"}'
         with:
-          # Триаж — короткая сессия: прочитать задачу и дать черновик разбора.
-          # Лимит бесплатного тира здесь не узкое место, поэтому можно взять
-          # модель сильнее (`flash` 5 RPM против 15 у `flash-lite`; на 5 RPM
-          # падало ревью диффа, а не этот разбор).
-          model: openrouter/${{ vars.OPENCODE_MODEL_SHORT || vars.OPENCODE_MODEL }}
+          # Модель одна на все воркфлоу: платный ключ OpenRouter не ограничен
+          # ни RPM, ни суточной квотой, поэтому делить модели по длине сессии
+          # больше не нужно (сплит существовал ради квот бесплатного тира Google).
+          model: openrouter/${{ vars.OPENCODE_MODEL }}
           # Решение по `share`: сессия агента не публикуется, хотя для публичного
           # репозитория дефолт opencode — `share: true`. В сессии видны вывод
           # команд и фрагменты кода.
