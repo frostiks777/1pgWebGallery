@@ -292,8 +292,9 @@ a11y ≥ 90, perf ≥ 70.
 ### Что требует владельца (human-in-the-loop)
 
 - мерж PR с этим обновлением памяти (агентные ветки мержит владелец);
-- мерж PR #112 (CI-агент на OpenRouter) — до него автоматика `main` падает: переменная уже
-  `deepseek/…`, а конфиг `main` подставляет `google/`; после мержа удалить `GEMINI_API_KEY`;
+- решение по `GEMINI_API_KEY`: **оставлен резервом** (2026-10-28) — все четыре воркфлоу ходят
+  через `OPENROUTER_API_KEY`, ключ не читается, но нужен как запасной провайдер на случай
+  отказа OpenRouter;
 - мерж PR #97: #91 **применён на проде 2026-10-26** (`map $http_cookie` → токен в
   ключе, `v3:`, кэш очищен; авторизованный путь `MISS` → `HIT` подтверждён владельцем);
 - серверные правки Фаз 1 и 2 (journald, перепись кодеков) — read-only доступ агента
@@ -597,9 +598,11 @@ a11y ≥ 90, perf ≥ 70.
   `401 User not found` на `/chat/completions`, хотя `GET /api/v1/key` даёт `200`; плюс `APP_URL`
   (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions. Переменная
   `OPENCODE_MODEL=deepseek/deepseek-v4-flash` (id **без** префикса `openrouter/`) уже заведена.
-  GitHub App `opencode-agent` установлен. Секрет `GEMINI_API_KEY` больше никем не читается —
-  удалить после мержа PR #112. Разрешение «Allow GitHub Actions to create and approve pull
-  requests» нужно и агенту (`/oc исправь`), и `release-please`.
+  GitHub App `opencode-agent` установлен. Секрет `GEMINI_API_KEY` больше никем не читается,
+  но **оставлен резервом** (решение владельца 2026-10-28): при отказе OpenRouter вернуть
+  Google-провайдера — правка Variable и строки модели в четырёх воркфлоу. Разрешение
+  «Allow GitHub Actions to create and approve pull requests» нужно и агенту (`/oc исправь`),
+  и `release-please`.
   **Проверено 2026-10-27:** платный ключ OpenRouter снимает и RPM, и суточный потолок, поэтому
   квоты Google (5 RPM, 20 запросов в сутки у flash) больше не узкое место. Зелёные прогоны:
   аудит 40574142455 (OpenRouter + deepseek после замены ключа) и авторевью PR #112 на deepseek.
