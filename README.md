@@ -327,7 +327,7 @@ the `opencode-agent` GitHub App, and without it the agent's permissions resolve 
 Runs are visible in the **Actions** tab. Audit reports are kept as artifacts
 (`code-audit-report`, `lighthouse-report`) for 30 days.
 
-Repository setup it expects: the `OPENCODE_API_KEY` secret (provider key for the `opencode/*`
+Repository setup it expects: the `GEMINI_API_KEY` secret (Google AI Studio key for the `google/*`
 model), an `APP_URL` variable (the Lighthouse target — the Lighthouse job is skipped without it),
 and "Allow GitHub Actions to create and approve pull requests" enabled.
 

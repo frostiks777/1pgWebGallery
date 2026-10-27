@@ -581,10 +581,13 @@ a11y ≥ 90, perf ≥ 70.
   **Вывод для будущих сессий:** v1-хвосты opencode живут не только в репозитории, но и в
   `~/.config/opencode/` и в кэше `~/.cache/opencode/npm/`. Проверка «жив ли плагин» —
   `opencode plugin list` (ID ≠ «-») плюс запись в `~/.local/share/opencode/log/opencode.log`.
-- **Ручные шаги Andrew для агента в Actions:** добавить секрет `OPENCODE_API_KEY` и Variable
-  `APP_URL` (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions;
-  GitHub App `opencode-agent` уже установлен. Разрешение «Allow GitHub Actions to create and
-  approve pull requests» нужно и агенту (`/oc исправь`), и `release-please`.
+- **Ручные шаги Andrew для агента в Actions (обновлено 2026-10-27):** добавить секрет
+  `GEMINI_API_KEY` (ключ Google AI Studio, без ограничений по реферреру/IP), Variable
+  `OPENCODE_MODEL` (id модели **без** префикса `google/`) и `APP_URL`
+  (`https://ap-p-g.duckdns.org/`) в Settings → Secrets and variables → Actions; GitHub App
+  `opencode-agent` уже установлен. Секрет `OPENCODE_API_KEY` больше не читается ни одним
+  воркфлоу — его можно удалить. Разрешение «Allow GitHub Actions to create and approve pull
+  requests» нужно и агенту (`/oc исправь`), и `release-please`.
 - **Ручной шаг Andrew:** в настройках репо включить «Allow GitHub Actions to create
   and approve pull requests», иначе `release-please.yml` упадёт на создании PR.
 - **`/api/images` и `generate` (обновлено 2026-10-26).** Cookie-проверка в Node добавлена
