@@ -100,7 +100,7 @@ jobs:
           git config user.name "opencode-agent[bot]"
           git config user.email "opencode-agent@users.noreply.github.com"
 
-      # Пустая `OPENCODE_MODEL` даст `google/`, и opencode молча уедет на
+      # Пустая `OPENCODE_MODEL` даст `openrouter/`, и opencode молча уедет на
       # модель по умолчанию. Проверка такая же, как для `APP_URL`
       # в `opencode-audit.yml`.
       - name: Проверить переменную модели
@@ -111,33 +111,34 @@ jobs:
             echo "::error::Не задана переменная репозитория OPENCODE_MODEL (Settings → Secrets and variables → Actions → Variables)"
             exit 1
           fi
-          echo "Модель агента: google/$OPENCODE_MODEL"
+          echo "Модель агента: openrouter/$OPENCODE_MODEL"
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Google AI Studio вместо OpenCode Console: в консоль нет доступа, а
-          # бесплатные модели `opencode/*` шлюз отдаёт только самому OpenCode —
-          # любому другому клиенту 401/403. Почему так — ADR 0004.
+          # OpenRouter, а не Google AI Studio: там бесплатный тир даёт
+          # flash-моделям 20 запросов в СУТКИ, и агентская сессия выбирает это
+          # за один прогон, после чего Google отвечает «retry in 11h». Платный
+          # ключ OpenRouter снимает и RPM, и суточный потолок, а прогон стоит
+          # единицы центов. Почему так — ADR 0004, «Обновление 2026-10-27
+          # (третье)».
           #
-          # Имя переменной не произвольное: провайдер google читает ключ
-          # только из GOOGLE_GENERATIVE_AI_API_KEY (или GOOGLE_API_KEY), а
-          # GEMINI_API_KEY молча игнорирует и падает с «API key is missing» —
-          # проверено прогоном 40559478835. Секрет назван по имени продукта в
-          # консоли, переменная окружения — по имени, которое ждёт SDK.
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Имя переменной не произвольное: провайдер openrouter читает ключ
+          # только из OPENROUTER_API_KEY. Секрет GEMINI_API_KEY больше никем не
+          # читается — его можно удалить.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # Служебную модель (заголовок сессии) приравниваем к основной —
           # иначе каждый прогон начинается с `Model access is disabled` от
           # отключённого дешёвого варианта провайдера. На результат не влияет,
           # но в логе выглядит как поломка. Почему так — в ADR 0004, «Обновление
           # 2026-10-15 (второе)». `OPENCODE_CONFIG_CONTENT` — inline-конфиг с
           # наивысшим приоритетом, репозиторный `opencode.jsonc` не затрагивается.
-          OPENCODE_CONFIG_CONTENT: '{"small_model":"google/${{ vars.OPENCODE_MODEL }}"}'
+          OPENCODE_CONFIG_CONTENT: '{"small_model":"openrouter/${{ vars.OPENCODE_MODEL }}"}'
         with:
           # Модель — переменная репозитория `OPENCODE_MODEL`, а не строка
           # здесь: переключение не должно требовать правки четырёх воркфлоу.
-          model: google/${{ vars.OPENCODE_MODEL }}
+          model: openrouter/${{ vars.OPENCODE_MODEL }}
           # Репозиторий публичный, а дефолт opencode для публичных репозиториев —
           # `share: true`: сессия агента публикуется по ссылке. В сессии попадает
           # вывод команд и куски кода, поэтому решение зафиксировано явно:
