@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.6](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.5...v1.2.6) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ci:** читать ключ google из GOOGLE_GENERATIVE_AI_API_KEY ([8a6ba60](https://github.com/frostiks777/1pgWebGallery/commit/8a6ba60e6b45f8839e51ebe2eb53c95494a54a10))
+
 ## [1.2.5](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.4...v1.2.5) (2026-10-26)
 
 
