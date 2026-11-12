@@ -35,7 +35,7 @@
 | A0.2b | Co-located кэш `.thumbs` → `.thumbs-v2` | [#123](https://github.com/frostiks777/1pgWebGallery/issues/123) | ✅ |
 | A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ✅ |
-| A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ⬜ |
+| A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ✅ |
 | A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ⬜ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
@@ -83,7 +83,7 @@
     видео в демо/WebDAV не 450 px.
   - Issue: #122.
 
-- [ ] **A0.4. Локальные шрифты вместо Google Fonts.**
+- [x] **A0.4. Локальные шрифты вместо Google Fonts.** ✅
   - Файлы: `src/app/layout.tsx`, `src/app/fonts/*.woff2`, при необходимости
     `next.config.ts`.
   - Проверка: `rg -n 'next/font/google'` пусто; `bun run build` не обращается к
@@ -299,3 +299,32 @@
   а добавление фикстуры — это #102/#74 п.8, отдельный issue. Изменение
   проверено код-инспекцией и существующим e2e; цена, если неверно: регрессия
   ширины постера не ловится CI до #102.
+
+### 2026-11-12 — A0.4 (коммит `887e388`)
+
+**Что сделано**
+
+- Четыре woff2 в `src/app/fonts/` (latin, OFL-1.1): Inter Variable
+  (48 КБ), JetBrains Mono Variable (40 КБ), Instrument Serif Regular/Italic
+  (21 + 22 КБ). Источники и лицензии — `src/app/fonts/README.md`.
+- `layout.tsx` переведён на `next/font/local`; CSS-переменные
+  `--font-inter`, `--font-jetbrains-mono`, `--font-instrument-serif`
+  не изменились.
+
+**Проверки**
+
+- `rg 'next/font/google' src/` — пусто.
+- `bun run build` — **успех, компиляция 18,7 с** (до этого таймаут 420 с:
+  сборка висела на `next/font/google`). В `.next/static` и `.next/server`
+  нет ссылок на `fonts.googleapis.com`/`fonts.gstatic.com`.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0;
+  `bunx playwright test` — **8 passed** (1,2 мин).
+- Визуальный чек не делался отдельным скриншотом; e2e подтверждает, что
+  страница и карточки рендерятся, а `@font-face` теперь локальный.
+
+**Ruling**
+
+- Шрифты — конфигурация сборки, поэтому отдельного RED-теста нет:
+  поведение доказывается самой сборкой (раньше висела, теперь 18,7 с)
+  и отсутствием Google-URL в бандле. Цена, если неверно: визуальная
+  разница начертаний не поймана автоматикой.
