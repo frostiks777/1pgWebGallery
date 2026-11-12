@@ -8,6 +8,7 @@ import { pipeline } from 'stream/promises';
 import type { Readable } from 'stream';
 import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
 import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
@@ -470,6 +471,16 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // The batch job is heavy (sharp/ffmpeg, WebDAV walks) and used to be reachable
+  // by anyone who knew the URL (#92). Check the gallery cookie before touching
+  // `status` or parsing the body.
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } },
+    );
+  }
+
   if (status.running) {
     return NextResponse.json({
       message: 'Generation already in progress',
