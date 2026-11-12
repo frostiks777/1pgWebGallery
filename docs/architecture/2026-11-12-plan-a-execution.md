@@ -50,7 +50,7 @@ A0.6 — ops; A1/A2 запланированы.
 | A0.7.5 | `sizes` в статусе и ответе «already in progress» | [#138](https://github.com/frostiks777/1pgWebGallery/issues/138) | ✅ |
 | A0.7.6 | 404/403 WebDAV не отдаются как retryable 503 | [#139](https://github.com/frostiks777/1pgWebGallery/issues/139) | ✅ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
-| A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
+| A1.7 | JSON-кэш листинга, TTL 30 с, SWR | [#145](https://github.com/frostiks777/1pgWebGallery/issues/145) | ✅ |
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
@@ -135,12 +135,12 @@ A0.6 — ops; A1/A2 запланированы.
 
 ### A1 — листинг, очередь sharp, мониторинг (3–5 дней)
 
-- [ ] **A1.7. JSON-кэш листинга с TTL 30 с и stale-while-revalidate.**
-  - Файлы: `src/app/api/photos/route.ts`, новый `src/lib/listing-cache.ts`,
+- [x] **A1.7. JSON-кэш листинга с TTL 30 с и stale-while-revalidate.** ✅
+  - Файлы: `src/app/api/photos/route.ts`, новый `src/lib/listingCache.ts`,
     `.data/listing/`.
   - Проверка: повторный запрос отдаёт кэш; через 30 с — фоновое обновление;
     после `delete` запись инвалидируется; lint/tsc/build/e2e.
-  - Issue: создать перед A1.
+  - Issue: [#145](https://github.com/frostiks777/1pgWebGallery/issues/145).
 
 - [ ] **A1.8. Ограниченная очередь sharp.**
   - Файлы: `src/app/api/images/route.ts`, `src/app/api/images/generate/route.ts`,
@@ -560,6 +560,34 @@ cookie не нужен.
   PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132).
 - A0.6 (#126) остаётся: перегенерация thumbnail на проде после деплоя.
 
+### 2026-11-12 — A1.7: JSON-кэш листинга (#145)
+
+**Что сделано**
+
+- `src/lib/listingCache.ts`: ключ → `.data/listing/<sha1>.json`; TTL 30 с;
+  просроченная запись отдаётся сразу (`STALE`) и обновляется в фоне;
+  single-flight на ключ; запись через tmp + rename.
+- `/api/photos` (WebDAV-ветка) ходит через кэш; ответ несёт
+  `X-Listing-Cache: HIT|STALE|MISS`.
+- `/api/photos/delete` инвалидирует листинг родительской папки.
+- Демо-режим не кэшируется: локальный скан дешёвый, а кэш сделал бы e2e
+  зависимым от времени.
+
+**Проверки**
+
+- Временный Bun-скрипт с фейковым WebDAV: 7 сценариев — MISS (1 PROPFIND),
+  HIT (0 запросов), STALE + фоновое обновление, HIT после обновления,
+  ошибка WebDAV при наличном stale → `200 STALE`, инвалидация после delete → MISS.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успех;
+  `bun run test:e2e` — **13 passed**.
+
+**Ruling**
+
+- 30 с + SWR, а не «кэш до изменения»: внешние загрузки в облако появляются в
+  пределах окна, а удаление через API инвалидирует сразу. Цена, если неверно:
+  загрузка мимо галереи видна с задержкой до 30 с; это осознанно.
+
+**PR:** [#146](https://github.com/frostiks777/1pgWebGallery/pull/146).
 ### 2026-11-12 — A0.7: deferred minors (ветка `fix/a0-deferred-minors`)
 
 **Что сделано** — 6 атомарных issue, 6 коммитов:
