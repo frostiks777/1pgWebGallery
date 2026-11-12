@@ -8,7 +8,8 @@
 **Статус:** A0: код готов (A0.1–A0.5, A0.6a), финальное ревью пройдено;
 PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен и
 задеплоен; follow-up #131 — PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132);
-A0.7 (deferred minors) — 6 атомарных issue закрыты в ветке `fix/a0-deferred-minors`;
+A0.7 (deferred minors) — 6 атомарных issue закрыты, PR
+[#141](https://github.com/frostiks777/1pgWebGallery/pull/141);
 A0.6 — ops; A1/A2 запланированы.
 
 ## Как читать этот файл
@@ -554,3 +555,6 @@ PR #129; каждый issue закрывается своим `Closes` в тел
 
 **Ограничение.** Постоянного e2e на 404/403 нет — как у A0.5, для этого нужна
 фикстура WebDAV-сервера; регрессия ловится только ручным скриптом.
+
+**PR:** [#141](https://github.com/frostiks777/1pgWebGallery/pull/141) открыт в `main`;
+мерж и деплой — вручную владельцем.
