@@ -5,9 +5,10 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import type { WebDAVClient } from 'webdav';
+import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
 
 const CACHE_DIR = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 let sharp: typeof import('sharp') | null = null;
@@ -35,7 +36,7 @@ function dav(): WebDAVClient | null {
 }
 
 function localCachePath(photo: string, size: ImageSize): string {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
   return path.join(/*turbopackIgnore: true*/ CACHE_DIR, `${hash}${thumbExt()}`);
 }
 
@@ -69,7 +70,7 @@ async function deleteOne(photoPath: string): Promise<{ path: string; ok: boolean
     } catch {}
   }
 
-  // 3. Delete WebDAV .thumbs
+  // 3. Delete WebDAV .thumbs-v2
   if (client && WEBDAV_COLOCATED_ENABLED) {
     for (const size of ALL_SIZES) {
       try {

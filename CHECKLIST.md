@@ -40,7 +40,7 @@ bun run start
    - [ ] Обновите страницу (F5)
    - [ ] Проверьте что все изображения:
      - В формате WebP
-     - Размер thumbnail ~50-150 KB
+     - Размер thumbnail ~14 КБ (450 px, q60, effort4 — пресет A0)
      - Есть заголовок `Cache-Control`
    - [ ] Обновите еще раз - должны быть кэшированные запросы (304 или from disk cache)
 
@@ -71,7 +71,7 @@ ls -la .cache/images/
 /api/images?path=...&size=thumbnail
   Status: 200
   Type: webp
-  Size: ~50-150 KB (было 2-5 MB)
+  Size: ~14 KB после A0 (старый пресет ~135 KB; оригинал 2-5 MB)
   Time: ~50-200ms (первый раз), ~10-20ms (из кэша)
 ```
 

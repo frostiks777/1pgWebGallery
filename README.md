@@ -261,9 +261,9 @@ gallery its own folder, and use HTTPS endpoints.
 > field is ignored silently and the drift returns — check `bunx next --version` against `bun.lock`
 > if you are unsure.
 
-`next build` fetches Google Fonts at build time, so it needs outbound HTTPS to
-`fonts.googleapis.com` and `fonts.gstatic.com`. In a network-restricted sandbox it fails for
-that reason alone, not because of a defect.
+Fonts are bundled in `src/app/fonts/` and loaded with `next/font/local`, so `next build`
+needs no outbound HTTPS to Google Fonts (plan A0.4). A network-restricted sandbox is no
+longer a reason for the build to fail.
 
 ---
 

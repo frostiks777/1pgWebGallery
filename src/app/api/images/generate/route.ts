@@ -12,6 +12,7 @@ import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
 import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
+import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -47,6 +48,7 @@ async function videoPosterViaFile(
 
 interface GenerateStatus {
   running: boolean;
+  sizes: ImageSize[];
   total: number;
   done: number;
   skipped: number;
@@ -59,6 +61,7 @@ interface GenerateStatus {
 
 const status: GenerateStatus = {
   running: false,
+  sizes: [],
   total: 0,
   done: 0,
   skipped: 0,
@@ -80,7 +83,7 @@ try {
 } catch {}
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 const IMAGE_PRESETS = {
@@ -107,7 +110,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpCacheExists(photo: string, size: ImageSize): boolean {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
   const p = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
   return fs.existsSync(p);
 }
@@ -115,7 +118,7 @@ function tmpCacheExists(photo: string, size: ImageSize): boolean {
 function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
   try {
     if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
+    const hash = crypto.createHash('md5').update(`${photo}-${size}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
     fs.writeFileSync(path.join(CACHE_DIR, `${hash}${thumbExt()}`), buf);
   } catch {}
 }
@@ -186,6 +189,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
   if (status.running) return;
 
   status.running    = true;
+  status.sizes      = sizes;
   status.done       = 0;
   status.skipped    = 0;
   status.errors     = 0;
@@ -200,7 +204,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
     })();
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
-    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
+    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 
     // Scope walk to sub-directory; scopePath is already validated by POST handler
     const startDir = scopePath
@@ -229,7 +233,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
         const videosHere: string[] = []; // full paths
         for (const entry of entries) {
           if (entry.type === 'directory') {
-            if (entry.basename.startsWith('.')) continue; // skip .thumbs and other hidden dirs
+            if (entry.basename.startsWith('.')) continue; // skip .thumbs-v2 and other hidden dirs
             await walkDir(entry.filename);
           } else if (
             imageExts.includes(entry.basename.toLowerCase().substring(entry.basename.lastIndexOf('.'))) &&
@@ -288,7 +292,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
                 continue;
               }
               // DAV thumb missing — read from local cache and upload
-              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v3`).digest('hex');
+              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
               const tmpFile = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
               const cached = fs.readFileSync(tmpFile);
               await writeDavThumb(client, photoPath, size, cached);
@@ -378,7 +382,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
         const expectedFiles = new Set<string>();
         for (const pp of photoPaths) {
           for (const sz of ALL_SIZES) {
-            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v3`).digest('hex');
+            const hash = crypto.createHash('md5').update(`${pp}-${sz}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
             expectedFiles.add(`${hash}${thumbExt()}`);
           }
         }
@@ -402,7 +406,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
       }
     }
 
-    // WebDAV .thumbs cleanup: remove thumbs for photos that no longer exist
+    // WebDAV .thumbs-v2 cleanup: remove thumbs for photos that no longer exist
     if (client && WEBDAV_COLOCATED_ENABLED && visitedDirs.length > 0) {
       const photoBasenames = new Map<string, Set<string>>();
       for (const pp of photoPaths) {
@@ -491,6 +495,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as { path?: string; size?: string };
   const rawScopePath = body?.path || undefined;
+  // `size` exists for the A0.6 ops migration: after a preset bump only the
+  // thumbnail cache is stale, and a full pass would re-encode medium/full for
+  // no changed bytes (3x the time and disk). The UI button sends no body and
+  // still gets all sizes; `status.sizes` reports what a running job is doing.
   const rawSize = body?.size ?? request.nextUrl.searchParams.get('size') ?? undefined;
 
   // Validate scopePath: must be a relative path with no traversal sequences

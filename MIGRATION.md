@@ -11,7 +11,8 @@
 - ❌ `/api/photo-file` — удалён
 
 **Унифицированный эндпоинт:**
-- ✅ `/api/images?path={path}&size={thumbnail|medium|full}`
+- ✅ `/api/images?path={path}&size={thumbnail|medium|full}` — URL дополнительно несёт
+  версию `v=4-<mtime>` (A0.2c), чтобы замена файла и смена пресета обходили кэши.
 
 ### Изменения в коде
 
@@ -59,7 +60,8 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
 
 ### Уровень 1 — Co-located кэш (рядом с оригиналами, постоянный)
 
-Миниатюры сохраняются в папку `.thumbs/{size}/` **в той же директории**, что и оригинальные фото.
+Миниатюры сохраняются в папку `.thumbs-v2/{size}/` **в той же директории**, что и оригинальные фото.
+Старые папки `.thumbs/` — legacy: код их больше не читает и не пишет, удалять вручную.
 
 **Для WebDAV фото** (сохраняется прямо на сервере WebDAV):
 ```
@@ -67,7 +69,7 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
   vacation/
     img001.jpg
     img002.jpg
-    .thumbs/
+    .thumbs-v2/
       thumbnail/
         img001.webp
         img002.webp
@@ -92,7 +94,7 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
   │
   ├─ 1. /tmp кэш (самый быстрый) ──────────────→ [HIT]  X-Cache: HIT
   │
-  ├─ 2. .thumbs/ рядом с оригиналом ───────────→ [HIT]  X-Cache: HIT-COLOCATED
+  ├─ 2. .thumbs-v2/ рядом с оригиналом ─────────→ [HIT]  X-Cache: HIT-COLOCATED
   │       (+ прогрев /tmp кэша)
   │
   └─ 3. Оригинал → оптимизация → сохранить в обоих кэшах → [MISS] X-Cache: MISS
@@ -101,8 +103,8 @@ const fullImageUrl = `/api/images?path=${encodeURIComponent(currentPhoto.path)}&
 ### Конфигурация кэша через переменные окружения
 
 ```env
-# Имя папки для co-located миниатюр (по умолчанию .thumbs)
-COLOCATED_THUMBS_DIR=.thumbs
+# Имя папки для co-located миниатюр (по умолчанию .thumbs-v2)
+COLOCATED_THUMBS_DIR=.thumbs-v2
 
 # Отключить запись миниатюр обратно на WebDAV (по умолчанию true)
 WEBDAV_COLOCATED_CACHE=false
@@ -122,7 +124,8 @@ CACHE_DIR=/tmp/photo-gallery-cache
 rm -rf /tmp/photo-gallery-cache/*
 
 # Co-located миниатюры на WebDAV — удалить через файловый менеджер
-# или через WebDAV клиент все папки .thumbs/ внутри директории с фото
+# или через WebDAV клиент все папки .thumbs-v2/ внутри директории с фото
+# (папки .thumbs/ — legacy прошлого пресета, их можно удалить там же)
 
 # Старые форматы кэша (если остались)
 rm -rf .cache/images/*
@@ -173,7 +176,7 @@ bun run start
 3. Фильтр: Images
 4. Проверить:
    - Все изображения в формате WebP
-   - Размеры соответствуют ожидаемым (thumbnail ~50-150KB, medium ~200-500KB)
+   - Размеры соответствуют ожидаемым (thumbnail ~14 KB, medium ~200-500KB)
    - Есть заголовки Cache-Control
 
 ### Lighthouse
@@ -229,7 +232,7 @@ bun run build
 ls -la /tmp/photo-gallery-cache/
 
 # Проверить логи сервера — должны быть сообщения вида:
-# [Images API] Co-located cache HIT (WebDAV): /Photos/.thumbs/thumbnail/photo.webp
+# [Images API] Co-located cache HIT (WebDAV): /Photos/.thumbs-v2/thumbnail/photo.webp
 # [Images API] WebDAV co-located write failed; falling back to /tmp cache only.
 ```
 
@@ -240,7 +243,7 @@ WEBDAV_COLOCATED_CACHE=false
 ```
 Система продолжит работать через `/tmp` кэш.
 
-### Проблема: Не хочу папку `.thumbs` в директории с фото
+### Проблема: Не хочу папку `.thumbs-v2` в директории с фото
 **Решение:** Либо отключить co-located кэш:
 ```env
 WEBDAV_COLOCATED_CACHE=false
@@ -269,12 +272,12 @@ const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 ```
 
 ### Изменить размеры изображений
-В `src/app/api/images/route.ts`:
+В `src/app/api/images/route.ts` (те же пресеты продублированы в `generate/route.ts`):
 ```typescript
-const IMAGE_SIZES = {
-  thumbnail: { width: 400, height: 400 },
-  medium: { width: 1200, height: 1200 },
-  full: { width: 2400, height: 2400 },
+const IMAGE_PRESETS = {
+  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
+  medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
+  full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
 }
 ```
 

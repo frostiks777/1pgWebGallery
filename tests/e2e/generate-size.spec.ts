@@ -56,6 +56,40 @@ test('batch generation can be limited to one size', async ({ request }) => {
   await expect
     .poll(() => statusSnapshot(request), { timeout: 30_000 })
     .toEqual({ total: 1, done: 1, running: false });
+
+  // The status endpoint reports which sizes the last run touched, so ops can
+  // tell a thumbnail-only migration from a full pass without reading logs.
+  const status = await (await request.get('/api/images/generate')).json();
+  expect(status.sizes).toEqual(['thumbnail']);
+});
+
+test('a second POST reports the sizes of the running job', async ({ request }) => {
+  await waitForIdle(request);
+  // Unique directory: a reused path would hit the `.data` cache from previous
+  // runs and finish before the second POST arrives, making the test flaky.
+  const busyDir = `.e2e-generate-busy-${Date.now()}`;
+  const busyPath = path.join(process.cwd(), 'public/demo-photos', busyDir);
+  fs.mkdirSync(busyPath, { recursive: true });
+  try {
+    for (let i = 1; i <= 8; i++) {
+      fs.copyFileSync(SOURCE, path.join(busyPath, `photo-${i}.jpg`));
+    }
+    const first = await request.post('/api/images/generate', {
+      data: { path: busyDir, size: 'full' },
+    });
+    expect(first.ok()).toBeTruthy();
+    expect((await first.json()).sizes).toEqual(['full']);
+
+    const second = await request.post('/api/images/generate', { data: {} });
+    const body = await second.json();
+    expect(body.message).toBe('Generation already in progress');
+    expect(body.sizes).toEqual(['full']);
+  } finally {
+    // The run walks this directory; deleting it first makes the job log
+    // ENOENT per photo and finish in an error state.
+    await waitForIdle(request);
+    fs.rmSync(busyPath, { recursive: true, force: true });
+  }
 });
 
 test('batch generation defaults to all sizes', async ({ request }) => {

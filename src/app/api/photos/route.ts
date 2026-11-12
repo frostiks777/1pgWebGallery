@@ -115,8 +115,10 @@ export async function GET(request: NextRequest) {
       }
 
       // One PROPFIND, not three: the old preflight listed the root and the
-      // target directory before this call listed it again. Listings are also
-      // cached for 30s (stale-while-revalidate) - see src/lib/listingCache.ts.
+      // target directory before this call listed it again. Listings are cached
+      // for 30s (stale-while-revalidate) - see src/lib/listingCache.ts. A
+      // failed fetch is usually a temporary storage problem (503), except for
+      // permanent 404/403 - see the status mapping in the catch below.
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
         const listing = await getListing(`webdav:${photosDir}`, async () => {
@@ -141,7 +143,28 @@ export async function GET(request: NextRequest) {
       } catch (webdavError) {
         console.error('[API] WebDAV error:', webdavError);
         // getListing only throws when there is no stale entry to fall back to,
-        // so this is a retryable storage problem: 503, not 200 with no photos.
+        // so this is a retryable storage problem unless the status below says
+        // otherwise. The `webdav` client puts the upstream HTTP status on the
+        // error. A 404/403 means PHOTOS_DIR or the WEBDAV_* credentials are
+        // wrong; retrying cannot fix a configuration error, so it must not be
+        // reported as the retryable 503 that the transient path returns.
+        const upstreamStatus = (webdavError as { status?: number } | null)?.status;
+        if (upstreamStatus === 404) {
+          return NextResponse.json({
+            success: false,
+            mode: 'webdav',
+            error: 'Photos directory not found on storage. Check PHOTOS_DIR.',
+            photos: [],
+          }, { status: 404 });
+        }
+        if (upstreamStatus === 401 || upstreamStatus === 403) {
+          return NextResponse.json({
+            success: false,
+            mode: 'webdav',
+            error: 'Storage denied access to the photos directory. Check WEBDAV_* credentials.',
+            photos: [],
+          }, { status: 502 });
+        }
         return NextResponse.json({
           success: false,
           mode: 'webdav',
