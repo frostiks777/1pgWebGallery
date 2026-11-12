@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { testWebDAVConnection } from '@/lib/webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from '@/lib/videoExt';
 
@@ -114,19 +113,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, mode: 'webdav', error: 'Invalid path', photos: [] }, { status: 400 });
       }
 
-      // Test connection first
-      const connectionTest = await testWebDAVConnection(photosDir);
-
-      if (!connectionTest.success) {
-        return NextResponse.json({
-          success: false,
-          mode: 'webdav',
-          error: 'Failed to connect to photo storage.',
-          photos: [],
-        }, { status: 200 });
-      }
-
-      // Use WebDAV
+      // One PROPFIND, not three: the old preflight listed the root and the
+      // target directory before this call listed it again. A failed listing is
+      // a temporary storage problem, so the client gets a retryable 503
+      // instead of a 200 with an empty gallery.
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
         const photos = await getPhotosFromDirectory(photosDir);
@@ -152,7 +142,7 @@ export async function GET(request: NextRequest) {
           mode: 'webdav',
           error: 'Failed to fetch photos from storage.',
           photos: [],
-        }, { status: 200 });
+        }, { status: 503, headers: { 'Retry-After': '5' } });
       }
     } else {
       // Use local demo photos
