@@ -18,6 +18,8 @@ interface MinimalismLayoutProps {
 }
 
 function thumbUrl(photo: Photo): string {
+  // Demo photos are bundled static files: they skip /api/images and its
+  // immutable URL versioning, and a dev-server reload is their cache invalidation.
   return photo.path.startsWith('/demo-photos/')
     ? photo.path
     : buildImageUrl(photo.path, 'thumbnail', photo.lastModified);

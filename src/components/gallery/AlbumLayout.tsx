@@ -52,6 +52,8 @@ function AlbumCard({
   isCover?: boolean;
   onToggleCover?: (photo: Photo) => void;
 }) {
+  // Demo photos are bundled static files: they skip /api/images and its
+  // immutable URL versioning, and a dev-server reload is their cache invalidation.
   const thumbnailUrl = photo.path.startsWith('/demo-photos/')
     ? photo.path
     : buildImageUrl(photo.path, 'thumbnail', photo.lastModified);

@@ -9,6 +9,7 @@ import type { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
+import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 import {
   hasFfmpeg,
   tryReservePosterSlot,
@@ -85,10 +86,7 @@ const IMAGE_PRESETS = {
 
 type ImageSize = keyof typeof IMAGE_PRESETS;
 
-// Video posters are shown at card/lightbox size, not at the requested thumbnail
-// preset. Keeping this independent of `size` stops the 450px thumbnail preset
-// from shrinking every video poster.
-const VIDEO_POSTER_WIDTH = 1280;
+
 
 // WebDAV write back-off state
 let webdavWriteFailures    = 0;
