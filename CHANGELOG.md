@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.6...v1.3.0) (2026-11-12)
+
+
+### Features
+
+* **generate:** ограничить batch-генерацию одним размером ([#127](https://github.com/frostiks777/1pgWebGallery/issues/127)) ([4d84911](https://github.com/frostiks777/1pgWebGallery/commit/4d849111e71183dda9b2c0c56a6c1bbefeb460f7))
+* **images:** версия пресета и mtime в URL картинок ([#121](https://github.com/frostiks777/1pgWebGallery/issues/121)) ([3ee8842](https://github.com/frostiks777/1pgWebGallery/commit/3ee88424d120e7853069ca9712215a76dfb5ccde))
+
+
+### Bug Fixes
+
+* **fonts:** локальные woff2 вместо next/font/google ([#124](https://github.com/frostiks777/1pgWebGallery/issues/124)) ([887e388](https://github.com/frostiks777/1pgWebGallery/commit/887e3888b4ddbe80e303b1a9a20fe9a7d0d54dad))
+* **images:** постер видео 1280px независимо от пресета ([#122](https://github.com/frostiks777/1pgWebGallery/issues/122)) ([27d23d2](https://github.com/frostiks777/1pgWebGallery/commit/27d23d23386cfcb3da18e1341ede85fbdd12be63))
+* **images:** пресет 450px и миграция кэшей на -v3/.thumbs-v2 ([#5](https://github.com/frostiks777/1pgWebGallery/issues/5), [#123](https://github.com/frostiks777/1pgWebGallery/issues/123)) ([2401d5b](https://github.com/frostiks777/1pgWebGallery/commit/2401d5b71daa98ff73a7e62fc8df4bce8eb37575))
+* **photos:** один PROPFIND и 503 при сбое WebDAV ([#125](https://github.com/frostiks777/1pgWebGallery/issues/125)) ([1df175a](https://github.com/frostiks777/1pgWebGallery/commit/1df175a3a798e5072c93cce2c8e871470a0089d0))
+
 ## [1.2.6](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.5...v1.2.6) (2026-10-27)
 
 
