@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 
 /**
  * Baseline smoke coverage for the gallery, run against the built-in demo
@@ -60,5 +63,53 @@ test.describe('gallery smoke', () => {
 
     await page.getByLabel('Закрыть').click();
     await expect(page.getByLabel('Закрыть')).toBeHidden();
+  });
+
+  test('serves the 450px thumbnail preset from the v3 cache key', async ({ request }) => {
+    // The preset is a server-side behaviour, so fetch it directly instead of
+    // measuring the rendered card: the grid's CSS size says nothing about the
+    // bytes sharp produced. Before the preset/cache-key change this returns an
+    // 800x800 WebP from the old cache entry.
+    const photosResponse = await request.get('/api/photos');
+    expect(photosResponse.ok()).toBeTruthy();
+    const { photos } = await photosResponse.json();
+    const photo = photos.find(
+      (candidate: { name: string }) => candidate.name === '01_mountain_sunset.jpg',
+    );
+    expect(photo).toBeTruthy();
+
+    const imageResponse = await request.get(
+      `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
+    );
+    expect(imageResponse.ok()).toBeTruthy();
+    expect(imageResponse.headers()['content-type']).toContain('image/webp');
+
+    const metadata = await sharp(await imageResponse.body()).metadata();
+    // Demo photos are not all square; the preset caps the long side at 450.
+    expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBe(450);
+  });
+
+  test('writes demo thumbnails to the .thumbs-v2 co-located cache', async ({ request }) => {
+    // The local hash bump cannot invalidate the co-located WebP written next
+    // to the source, so the preset migration needs a new directory name. The
+    // write is fire-and-forget; poll instead of assuming it finished with the
+    // response.
+    const photosResponse = await request.get('/api/photos');
+    const { photos } = await photosResponse.json();
+    const photo = photos.find(
+      (candidate: { name: string }) => candidate.name === '02_tropical_beach.jpg',
+    );
+    expect(photo).toBeTruthy();
+
+    const imageResponse = await request.get(
+      `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
+    );
+    expect(imageResponse.ok()).toBeTruthy();
+
+    const cacheFile = path.join(
+      process.cwd(),
+      'public/demo-photos/.thumbs-v2/thumbnail/02_tropical_beach.webp',
+    );
+    await expect.poll(() => fs.existsSync(cacheFile)).toBe(true);
   });
 });

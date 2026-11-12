@@ -50,7 +50,7 @@ try {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 // Videos with no companion photo (see src/lib/webdav.ts) are still listed in
@@ -78,7 +78,7 @@ const VIDEO_DOWNLOAD_TIMEOUT_MS = Number(process.env.VIDEO_DOWNLOAD_TIMEOUT_MS |
  * large images where encoding time matters.
  */
 const IMAGE_PRESETS = {
-  thumbnail: { width: 800,  height: 800,  quality: 80, effort: 6 },
+  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
   medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
   full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
 } as const;
@@ -206,7 +206,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpPath(photo: string, size: ImageSize): string {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
   return path.join(CACHE_DIR, `${hash}${thumbExt()}`);
 }
 

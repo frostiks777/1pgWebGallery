@@ -78,11 +78,11 @@ try {
 } catch {}
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 const IMAGE_PRESETS = {
-  thumbnail: { width: 800,  height: 800,  quality: 80, effort: 6 },
+  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
   medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
   full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
 } as const;
@@ -105,7 +105,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpCacheExists(photo: string, size: ImageSize): boolean {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
   const p = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
   return fs.existsSync(p);
 }
@@ -113,7 +113,7 @@ function tmpCacheExists(photo: string, size: ImageSize): boolean {
 function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
   try {
     if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+    const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
     fs.writeFileSync(path.join(CACHE_DIR, `${hash}${thumbExt()}`), buf);
   } catch {}
 }
@@ -198,7 +198,7 @@ async function runGeneration(scopePath?: string) {
     })();
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
-    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 
     // Scope walk to sub-directory; scopePath is already validated by POST handler
     const startDir = scopePath
@@ -286,7 +286,7 @@ async function runGeneration(scopePath?: string) {
                 continue;
               }
               // DAV thumb missing — read from local cache and upload
-              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v2`).digest('hex');
+              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v3`).digest('hex');
               const tmpFile = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
               const cached = fs.readFileSync(tmpFile);
               await writeDavThumb(client, photoPath, size, cached);
@@ -374,7 +374,7 @@ async function runGeneration(scopePath?: string) {
         const expectedFiles = new Set<string>();
         for (const pp of photoPaths) {
           for (const sz of ALL_SIZES) {
-            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v2`).digest('hex');
+            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v3`).digest('hex');
             expectedFiles.add(`${hash}${thumbExt()}`);
           }
         }

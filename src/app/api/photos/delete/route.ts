@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import type { WebDAVClient } from 'webdav';
 
 const CACHE_DIR = process.env.CACHE_DIR || path.join(process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 let sharp: typeof import('sharp') | null = null;
@@ -34,7 +34,7 @@ function dav(): WebDAVClient | null {
 }
 
 function localCachePath(photo: string, size: ImageSize): string {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
   return path.join(/*turbopackIgnore: true*/ CACHE_DIR, `${hash}${thumbExt()}`);
 }
 

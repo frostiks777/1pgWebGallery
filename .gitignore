@@ -64,6 +64,7 @@ upload/
 .cache/
 .data/
 **/.thumbs/
+**/.thumbs-v*/
 
 # CI/CD deploy target on the server (rsync'd standalone build, not source)
 /release/
