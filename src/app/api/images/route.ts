@@ -85,6 +85,11 @@ const IMAGE_PRESETS = {
 
 type ImageSize = keyof typeof IMAGE_PRESETS;
 
+// Video posters are shown at card/lightbox size, not at the requested thumbnail
+// preset. Keeping this independent of `size` stops the 450px thumbnail preset
+// from shrinking every video poster.
+const VIDEO_POSTER_WIDTH = 1280;
+
 // WebDAV write back-off state
 let webdavWriteFailures    = 0;
 let webdavWriteLastFailure = 0;
@@ -481,8 +486,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Poster width — ffmpeg scales in-process so sharp is never handed a 4K
-    // frame (a 3840x2160 JPEG costs ~8x the encode time of an 800px one).
-    const posterWidth = IMAGE_PRESETS[size].width;
+    // frame (a 3840x2160 JPEG costs ~8x the encode time of a 1280px one).
+    const posterWidth = VIDEO_POSTER_WIDTH;
 
     // ── 3. Fetch original ───────────────────────────────────────────────────
     let original: Buffer;
