@@ -115,8 +115,9 @@ export async function GET(request: NextRequest) {
 
       // One PROPFIND, not three: the old preflight listed the root and the
       // target directory before this call listed it again. A failed listing is
-      // a temporary storage problem, so the client gets a retryable 503
-      // instead of a 200 with an empty gallery.
+      // usually a temporary storage problem, so the client gets a retryable
+      // 503 instead of a 200 with an empty gallery. Permanent failures are the
+      // exception - see the status mapping in the catch below.
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
         const photos = await getPhotosFromDirectory(photosDir);
@@ -137,6 +138,27 @@ export async function GET(request: NextRequest) {
         });
       } catch (webdavError) {
         console.error('[API] WebDAV error:', webdavError);
+        // The `webdav` client puts the upstream HTTP status on the error. A
+        // 404/403 means PHOTOS_DIR or the WEBDAV_* credentials are wrong;
+        // retrying cannot fix a configuration error, so it must not be
+        // reported as the retryable 503 that the transient path returns.
+        const upstreamStatus = (webdavError as { status?: number } | null)?.status;
+        if (upstreamStatus === 404) {
+          return NextResponse.json({
+            success: false,
+            mode: 'webdav',
+            error: 'Photos directory not found on storage. Check PHOTOS_DIR.',
+            photos: [],
+          }, { status: 404 });
+        }
+        if (upstreamStatus === 401 || upstreamStatus === 403) {
+          return NextResponse.json({
+            success: false,
+            mode: 'webdav',
+            error: 'Storage denied access to the photos directory. Check WEBDAV_* credentials.',
+            photos: [],
+          }, { status: 502 });
+        }
         return NextResponse.json({
           success: false,
           mode: 'webdav',
