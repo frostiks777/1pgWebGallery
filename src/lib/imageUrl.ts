@@ -1,9 +1,10 @@
+import { IMAGE_PRESET_VERSION } from './cacheVersions';
+
 export type ImageSize = 'thumbnail' | 'medium' | 'full';
 
-// Bump when IMAGE_PRESETS changes: /api/images answers with a one-year
-// immutable Cache-Control, so this URL is the only cache key the browser and
-// nginx see. The mtime suffix makes a replaced file a different URL.
-export const IMAGE_PRESET_VERSION = 4;
+// The version itself and its rationale live in ./cacheVersions: the URL is
+// the only cache key the browser and nginx see (one-year immutable
+// Cache-Control), and the mtime suffix makes a replaced file a different URL.
 
 export function imageUrl(
   path: string,

@@ -10,6 +10,7 @@ import type { WebDAVClient } from 'webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
+import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
 import {
   hasFfmpeg,
   tryReservePosterSlot,
@@ -35,7 +36,7 @@ try {
   // libvips keeps a 50 MB decoded-image cache by default (sharp/lib/utility.js:
   // "Default cache settings of 50MB, 20 files, 100 items"). On the ~800 MB prod
   // box that ceiling is pure overhead: every generated thumbnail is already
-  // cached on disk (local .data/ or colocated .thumbs/ on WebDAV), so a cache
+  // cached on disk (local .data/ or colocated .thumbs-v2/ on WebDAV), so a cache
   // hit only ever saves re-decoding the original inside the SAME request that
   // was going to encode it anyway.
   sharp!.cache({ memory: 0 });
@@ -51,7 +52,7 @@ try {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 // Videos with no companion photo (see src/lib/webdav.ts) are still listed in
@@ -209,7 +210,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpPath(photo: string, size: ImageSize): string {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-${IMAGE_CACHE_KEY_VERSION}`).digest('hex');
   return path.join(CACHE_DIR, `${hash}${thumbExt()}`);
 }
 
@@ -232,7 +233,7 @@ function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Co-located .thumbs/ — LOCAL demo photos
+// Co-located .thumbs-v2/ — LOCAL demo photos
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PUBLIC_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public');
@@ -278,7 +279,7 @@ function writeLocalThumb(photo: string, size: ImageSize, buf: Buffer): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Co-located .thumbs/ — WEBDAV
+// Co-located .thumbs-v2/ — WEBDAV
 // ─────────────────────────────────────────────────────────────────────────────
 
 function davThumbPaths(photo: string, size: ImageSize) {
@@ -451,7 +452,7 @@ export async function GET(request: NextRequest) {
     const tmpHit = readTmpCache(decoded, size);
     if (tmpHit) return respond(tmpHit, 'HIT');
 
-    // ── 2. .thumbs/ co-located cache ────────────────────────────────────────
+    // ── 2. .thumbs-v2/ co-located cache ─────────────────────────────────────
     const thumbHit = isDemo
       ? readLocalThumb(decoded, size)
       : await readDavThumb(decoded, size);
@@ -563,7 +564,7 @@ export async function GET(request: NextRequest) {
     // ── 5. Local disk cache (sync, fast) ────────────────────────────────────
     writeTmpCache(decoded, size, result);
 
-    // ── 6. .thumbs/ (fire-and-forget — never blocks the response) ───────────
+    // ── 6. .thumbs-v2/ (fire-and-forget — never blocks the response) ────────
     if (isDemo) {
       writeLocalThumb(decoded, size, result);
     } else {
