@@ -115,11 +115,14 @@ A0.6 — ops; A1/A2 запланированы.
     без `size` — три размера; невалидный — `400`; e2e зелёный.
   - Issue: #127.
 
-- [ ] **A0.6. Перегенерация `thumbnail` на проде.** ⏸️
+- [ ] **A0.6. Перегенерация `thumbnail` на проде.** 🔄
   - Файлы: нет (ops).
-  - Проверка: прогресс 100%, выборочный размер ~21 КБ вместо ~89 КБ, нет 5xx,
+  - Проверка: прогресс 100%, выборочный размер ~14 КБ вместо ~135 КБ, нет 5xx,
     RSS не выше baseline.
-  - Issue: #126. Выполняет владелец после деплоя A0.
+  - Issue: #126. 2026-11-12: старые `.thumbs` на WebDAV удалены (−3,97 ГБ),
+    nginx-кэш очищен, прогон `{"size":"thumbnail"}` запущен; осталось дождаться
+    `running: false` и почистить `.data` под root (инструкция — в разделе
+    «A0: итог и передача владельцу»).
 
 ### A0.7 — deferred minors из ревью A0
 
@@ -441,23 +444,54 @@ A0.6 — ops; A1/A2 запланированы.
 
 **Проверки на 2026-11-12:** lint 0, tsc 0, build 16,1 с, e2e 9/9.
 
-**Что осталось сделать владельцу (A0.6, #126):**
+**A0.6 (#126) — как выполнять после #134 (auth)**: инструкция обновлена 2026-11-12.
 
-1. PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) открыт;
-   дождаться ревью и смержить. Пуш в `main` деплоит прод.
-2. На проде проверить `.env.local`: если `COLOCATED_THUMBS_DIR` задан явно как
-   `.thumbs`, заменить на `.thumbs-v2` (иначе код и окружение разъедутся).
-3. Очистить nginx-кэш `/api/images` (старые записи живут до 7 дней; новые URL
-   с `v=` их обойдут, но старый кэш занимает место).
-4. С сервера, только с localhost:
-   `curl -X POST http://127.0.0.1:3000/api/images/generate -H 'Content-Type: application/json' -d '{"size":"thumbnail"}'`
-   затем опрашивать `GET /api/images/generate` до `running: false`.
-   До #116 endpoint без пароля — снаружи не запускать.
-5. Проверить: прогресс 100 %, выборочный размер ~14 КБ вместо ~135 КБ,
-   нет 5xx, RSS не выше baseline.
-6. Старый `.thumbs` в WebDAV не удалять сразу: сначала убедиться, что
-   `.thumbs-v2` наполняется и галерея его читает; очистку делать отдельно,
-   вручную.
+После #134 `POST /api/images/generate` проверяет cookie галереи, если задан
+`WEBDAV_LOGON_PASSWORD`. Без cookie — `401 Unauthorized`. Cookie считается как
+`sha256("<WEBDAV_URL>:<WEBDAV_LOGON_PASSWORD>")` (см. `src/lib/auth.ts`), имя —
+`gallery-auth`. Запуск только с localhost сервера:
+
+```bash
+ENVFILE=/var/www/apps/photo-gallery/.env.local
+envval() { grep -E "^[[:space:]]*$1[[:space:]]*=" "$ENVFILE" | head -1 \
+  | sed -E "s/^[^=]*=[[:space:]]*//; s/[[:space:]]*$//"; }
+URL=$(envval WEBDAV_URL); PW=$(envval WEBDAV_LOGON_PASSWORD)
+TOKEN=$(node -e 'const c=require("crypto");console.log(c.createHash("sha256")
+  .update(process.argv[1]+":"+process.argv[2]).digest("hex"))' "$URL" "$PW")
+
+curl -s -X POST http://127.0.0.1:3000/api/images/generate \
+  -H 'Content-Type: application/json' -H "Cookie: gallery-auth=$TOKEN" \
+  -d '{"size":"thumbnail"}'
+curl -s http://127.0.0.1:3000/api/images/generate   # sizes, total, done, running
+```
+
+Ответ POST содержит `sizes: ["thumbnail"]`; `GET` во время прогона — те же `sizes`,
+`total = фото × 1`, затем `done`. Если гейта по паролю нет (переменная пустая),
+cookie не нужен.
+
+**Что уже сделано на проде 2026-11-12 (агент, с разрешения владельца):**
+
+1. Старые `.thumbs` (800px) на WebDAV удалены во всех 33 альбомах — освобождено
+   **3,97 ГБ**; `.thumbs-v2` (450px) на месте во всех альбомах.
+2. nginx-кэш `/api/images` очищен через `sudo /usr/local/sbin/pg-nginx-cache-fix`
+   (до 4 КБ).
+3. Перегенерация запущена: `POST {"size":"thumbnail"}`, `running: true`,
+   `sizes: ["thumbnail"]`. Ждать не нужно — процесс идёт в фоне сервиса.
+
+**Что осталось владельцу:**
+
+- Старые миниатюры в `.data/` (локальный кэш, ~3,4 ГБ) — файлы принадлежат
+  `www-data`, у `pgagent` нет прав на запись. Удалить под root, сохранив `dir-meta/`:
+
+  ```bash
+  sudo find /var/www/apps/photo-gallery/.data -maxdepth 1 -type f \
+    \( -name '*.webp' -o -name '*.jpg' \) -delete
+  ```
+
+  Кэш холодный — миниатюры пересоздадутся на запросе; `dir-meta/` (скрытые,
+  панорамы, обложки) не трогать.
+- После завершения прогона (#126): прогресс 100 %, выборочный размер ~14 КБ вместо
+  ~135 КБ, нет 5xx, RSS не выше baseline.
 
 ## Финальное ревью ветки (2026-11-12)
 
