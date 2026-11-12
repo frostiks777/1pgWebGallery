@@ -8,6 +8,7 @@
 **Статус:** A0: код готов (A0.1–A0.5, A0.6a), финальное ревью пройдено;
 PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен и
 задеплоен; follow-up #131 — PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132);
+A0.7 (deferred minors) — 6 атомарных issue закрыты в ветке `fix/a0-deferred-minors`;
 A0.6 — ops; A1/A2 запланированы.
 
 ## Как читать этот файл
@@ -41,6 +42,12 @@ A0.6 — ops; A1/A2 запланированы.
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ✅ |
 | A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ✅ |
 | A0.6a | `size` в `POST /api/images/generate` (только thumbnail) | [#127](https://github.com/frostiks777/1pgWebGallery/issues/127) | ✅ |
+| A0.7.1 | Документация после A0: Google Fonts больше не нужен сборке | [#135](https://github.com/frostiks777/1pgWebGallery/issues/135) | ✅ |
+| A0.7.2 | Документация после A0: `.thumbs-v2`, `v=4-<mtime>`, размер thumbnail | [#136](https://github.com/frostiks777/1pgWebGallery/issues/136) | ✅ |
+| A0.7.3 | OFL-1.1 рядом со шрифтами | [#140](https://github.com/frostiks777/1pgWebGallery/issues/140) | ✅ |
+| A0.7.4 | Единый источник версий кэша | [#137](https://github.com/frostiks777/1pgWebGallery/issues/137) | ✅ |
+| A0.7.5 | `sizes` в статусе и ответе «already in progress» | [#138](https://github.com/frostiks777/1pgWebGallery/issues/138) | ✅ |
+| A0.7.6 | 404/403 WebDAV не отдаются как retryable 503 | [#139](https://github.com/frostiks777/1pgWebGallery/issues/139) | ✅ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
@@ -112,6 +119,15 @@ A0.6 — ops; A1/A2 запланированы.
   - Проверка: прогресс 100%, выборочный размер ~21 КБ вместо ~89 КБ, нет 5xx,
     RSS не выше baseline.
   - Issue: #126. Выполняет владелец после деплоя A0.
+
+### A0.7 — deferred minors из ревью A0
+
+- [x] **A0.7.1. Документация: build без Google Fonts.** (#135) ✅
+- [x] **A0.7.2. Документация: `.thumbs-v2`, `v=4-<mtime>`, размер thumbnail.** (#136) ✅
+- [x] **A0.7.3. Текст OFL-1.1 рядом со шрифтами.** (#140) ✅
+- [x] **A0.7.4. Единый источник версий кэша.** (#137) ✅
+- [x] **A0.7.5. `sizes` в статусе generate.** (#138) ✅
+- [x] **A0.7.6. 404/403 WebDAV ≠ retryable 503.** (#139) ✅
 
 ### A1 — листинг, очередь sharp, мониторинг (3–5 дней)
 
@@ -463,19 +479,17 @@ A0.6 — ops; A1/A2 запланированы.
 
 **Проверки после исправлений:** lint 0, tsc 0, build 20,1 с, e2e **11/11**.
 
-**Deferred minors (в fix pass не входили):**
+**Deferred minors (закрыты в A0.7):**
 
-- Три версии кэша не связаны: `v=4`, `-v3`, `.thumbs-v2` — стоит один
-  модуль/комментарий на все точки.
-- `README.md`/`AGENTS.md` всё ещё говорят, что build требует Google Fonts.
-- `CHECKLIST.md` ожидает миниатюру 50–150 КБ; новый пресет даёт ~14 КБ.
-- `MEMORY.md`, `CONTEXT.md`, `MIGRATION.md` описывают старый `.thumbs`
-  и URL без версии.
-- OFL: рядом со шрифтами нет текста лицензии (только README со ссылками).
-- `503` для постоянной ошибки `PHOTOS_DIR` (404/403) — стоит различать.
-- Ответ «already in progress» не возвращает `sizes`.
-- Комментарии `.thumbs/` в коде — обновить на `.thumbs-v2`.
-- У нового `size` в `generate` нет why-комментария.
+- ~~Три версии кэша не связаны~~ → #137: `src/lib/cacheVersions.ts`.
+- ~~`README.md`/`AGENTS.md` говорят, что build требует Google Fonts~~ → #135.
+- ~~`CHECKLIST.md` ожидает 50–150 КБ~~ → #136: ~14 КБ.
+- ~~`MEMORY.md`, `CONTEXT.md`, `MIGRATION.md` описывают старый `.thumbs` и URL без версии~~ → #136.
+- ~~OFL: рядом со шрифтами нет текста лицензии~~ → #140.
+- ~~`503` для постоянной ошибки `PHOTOS_DIR`~~ → #139: 404/403 → 404/502.
+- ~~Ответ «already in progress» не возвращает `sizes`~~ → #138.
+- ~~Комментарии `.thumbs/` в коде~~ → #137.
+- ~~У нового `size` в `generate` нет why-комментария~~ → #138.
 
 **Rulings по «Declined to judge» ревьюера** (все — оставить как есть):
 
@@ -510,3 +524,33 @@ A0.6 — ops; A1/A2 запланированы.
   [#131](https://github.com/frostiks777/1pgWebGallery/issues/131),
   PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132).
 - A0.6 (#126) остаётся: перегенерация thumbnail на проде после деплоя.
+
+### 2026-11-12 — A0.7: deferred minors (ветка `fix/a0-deferred-minors`)
+
+**Что сделано** — 6 атомарных issue, 6 коммитов:
+
+| Issue | Коммит | Что |
+|---|---|---|
+| [#135](https://github.com/frostiks777/1pgWebGallery/issues/135) | `c9e4c02` | README/AGENTS/checks.md/MEMORY: build без Google Fonts |
+| [#136](https://github.com/frostiks777/1pgWebGallery/issues/136) | `0038c1f` | `.thumbs-v2`, `v=4-<mtime>`, ~14 КБ в CHECKLIST/CONTEXT/MIGRATION/MEMORY |
+| [#140](https://github.com/frostiks777/1pgWebGallery/issues/140) | `64b6354` | `src/app/fonts/OFL-1.1.txt` + copyright-строки |
+| [#137](https://github.com/frostiks777/1pgWebGallery/issues/137) | `9b04722` | `src/lib/cacheVersions.ts`; 11 литералов убраны; комментарии `.thumbs/` |
+| [#138](https://github.com/frostiks777/1pgWebGallery/issues/138) | `cc177d2` | `status.sizes` + why-комментарий к `size` + e2e |
+| [#139](https://github.com/frostiks777/1pgWebGallery/issues/139) | `1fcf818` | 404/403 WebDAV → 404/502, транзиентное → 503 + `Retry-After` |
+
+**Проверки:** `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успех
+(без сети); `bun run test:e2e` — **14 passed**; `generate-size` отдельно — 4 passed.
+`/api/photos` проверен временным Bun-скриптом с фейковым WebDAV-сервером:
+404→404, 403→502, 401→502, 500→503 + `Retry-After: 5`, недоступный хост→503,
+демо-режим→200.
+
+**Ruling — один PR на весь A0.7.** Это единый список хвостов одного ревью, как A0 в
+PR #129; каждый issue закрывается своим `Closes` в теле PR. Цена, если неверно:
+ревью видит 6 тем в одном диффе; выигрыш — один деплой вместо шести.
+
+**Ruling — `IMAGE_PRESET_VERSION` переехал в `cacheVersions.ts`.** Отдельный модуль,
+а не комментарий: 11 call-sites и два уже случившихся промаха (D2/D3) — цена
+дублирования выше цены файла на 12 строк.
+
+**Ограничение.** Постоянного e2e на 404/403 нет — как у A0.5, для этого нужна
+фикстура WebDAV-сервера; регрессия ловится только ручным скриптом.
