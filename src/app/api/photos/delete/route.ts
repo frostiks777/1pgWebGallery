@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
+import { invalidateListing } from '@/lib/listingCache';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -115,8 +116,14 @@ export async function POST(request: NextRequest) {
   for (const photoPath of validPaths) {
     const result = await deleteOne(photoPath);
     results.push(result);
-    if (result.ok) deleted++;
-    else errored++;
+    if (result.ok) {
+      deleted++;
+      // The cached listing of the parent folder still contains this photo.
+      // Dropping it makes the next open issue a PROPFIND (MISS) instead of
+      // showing a deleted file for up to 30s.
+      const parent = photoPath.slice(0, photoPath.lastIndexOf('/')) || '/';
+      invalidateListing(`webdav:${parent}`);
+    } else errored++;
   }
 
   const timestamp = new Date().toISOString();

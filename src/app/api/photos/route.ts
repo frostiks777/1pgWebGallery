@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
+import { getListing } from '@/lib/listingCache';
 import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from '@/lib/videoExt';
 
 interface LocalPhoto {
@@ -114,29 +115,33 @@ export async function GET(request: NextRequest) {
       }
 
       // One PROPFIND, not three: the old preflight listed the root and the
-      // target directory before this call listed it again. A failed listing is
-      // a temporary storage problem, so the client gets a retryable 503
-      // instead of a 200 with an empty gallery.
+      // target directory before this call listed it again. Listings are also
+      // cached for 30s (stale-while-revalidate) - see src/lib/listingCache.ts.
       try {
         const { getPhotosFromDirectory } = await import('@/lib/webdav');
-        const photos = await getPhotosFromDirectory(photosDir);
-
-        console.log(`[API] Loaded ${photos.length} photos from WebDAV`);
-
-        return NextResponse.json({
-          success: true,
-          mode: 'webdav',
-          photos: photos.map(photo => ({
+        const listing = await getListing(`webdav:${photosDir}`, async () => {
+          const photos = await getPhotosFromDirectory(photosDir);
+          return photos.map(photo => ({
             name: photo.name,
             path: photo.path,
             size: photo.size,
             lastModified: photo.lastModified.toISOString(),
             mimeType: photo.mimeType,
             videoPath: photo.videoPath,
-          })),
+          }));
         });
+
+        console.log(`[API] Loaded ${listing.data.length} photos from WebDAV (${listing.state})`);
+
+        return NextResponse.json({
+          success: true,
+          mode: 'webdav',
+          photos: listing.data,
+        }, { headers: { 'X-Listing-Cache': listing.state } });
       } catch (webdavError) {
         console.error('[API] WebDAV error:', webdavError);
+        // getListing only throws when there is no stale entry to fall back to,
+        // so this is a retryable storage problem: 503, not 200 with no photos.
         return NextResponse.json({
           success: false,
           mode: 'webdav',
