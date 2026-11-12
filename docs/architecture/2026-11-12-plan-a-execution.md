@@ -36,7 +36,7 @@
 | A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ✅ |
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ✅ |
-| A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ⬜ |
+| A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ✅ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
@@ -90,7 +90,7 @@
     `fonts.googleapis.com`/`fonts.gstatic.com`; lint/tsc/build/e2e; визуальный чек.
   - Issue: #124.
 
-- [ ] **A0.5. Один PROPFIND на листинг, `503` при сбое WebDAV.**
+- [x] **A0.5. Один PROPFIND на листинг, `503` при сбое WebDAV.** ✅
   - Файлы: `src/app/api/photos/route.ts` (`:118`), при необходимости `src/lib/webdav.ts`.
   - Проверка: лог/счётчик — один PROPFIND; при заведомо недоступном WebDAV
     `curl /api/photos` → `503` + `Retry-After`; lint/tsc/build/e2e.
@@ -328,3 +328,29 @@
   поведение доказывается самой сборкой (раньше висела, теперь 18,7 с)
   и отсутствием Google-URL в бандле. Цена, если неверно: визуальная
   разница начертаний не поймана автоматикой.
+
+### 2026-11-12 — A0.5 (коммит `1df175a`)
+
+**Что сделано**
+
+- Из `src/app/api/photos/route.ts` убран `testWebDAVConnection`: он делал
+  `getDirectoryContents('/')` + `getDirectoryContents(photosDir)`, после чего
+  `getPhotosFromDirectory` делал третий запрос к той же папке.
+- Остался один вызов `getPhotosFromDirectory` → один PROPFIND.
+- Сбой листинга теперь `503` + `Retry-After: 5` вместо `200` с `photos: []`.
+
+**Проверки**
+
+- RED: временный Bun-скрипт с `WEBDAV_URL=http://127.0.0.1:1` вызвал route
+  handler напрямую — старый код вернул `200` и пустой список.
+- GREEN: тот же скрипт после правки — `status: 503`, `retry-after: 5`,
+  в логе только `[WebDAV] Fetching photos from: /Photos`, без root/preflight.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0;
+  `bunx playwright test` — **8 passed** (54,2 с).
+
+**Ruling**
+
+- Постоянного e2e на WebDAV-сбой нет: демо-режим не поднимает WebDAV,
+  а фикстура-сервер — отдельная инфраструктура. Проверка выполнена
+  временным скриптом; цена, если неверно: регрессия 503/Retry-After
+  не ловится CI, пока не появится WebDAV-тест.
