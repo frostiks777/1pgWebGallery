@@ -75,5 +75,6 @@ JSON-файл на папку с тремя списками: `hidden`, `panoram
 _Avoid_: Метаданные, настройки папки
 
 **Со-локационный кэш**:
-Миниатюры в `.thumbs/` рядом с фото в WebDAV (`WEBDAV_COLOCATED_CACHE`).
+Миниатюры в `.thumbs-v2/` рядом с фото в WebDAV (`WEBDAV_COLOCATED_CACHE`).
+URL миниатюр версионирован: `v=4-<mtime>` (см. `src/lib/imageUrl.ts`).
 _Avoid_: Серверный кэш
