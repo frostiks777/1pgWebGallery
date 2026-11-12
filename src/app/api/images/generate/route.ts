@@ -10,6 +10,7 @@ import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
 import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
+import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -320,7 +321,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
           status.lastPhoto = `${path.basename(photoPath)} [${size}]`;
           let original: Buffer;
           if (client && isVideoFile(photoPath)) {
-            original = await videoPosterViaFile(client, photoPath);
+            original = await videoPosterViaFile(client, photoPath, VIDEO_POSTER_WIDTH);
           } else if (client) {
             const p = photoPath.startsWith('/') ? photoPath : '/' + photoPath;
             const ab = await withTimeout(
@@ -341,7 +342,9 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
             // The slot is taken here, not inside the helper — one path for both
             // modes, so a demo batch can't run ffmpeg in parallel with a poster
             // request (#99).
-            original = await withFfmpegSlot(() => extractVideoPosterBuffer(original));
+            original = await withFfmpegSlot(() =>
+              extractVideoPosterBuffer(original, { width: VIDEO_POSTER_WIDTH }),
+            );
           }
 
 

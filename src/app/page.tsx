@@ -840,6 +840,8 @@ export default function GalleryPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {sortedFolders.map((folder) => {
                       const previews = folder.previewPhotos ?? [];
+                      // Covers come from dir-meta as paths only, so there is no
+                      // mtime to put in the URL; v=4 still invalidates the preset.
                       return (
                         <motion.button
                           key={folder.path}
