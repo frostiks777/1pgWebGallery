@@ -5,7 +5,7 @@
 **Worktree:** `C:\My_projects_GIT\1pg_gall-plan-a`
 **База:** `main` @ `4d59e56`
 **Исходный разбор:** [`docs/architecture/2026-11-12-rewrite-vs-fix.md`](./2026-11-12-rewrite-vs-fix.md) (далее — «разбор»)
-**Статус:** A0 в работе; A1/A2 запланированы.
+**Статус:** A0: код готов (A0.1–A0.5, A0.6a); A0.6 — ops; A1/A2 запланированы.
 
 ## Как читать этот файл
 
@@ -37,6 +37,7 @@
 | A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ✅ |
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ✅ |
 | A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ✅ |
+| A0.6a | `size` в `POST /api/images/generate` (только thumbnail) | [#127](https://github.com/frostiks777/1pgWebGallery/issues/127) | ✅ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
@@ -96,7 +97,14 @@
     `curl /api/photos` → `503` + `Retry-After`; lint/tsc/build/e2e.
   - Issue: #125.
 
-- [ ] **A0.6. Перегенерация `thumbnail` на проде.**
+- [x] **A0.6a. Параметр `size` для batch-генерации.** ✅
+  - Файлы: `src/app/api/images/generate/route.ts`,
+    `tests/e2e/generate-size.spec.ts`.
+  - Проверка: `POST { "size": "thumbnail" }` → `total = фото × 1`;
+    без `size` — три размера; невалидный — `400`; e2e зелёный.
+  - Issue: #127.
+
+- [ ] **A0.6. Перегенерация `thumbnail` на проде.** ⏸️
   - Файлы: нет (ops).
   - Проверка: прогресс 100%, выборочный размер ~21 КБ вместо ~89 КБ, нет 5xx,
     RSS не выше baseline.
@@ -354,3 +362,70 @@
   а фикстура-сервер — отдельная инфраструктура. Проверка выполнена
   временным скриптом; цена, если неверно: регрессия 503/Retry-After
   не ловится CI, пока не появится WebDAV-тест.
+
+### 2026-11-12 — A0.6a (коммит `4d84911`)
+
+**Находка**
+
+- `POST /api/images/generate` всегда генерировал `thumbnail + medium + full`
+  (`ALL_SIZES`), а A0.6 требует только `thumbnail`. Запуск «как есть» был бы
+  втрое дольше и записал бы втрое больше данных. Это дефект плана, а не кода:
+  параметра `size` просто не было.
+
+**Что сделано**
+
+- `runGeneration(scopePath, sizes = ALL_SIZES)`; `status.total` и цикл
+  считают только выбранные размеры.
+- POST принимает `size` из тела или query; невалидный → `400`; без `size`
+  поведение прежнее.
+- В ответ POST добавлено `sizes`, чтобы ops-прогон было видно в логе.
+- Новый e2e `tests/e2e/generate-size.spec.ts`.
+
+**Проверки**
+
+- RED: `POST { size: "thumbnail" }` давал `total = 24` (8 фото × 3).
+- GREEN: `8 photos × 1 sizes = 8 tasks`, `total = 8`, `running = false`.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0;
+  `bun run test:e2e` — **9 passed** (1,3 мин);
+  `bun run build` — успех, 16,1 с.
+
+**Ruling**
+
+- Код-шаг выделен в отдельный issue #127, а не расширен в #126: #126 остаётся
+  ops-прогоном на проде, #127 — поведением endpoint'а. Цена, если неверно:
+  два issue вместо одного, зато «one issue, one change» соблюдён.
+
+## A0: итог и передача владельцу
+
+**Готово в ветке `feat/plan-a-runtime-repair`:**
+
+- A0.1/A0.2a — пресет 450/q60/effort4 и `-v3` во всех местах.
+- A0.2b — `.thumbs-v2`.
+- A0.2c/A1.9 — `v=4-<mtime>` во всех URL `/api/images`.
+- A0.3 — постер видео 1280px.
+- A0.4 — локальные шрифты, сборка без Google Fonts.
+- A0.5 — один PROPFIND, `503 + Retry-After` при сбое WebDAV.
+- A0.6a — `size` для batch-генерации.
+
+**Коммиты:** `2401d5b`, `3ee8842`, `27d23d2`, `887e388`, `1df175a`,
+`4d84911` (+ docs-коммиты журнала).
+
+**Проверки на 2026-11-12:** lint 0, tsc 0, build 16,1 с, e2e 9/9.
+
+**Что осталось сделать владельцу (A0.6, #126):**
+
+1. Открыть PR из `feat/plan-a-runtime-repair` в `main`, дождаться ревью и
+   смержить. Пуш в `main` деплоит прод.
+2. На проде проверить `.env.local`: если `COLOCATED_THUMBS_DIR` задан явно как
+   `.thumbs`, заменить на `.thumbs-v2` (иначе код и окружение разъедутся).
+3. Очистить nginx-кэш `/api/images` (старые записи живут до 7 дней; новые URL
+   с `v=` их обойдут, но старый кэш занимает место).
+4. С сервера, только с localhost:
+   `curl -X POST http://127.0.0.1:3000/api/images/generate -H 'Content-Type: application/json' -d '{"size":"thumbnail"}'`
+   затем опрашивать `GET /api/images/generate` до `running: false`.
+   До #116 endpoint без пароля — снаружи не запускать.
+5. Проверить: прогресс 100 %, выборочный размер ~14 КБ вместо ~135 КБ,
+   нет 5xx, RSS не выше baseline.
+6. Старый `.thumbs` в WebDAV не удалять сразу: сначала убедиться, что
+   `.thumbs-v2` наполняется и галерея его читает; очистку делать отдельно,
+   вручную.
