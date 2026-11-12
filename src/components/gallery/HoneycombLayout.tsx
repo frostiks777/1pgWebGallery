@@ -3,6 +3,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 interface HoneycombLayoutProps {
   photos: Photo[];
@@ -58,7 +59,7 @@ export function HoneycombLayout({
     <div className="w-full overflow-x-auto py-6">
       <div className="relative mx-auto" style={{ width: maxX + 24, height: maxY + 24, minHeight: 200 }}>
         {layout.map(({ photo, index, x, y }) => {
-          const thumbnailUrl = `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+          const thumbnailUrl = buildImageUrl(photo.path, 'thumbnail', photo.lastModified);
           return (
             <div
               key={photo.path}

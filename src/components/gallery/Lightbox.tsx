@@ -18,6 +18,7 @@ import {
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
 import { useRetryingImage } from './useRetryingImage';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 interface LightboxProps {
   photos: Photo[];
@@ -91,8 +92,12 @@ function LightboxContent({
   // below — which is also where the per-image state gets reset.
 
   const currentPhoto = photos[index];
-  const imageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=medium` : '';
-  const fullImageUrl = currentPhoto ? `/api/images?path=${encodeURIComponent(currentPhoto.path)}&size=full` : '';
+  const imageUrl = currentPhoto
+    ? buildImageUrl(currentPhoto.path, 'medium', currentPhoto.lastModified)
+    : '';
+  const fullImageUrl = currentPhoto
+    ? buildImageUrl(currentPhoto.path, 'full', currentPhoto.lastModified)
+    : '';
   const isCover = currentPhoto ? (coverPaths ?? []).includes(currentPhoto.path) : false;
 
   // Transient failures retry themselves, and the «Повторить» button now really
@@ -183,7 +188,7 @@ function LightboxContent({
       if (i >= 0 && i < photos.length) {
         const img = new Image();
         img.fetchPriority = 'low';
-        img.src = `/api/images?path=${encodeURIComponent(photos[i].path)}&size=medium`;
+        img.src = buildImageUrl(photos[i].path, 'medium', photos[i].lastModified);
       }
     };
     prefetch(index + 1);
@@ -373,7 +378,7 @@ function LightboxContent({
               aria-label={`Миниатюра ${photo.name}`}
             >
               <img
-                src={`/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`}
+                src={buildImageUrl(photo.path, 'thumbnail', photo.lastModified)}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"

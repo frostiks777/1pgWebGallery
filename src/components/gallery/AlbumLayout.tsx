@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 import { useRetryingImage } from './useRetryingImage';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 interface AlbumLayoutProps {
   photos: Photo[];
@@ -53,7 +54,7 @@ function AlbumCard({
 }) {
   const thumbnailUrl = photo.path.startsWith('/demo-photos/')
     ? photo.path
-    : `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+    : buildImageUrl(photo.path, 'thumbnail', photo.lastModified);
 
   // Same transient-503 story as PhotoCard (#98): a failed card retries itself
   // instead of staying crossed out until the page is reloaded.

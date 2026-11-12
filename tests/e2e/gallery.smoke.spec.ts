@@ -89,6 +89,27 @@ test.describe('gallery smoke', () => {
     expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBe(450);
   });
 
+  test('image URLs carry the preset and mtime version', async ({ page }) => {
+    // The response is cached as immutable for a year, so the URL must change
+    // when the preset or the source file changes. `v=4` is the preset version;
+    // the numeric suffix is the photo's mtime.
+    await page.goto('/');
+
+    const firstCard = page.locator('.obs-photo-card').first();
+    await expect(firstCard).toBeVisible();
+    const cardSrc = await firstCard.locator('img').getAttribute('src');
+    expect(cardSrc).toMatch(/[?&]v=4-\d+/);
+
+    await firstCard.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const mediumImage = dialog.locator('img[src*="size=medium"]').first();
+    await expect(mediumImage).toBeVisible();
+    const mediumSrc = await mediumImage.getAttribute('src');
+    expect(mediumSrc).toMatch(/[?&]v=4-\d+/);
+  });
+
   test('writes demo thumbnails to the .thumbs-v2 co-located cache', async ({ request }) => {
     // The local hash bump cannot invalidate the co-located WebP written next
     // to the source, so the preset migration needs a new directory name. The

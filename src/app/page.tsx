@@ -31,6 +31,7 @@ import {
   type GallerySortOption,
   type WebDavIndicator,
 } from '@/components/gallery';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 type SortOption = GallerySortOption;
 
@@ -852,7 +853,7 @@ export default function GalleryPage() {
                           ) : previews.length === 1 ? (
                             <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20">
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 loading="lazy"
@@ -861,13 +862,13 @@ export default function GalleryPage() {
                           ) : previews.length === 2 ? (
                             <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20 grid grid-cols-2 gap-0.5">
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                               />
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[1])}&size=thumbnail`}
+                                src={buildImageUrl(previews[1], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 loading="lazy"
@@ -876,19 +877,19 @@ export default function GalleryPage() {
                           ) : (
                             <div className="w-full aspect-[4/3] rounded-[var(--r-sm)] overflow-hidden bg-black/20 grid grid-cols-[2fr_1fr] grid-rows-2 gap-0.5">
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[0])}&size=thumbnail`}
+                                src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover row-span-2"
                                 loading="lazy"
                               />
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[1])}&size=thumbnail`}
+                                src={buildImageUrl(previews[1], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                               />
                               <img
-                                src={`/api/images?path=${encodeURIComponent(previews[2])}&size=thumbnail`}
+                                src={buildImageUrl(previews[2], 'thumbnail')}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 loading="lazy"
