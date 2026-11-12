@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.3.0...v1.4.0) (2026-11-12)
+
+
+### Features
+
+* **photos:** JSON-кэш листинга с TTL 30 с и SWR ([#145](https://github.com/frostiks777/1pgWebGallery/issues/145)) ([523414d](https://github.com/frostiks777/1pgWebGallery/commit/523414dd8468313f998ff8340792e1858e1979f8))
+
+
+### Bug Fixes
+
+* **generate:** sizes в статусе и ответе already-in-progress ([#138](https://github.com/frostiks777/1pgWebGallery/issues/138)) ([cc177d2](https://github.com/frostiks777/1pgWebGallery/commit/cc177d2cd480223703318a569224c952b5bcc7ec))
+* **images:** постер 1280 в generate и комментарии к demo/cover URL ([#131](https://github.com/frostiks777/1pgWebGallery/issues/131)) ([9ec742d](https://github.com/frostiks777/1pgWebGallery/commit/9ec742df4441f7e5548218b8b707a22b2f2d9418))
+* **images:** постер видео 1280 в generate и комментарии к demo/cover URL ([#131](https://github.com/frostiks777/1pgWebGallery/issues/131)) ([047172e](https://github.com/frostiks777/1pgWebGallery/commit/047172ee445e3a73c1c20ce77ce1e3335f946458))
+* **photos:** 404/403 WebDAV не отдаются как retryable 503 ([#139](https://github.com/frostiks777/1pgWebGallery/issues/139)) ([1fcf818](https://github.com/frostiks777/1pgWebGallery/commit/1fcf81880a434e6e8cc79df15b4048733cfc5167))
+* **security:** auth в generate и rate-limit только для GET ([#92](https://github.com/frostiks777/1pgWebGallery/issues/92), [#116](https://github.com/frostiks777/1pgWebGallery/issues/116)) ([4fa134a](https://github.com/frostiks777/1pgWebGallery/commit/4fa134a93a98b198c94d2dcb11e5f22fd15de2a9))
+* **security:** auth в generate и rate-limit только для GET /api/images ([#92](https://github.com/frostiks777/1pgWebGallery/issues/92), [#116](https://github.com/frostiks777/1pgWebGallery/issues/116)) ([7ccbc6c](https://github.com/frostiks777/1pgWebGallery/commit/7ccbc6c92e89e977b52cc6f7ae326f66c67892d9))
+
 ## [1.3.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.2.6...v1.3.0) (2026-11-12)
 
 
