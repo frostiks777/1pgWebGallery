@@ -31,8 +31,8 @@
 
 | Шаг | Что меняется | Issue | Статус |
 |---|---|---|---|
-| A0.1 + A0.2a | Пресет `450/q60/effort4` + ключ кэша `-v3` во всех местах | [#5](https://github.com/frostiks777/1pgWebGallery/issues/5) | ⬜ |
-| A0.2b | Co-located кэш `.thumbs` → `.thumbs-v2` | [#123](https://github.com/frostiks777/1pgWebGallery/issues/123) | ⬜ |
+| A0.1 + A0.2a | Пресет `450/q60/effort4` + ключ кэша `-v3` во всех местах | [#5](https://github.com/frostiks777/1pgWebGallery/issues/5) | ✅ |
+| A0.2b | Co-located кэш `.thumbs` → `.thumbs-v2` | [#123](https://github.com/frostiks777/1pgWebGallery/issues/123) | ✅ |
 | A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ⬜ |
 | A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ⬜ |
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ⬜ |
@@ -54,7 +54,7 @@
 
 ### A0 — пресет, кэши, шрифты, лишний PROPFIND (1–2 дня)
 
-- [ ] **A0.1 + A0.2a. Пресет `thumbnail` 450/q60/effort4 и ключ `-v3`.**
+- [x] **A0.1 + A0.2a. Пресет `thumbnail` 450/q60/effort4 и ключ `-v3`.** ✅
   - Файлы: `src/app/api/images/route.ts` (пресеты `:80-84`, хеш `:209`),
     `src/app/api/images/generate/route.ts` (пресеты `:84-88`, хеш `:108,116,289,377`),
     `src/app/api/photos/delete/route.ts` (`:37`).
@@ -62,7 +62,7 @@
     `bun run build`, `bun run test:e2e`; замер размера/времени одной миниатюры до/после.
   - Issue: #5.
 
-- [ ] **A0.2b. Co-located кэш → `.thumbs-v2`.**
+- [x] **A0.2b. Co-located кэш → `.thumbs-v2`.** ✅
   - Файлы: `.env.example`, `README.md`, `src/app/api/images/route.ts`,
     `src/app/api/images/generate/route.ts`, `src/lib/webdav.ts`,
     `src/app/api/photos/delete/route.ts`.
@@ -156,8 +156,9 @@
 
 | Метрика | До | После | Где мерили |
 |---|---:|---:|---|
-| Размер thumbnail (демо 1024²) | 89 КБ | — | локально, sharp 0.33.5 |
-| Время thumbnail (демо 1024²) | 403 мс | — | локально, среднее из 5 |
+| Размер thumbnail (`01_mountain_sunset`) | 135,3 КБ | 14,0 КБ | e2e-лог, sharp 0.33.5 |
+| Максимальная сторона thumbnail | 800 px | 450 px | e2e-тест |
+| Время thumbnail (демо 1024², план) | 403 мс | — | локально, среднее из 5 |
 | PROPFIND на листинг | 3 | — | лог/счётчик |
 | p95 `/api/photos` | нет данных | — | nginx, после A1.10 |
 | Первое фото в холодной папке | нет данных | — | Lighthouse/секундомер |
@@ -196,3 +197,51 @@
 - Проверено: #98/#99 закрыты, PR #106/#107 смержены — предпосылка «сначала ретрай
   и очередь постеров, потом `-v3`» выполнена.
 - Решения D1–D6 записаны выше.
+
+### 2026-11-12 — A0.1 + A0.2a + A0.2b (коммит `2401d5b`)
+
+**Что сделано**
+
+- Пресет `thumbnail`: `450/q60/effort4` в `images/route.ts` и
+  `images/generate/route.ts` (пресет дублируется в двух файлах).
+- Ключ кэша `-v2` → `-v3` во всех шести местах: `images/route.ts:209`,
+  `generate/route.ts:108,116,289,377`, `photos/delete/route.ts:37`.
+- Co-located каталог `.thumbs` → `.thumbs-v2` в пяти местах в четырёх файлах
+  (`images/route.ts`, `generate/route.ts` ×2, `webdav.ts`, `photos/delete/route.ts`),
+  а также в `.env.example`, README, DEPLOYMENT и `.gitignore`
+  (`**/.thumbs-v*/`).
+- Добавлены два e2e-теста в `tests/e2e/gallery.smoke.spec.ts`:
+  максимальная сторона thumbnail = 450 px и появление `.thumbs-v2/`.
+
+**Проверки и наблюдения**
+
+- RED: тест на 450 px падал на 800×800 — старый пресет.
+- После смены пресета и `-v3` тест **всё ещё** видел 800 px: старый
+  `public/demo-photos/.thumbs/` отдавался раньше нового локального ключа.
+  Это и есть третий кэш из разбора §7 A0.2; без #123 смена пресета невидима.
+- GREEN: 450×257 для неквадратного демо-фото (450 — длинная сторона),
+  `.thumbs-v2/` создаётся.
+- `bun run lint` — 0 ошибок; `bunx tsc --noEmit` — 0 ошибок;
+  `bunx playwright test` — **7 passed** (1,1 мин).
+- `bun run build` — таймаут 420 с на «Creating an optimized production build»,
+  процесс убит. Это не ошибка диффа: сборка висит на `next/font/google`/холодном
+  кэше. Перепроверить после A0.4 (локальные шрифты).
+- Артефакт тестового прогона: в `.data/` был v3-файл 800 px, записанный из
+  старого `.thumbs`. Удалены только сгенерированные `.webp`; `dir-meta` не тронут.
+
+**Замеры**
+
+| Фото | До | После | Выигрыш |
+|---|---:|---:|---:|
+| `01_mountain_sunset` | 135,3 КБ | 14,0 КБ | −89,7 % |
+| `02_tropical_beach` | 136,2 КБ | 14,1 КБ | −89,6 % |
+
+Старый пресет на `01_mountain_sunset` давал 48,9 КБ (−63,9 %) и 800×800 —
+новый пресет экономит ещё в 3,5 раза больше байтов.
+
+**Ruling**
+
+- #5 и #123 закоммичены вместе: e2e показал, что смена пресета невидима без
+  миграции `.thumbs`, то есть это одна атомарная правка кэшей.
+  Цена, если неверно: один коммит ссылается на два issue; оба issue остаются
+  отдельными для трекинга.
