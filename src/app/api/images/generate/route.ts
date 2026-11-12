@@ -180,7 +180,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 // Background generation job
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runGeneration(scopePath?: string) {
+async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES) {
   if (status.running) return;
 
   status.running    = true;
@@ -265,14 +265,14 @@ async function runGeneration(scopePath?: string) {
       }
     }
 
-    status.total = photoPaths.length * ALL_SIZES.length;
-    console.info(`[Generate] Starting: ${photoPaths.length} photos × ${ALL_SIZES.length} sizes = ${status.total} tasks`);
+    status.total = photoPaths.length * sizes.length;
+    console.info(`[Generate] Starting: ${photoPaths.length} photos × ${sizes.length} sizes = ${status.total} tasks`);
 
     // Checked once up front (not per-file) — orphan-video poster paths in
     // photoPaths are simply skipped below if ffmpeg isn't installed.
     const ffmpegOK = await hasFfmpeg();
 
-    for (const size of ALL_SIZES) {
+    for (const size of sizes) {
       for (const photoPath of photoPaths) {
         try {
           // Check if already exists in local disk cache
@@ -475,8 +475,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const body = await request.json().catch(() => ({})) as { path?: string };
+  const body = await request.json().catch(() => ({})) as { path?: string; size?: string };
   const rawScopePath = body?.path || undefined;
+  const rawSize = body?.size ?? request.nextUrl.searchParams.get('size') ?? undefined;
 
   // Validate scopePath: must be a relative path with no traversal sequences
   let scopePath: string | undefined;
@@ -492,11 +493,20 @@ export async function POST(request: NextRequest) {
     scopePath = rawScopePath;
   }
 
+  let sizes: ImageSize[] = ALL_SIZES;
+  if (rawSize !== undefined) {
+    if (typeof rawSize !== 'string' || !ALL_SIZES.includes(rawSize as ImageSize)) {
+      return NextResponse.json({ error: 'Invalid size' }, { status: 400 });
+    }
+    sizes = [rawSize as ImageSize];
+  }
+
   // Fire-and-forget: start the job but respond immediately
-  runGeneration(scopePath).catch(err => console.error('[Generate] Unhandled:', err));
+  runGeneration(scopePath, sizes).catch(err => console.error('[Generate] Unhandled:', err));
 
   return NextResponse.json({
     message: scopePath ? `Generation started for: ${scopePath}` : 'Generation started',
+    sizes,
     running: status.running,
     startedAt: status.startedAt,
   });
