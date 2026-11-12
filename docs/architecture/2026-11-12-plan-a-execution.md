@@ -34,7 +34,7 @@
 | A0.1 + A0.2a | Пресет `450/q60/effort4` + ключ кэша `-v3` во всех местах | [#5](https://github.com/frostiks777/1pgWebGallery/issues/5) | ✅ |
 | A0.2b | Co-located кэш `.thumbs` → `.thumbs-v2` | [#123](https://github.com/frostiks777/1pgWebGallery/issues/123) | ✅ |
 | A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
-| A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ⬜ |
+| A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ✅ |
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ⬜ |
 | A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ⬜ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
@@ -77,7 +77,7 @@
     в браузере URL карточки содержит `v=4-<mtime>`; замена файла меняет URL.
   - Issue: #121.
 
-- [ ] **A0.3. Ширина постера видео — 1280, не из пресета.**
+- [x] **A0.3. Ширина постера видео — 1280, не из пресета.** ✅
   - Файлы: `src/app/api/images/route.ts` (`:485`).
   - Проверка: `rg -n 'posterWidth|VIDEO_POSTER_WIDTH'`; lint/tsc/build/e2e; постер
     видео в демо/WebDAV не 450 px.
@@ -277,3 +277,25 @@
 - 13 точек в 7 файлах, версия должна быть единой; inline-дублирование
   гарантированно разъедется при следующем бампе пресета.
   Это одно предложение — требование скилла выполнено.
+
+### 2026-11-12 — A0.3 (коммит `27d23d2`)
+
+**Что сделано**
+
+- `VIDEO_POSTER_WIDTH = 1280` рядом с `IMAGE_PRESETS`; `posterWidth` больше
+  не зависит от `size`.
+- Обновлён комментарий: раньше он говорил про 800px, теперь про 1280px.
+
+**Проверки**
+
+- `rg 'VIDEO_POSTER_WIDTH|posterWidth|IMAGE_PRESETS\[size\]'` — `posterWidth`
+  берётся только из константы.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0;
+  `bunx playwright test` — **8 passed** (1,1 мин).
+
+**Ruling**
+
+- Отдельного e2e на ширину постера нет: в `public/demo-photos/` ноль видео,
+  а добавление фикстуры — это #102/#74 п.8, отдельный issue. Изменение
+  проверено код-инспекцией и существующим e2e; цена, если неверно: регрессия
+  ширины постера не ловится CI до #102.
