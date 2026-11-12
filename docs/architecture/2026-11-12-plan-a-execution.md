@@ -6,8 +6,9 @@
 **База:** `main` @ `4d59e56`
 **Исходный разбор:** [`docs/architecture/2026-11-12-rewrite-vs-fix.md`](./2026-11-12-rewrite-vs-fix.md) (далее — «разбор»)
 **Статус:** A0: код готов (A0.1–A0.5, A0.6a), финальное ревью пройдено;
-PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) открыт,
-ждёт ревью/мержа; A0.6 — ops; A1/A2 запланированы.
+PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен и
+задеплоен; follow-up #131 — PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132);
+A0.6 — ops; A1/A2 запланированы.
 
 ## Как читать этот файл
 
@@ -499,3 +500,13 @@ PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) открыт,
 - PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) открыт
   в `main`: A0 целиком, замеры, проверки, финальное ревью, список issue.
 - CI запущен. Мерж и деплой — вручную владельцем; после деплоя — A0.6 (#126).
+
+### 2026-11-12 — PR #129 смержен, деплой зелёный
+
+- PR #129 смержен (`2abe825`), `Build & Deploy` завершился за 53 с,
+  сервис перезапущен; прод отвечает `HTTP 200` за 0,84 с.
+- Авторевью PR #129: 5 замечаний, блокеров нет. Actionable часть
+  (постер 1280 в `generate` + why-комментарии к demo/cover URL) —
+  [#131](https://github.com/frostiks777/1pgWebGallery/issues/131),
+  PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132).
+- A0.6 (#126) остаётся: перегенерация thumbnail на проде после деплоя.
