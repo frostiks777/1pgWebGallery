@@ -2,7 +2,8 @@
 
 Latin-subset woff2 files downloaded from Google Fonts so `next build` does not
 need outbound HTTPS (plan A0.4). All three families are licensed under the
-SIL Open Font License 1.1:
+SIL Open Font License 1.1; the full license text and copyright lines are in
+`OFL-1.1.txt` next to this file.
 
 - Inter — https://fonts.google.com/specimen/Inter
 - JetBrains Mono — https://fonts.google.com/specimen/JetBrains+Mono

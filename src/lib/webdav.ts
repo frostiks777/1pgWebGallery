@@ -1,5 +1,6 @@
 import { createClient, WebDAVClient, FileStat, AuthType } from 'webdav';
 import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from './videoExt';
+import { DEFAULT_COLOCATED_THUMBS_DIR } from './cacheVersions';
 
 export interface PhotoInfo {
   name: string;
@@ -161,7 +162,7 @@ export async function getFirstPhotosFromDirectory(
 
 export async function getFoldersFromDirectory(directory: string = '/'): Promise<FolderInfo[]> {
   const client = getWebDAVClient();
-  const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
+  const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 
   try {
     console.log(`[WebDAV] Fetching folders from: ${directory}`);
