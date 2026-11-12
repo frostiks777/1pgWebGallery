@@ -33,14 +33,14 @@
 |---|---|---|---|
 | A0.1 + A0.2a | Пресет `450/q60/effort4` + ключ кэша `-v3` во всех местах | [#5](https://github.com/frostiks777/1pgWebGallery/issues/5) | ✅ |
 | A0.2b | Co-located кэш `.thumbs` → `.thumbs-v2` | [#123](https://github.com/frostiks777/1pgWebGallery/issues/123) | ✅ |
-| A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ⬜ |
+| A0.2c + A1.9 | `v=4-<mtime>` во всех URL `/api/images` | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A0.3 | Ширина постера видео — отдельная константа 1280 | [#122](https://github.com/frostiks777/1pgWebGallery/issues/122) | ⬜ |
 | A0.4 | `next/font/google` → `next/font/local` | [#124](https://github.com/frostiks777/1pgWebGallery/issues/124) | ⬜ |
 | A0.5 | Убрать `testWebDAVConnection` из горячего пути, `503` при сбое | [#125](https://github.com/frostiks777/1pgWebGallery/issues/125) | ⬜ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | issue не создан (A1) | ⬜ |
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
-| A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ⬜ |
+| A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ⬜ |
 | A2.12 | Деплой-гейт: `continue-on-error` + `push: main` в `ci.yml` | частично [#8](https://github.com/frostiks777/1pgWebGallery/issues/8), нужен отдельный issue | ⬜ |
@@ -70,7 +70,7 @@
     после запроса появляется `public/demo-photos/.thumbs-v2/`; lint/tsc/build/e2e.
   - Issue: #123.
 
-- [ ] **A0.2c + A1.9. Версия `v=4-<mtime>` во всех URL `/api/images`.**
+- [x] **A0.2c + A1.9. Версия `v=4-<mtime>` во всех URL `/api/images`.** ✅
   - Файлы: новый `src/lib/imageUrl.ts`; `PhotoCard.tsx`, `Lightbox.tsx`,
     `HoneycombLayout.tsx`, `MinimalismLayout.tsx`, `AlbumLayout.tsx`, `page.tsx`.
   - Проверка: `rg -n '/api/images\?path=' src/` не находит сырых URL; lint/tsc/build/e2e;
@@ -118,7 +118,7 @@
     `Retry-After: 3`; `useRetryingImage` повторяет; lint/tsc/build/e2e.
   - Issue: создать перед A1 (связан с #74, но это не очередь постеров ffmpeg).
 
-- [ ] **A1.9. Проверка версии URL во всех точках.**
+- [x] **A1.9. Проверка версии URL во всех точках.** ✅
   - Файлы: те же, что A0.2c.
   - Проверка: карточки, лайтбокс, обложки папок, превью — все с `v=`;
     `rg` не находит сырых URL.
@@ -245,3 +245,35 @@
   миграции `.thumbs`, то есть это одна атомарная правка кэшей.
   Цена, если неверно: один коммит ссылается на два issue; оба issue остаются
   отдельными для трекинга.
+
+### 2026-11-12 — A0.2c + A1.9 (коммит `3ee8842`)
+
+**Что сделано**
+
+- Новый `src/lib/imageUrl.ts`: `imageUrl(path, size, lastModified?)` строит
+  `/api/images?...&v=4-<mtime>`. Версия пресета — константа
+  `IMAGE_PRESET_VERSION = 4`; при следующей смене пресета её нужно поднять.
+- Все 13 точек переведены на helper: `PhotoCard`, `Lightbox` (medium/full,
+  prefetch, миниатюры), `HoneycombLayout`, `MinimalismLayout`, `AlbumLayout`,
+  обложки папок в `page.tsx`.
+- Для демо-фото в `Minimalism`/`Album` сохранён прямой статический путь
+  (они не ходят через `/api/images`).
+- Для обложек папок mtime недоступен: `folders` API отдаёт только пути,
+  поэтому там `v=4` без mtime (ограничение D3, принято).
+
+**Проверки**
+
+- RED: e2e-тест «image URLs carry the preset and mtime version» падал:
+  в `src` не было `v=4-`.
+- GREEN: карточка и medium-картинка лайтбокса содержат `v=4-<mtime>`;
+  `rg '/api/images\?path=' src/` не находит сырых URL.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0;
+  `bunx playwright test` — **8 passed** (1,5 мин), включая старый retry-тест
+  (`v=4-...&retry=1`).
+- `bun run build` — всё ещё не перепроверен; ждёт A0.4.
+
+**Обоснование helper'а (ponytail)**
+
+- 13 точек в 7 файлах, версия должна быть единой; inline-дублирование
+  гарантированно разъедется при следующем бампе пресета.
+  Это одно предложение — требование скилла выполнено.
