@@ -337,7 +337,8 @@ a11y ≥ 90, perf ≥ 70.
   починены `8a922af` (#12).
 - `bunx tsc --noEmit` — **0 ошибок** (6,9 с). Прежние 2 TS2345 в
   `src/app/api/video-stream/route.ts` починены `4370e29` (#11).
-- `bun run build` — **успех** (16 с): исходящий HTTPS к Google Fonts в этой сети есть.
+- `bun run build` — **успех** (2026-11-12: 16 с). С A0.4 шрифты лежат в `src/app/fonts/`
+  (`next/font/local`), сеть для сборки больше не нужна.
   Предупреждений Turbopack о tracing нет — на 16.1.3 из `bun.lock` они не воспроизводятся
   (#7).
 - `bun run test:e2e` — **1 passed + 2 flaky** за 73 с: `loads the gallery` и
@@ -529,12 +530,10 @@ a11y ≥ 90, perf ≥ 70.
   несколько раундов «мелочей». По этому плагину вышло 8 раундов: 4 находки были настоящими
   (пустой фильтр, врущий лог, слепой тест, недостижимая ветка таймаута), остальное — формулировки.
   Стоимость цикла стоит учитывать заранее.
-- **Сборка может упасть на `NextFontGoogleFontFileReplacer`** (сетевой fetch Google Fonts на
-  раннере) — это environment-dependent baseline из `AGENTS.md`, а не дефект дифа:
-  `gh run rerun <id> --failed` обычно зеленит. Падает не только CI, но и шаг Build в
-  `deploy.yml` (2026-10-26, деплой #107: `Can't resolve '@vercel/turbopack-next/internal/font/google/font'`)
-  — тогда прод остаётся на предыдущей сборке, пока повтор не пройдёт. Сначала проверить, что
-  диф не трогает `.ts(x)`/`next.config.ts`/`bun.lock`.
+- **Сборка могла упасть на `NextFontGoogleFontFileReplacer`** (сетевой fetch Google Fonts на
+  раннере, 2026-10-26: деплой #107, `Can't resolve '@vercel/turbopack-next/internal/font/google/font'`).
+  **Неактуально с A0.4**: шрифты лежат в `src/app/fonts/`, fetch-а нет. Историческое лечение было
+  `gh run rerun <id> --failed`; если похожий сбой вернётся, искать настоящую причину, а не ретраить.
 - **`npx` в этом репозитории не работает** (`EBADDEVENGINES`, #36): проверять только
   `bun run lint`, `bunx tsc --noEmit`, `bun run build`, `bun run test:e2e`,
   `bun run test:plugin-smoke`. Мои первые прогоны по этой задаче шли через `npx` на npm-дереве —

@@ -59,9 +59,10 @@ Corollary for this file: **before asserting anything about build behaviour, chec
 Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
 
 - `bun run lint` — must not report a *new* error (baseline below).
-- `bun run build` — **fails without outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com`**
-  (`next/font` fetches at build time). Network-restricted sandbox? Not a code defect: fall back to
-`bun run dev` + loading the route, and say so explicitly. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
+- `bun run build` — **no outbound network needed since A0.4**: fonts are bundled in
+  `src/app/fonts/` and loaded by `next/font/local`, so the old Google Fonts fetch (and its
+  build-time HTTPS requirement) is gone. If the build fails in a sandbox, it is a code or
+  environment defect, not a missing font download. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
 - `bun run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
@@ -309,10 +310,9 @@ RPM, и суточный потолок. Локальные сессии это 
 - **PR от агента (`pull_request.user.type == 'Bot'`) авторевью пропускает** — сознательно,
   чтобы агент не ревьюил себя и не жег минуты Actions.
 - **Аудит считает каждую ошибку линтера и типов новой находкой** (baseline пустой:
-  `bun run lint` и `bunx tsc --noEmit` чистые). Исключения, которые аудиту не по делу:
-  необходимость исходящего HTTPS к Google Fonts у `next build` и e2e — в аудите он не
-  запускается (ему нужны Chromium и поднятый `next dev`, а в CI это дорого и
-  нестабильно), хотя локально e2e работает (`.agents/shared/checks.md`).
+  `bun run lint` и `bunx tsc --noEmit` чистые). Исключение, которое аудиту не по делу:
+  e2e — в аудите он не запускается (ему нужны Chromium и поднятый `next dev`, а в CI это
+  дорого и нестабильно), хотя локально e2e работает (`.agents/shared/checks.md`).
 - **Пуш в `main` деплоит прод.** Ветку с агентными изменениями открывать через PR, мержат его
   руками.
 - Прогоны и их логи — вкладка Actions; ссылку на конкретный run можно сразу разбирать с
@@ -406,6 +406,5 @@ Keep messages short, in Russian, no secrets.
 - `bun run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
   (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
-- `bun run build` needs outbound HTTPS to Google Fonts, as above — the only expected failure in a
-  network-restricted sandbox. It should emit **no** Turbopack tracing warnings (#7); the 11 that
-  used to be baseline are annotated out.
+- `bun run build` — **no outbound HTTPS needed** since A0.4 (fonts are local). It should emit
+  **no** Turbopack tracing warnings (#7); the 11 that used to be baseline are annotated out.

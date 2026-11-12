@@ -82,11 +82,10 @@ credentials - it builds a throwaway fake bridge in the temp directory, so plain
 bun run build
 ```
 
-Needs outbound HTTPS to `fonts.googleapis.com`/`fonts.gstatic.com` (`next/font` fetches
-Google Fonts at build time) - see the baseline note in `AGENTS.md`. If that's blocked in
-your sandbox, run `bun run dev` instead, load the affected route(s) yourself, and
-say plainly in the task's `## Result` that a full production build could not be verified
-here so a human (or a later run with normal network access) should confirm it once.
+Needs no outbound network since A0.4: fonts are bundled in `src/app/fonts/` and loaded by
+`next/font/local`, so the old Google Fonts fetch at build time is gone. If the build fails
+in a sandbox, treat it as a code or environment defect - see the baseline note in
+`AGENTS.md`.
 
 ## 4. Smoke test
 
