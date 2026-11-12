@@ -125,8 +125,8 @@ All twelve variables the app reads, with the defaults baked into the code.
 | `WEBDAV_PASSWORD` | — | WebDAV password or app token |
 | `PHOTOS_DIR` | `/Photos` | Folder inside the WebDAV account holding the photos |
 | `WEBDAV_LOGON_PASSWORD` | — | Gallery password gate. Empty → gallery is open |
-| `WEBDAV_COLOCATED_CACHE` | `true` | Write thumbnails to a `.thumbs/` folder next to the photos on WebDAV. Set `false` to keep them local only |
-| `COLOCATED_THUMBS_DIR` | `.thumbs` | Name of that co-located folder |
+| `WEBDAV_COLOCATED_CACHE` | `true` | Write thumbnails to a `.thumbs-v2/` folder next to the photos on WebDAV. Set `false` to keep them local only |
+| `COLOCATED_THUMBS_DIR` | `.thumbs-v2` | Name of that co-located folder |
 | `CACHE_DIR` | `<cwd>/.data` | Local thumbnails **and** per-folder settings — see the warning below |
 | `VIDEO_PREVIEW_MAX_MB` | `300` | Skip poster extraction above this size |
 | `API_SECRET_TOKEN` | — | Require `Authorization: Bearer <token>` on API routes. Empty → auth off |
@@ -145,11 +145,11 @@ tuned for 3000–6000 px originals:
 
 | Preset | Dimensions | Quality | Used for |
 |---|---|---|---|
-| `thumbnail` | 800×800 | 80 | Gallery grids |
+| `thumbnail` | 450×450 | 60 | Gallery grids |
 | `medium` | 1400×1400 | 72 | Lightbox viewing |
 | `full` | 2400×2400 | 82 | Download and zoom |
 
-Two-level caching: a local disk cache plus co-located `.thumbs/` folders on WebDAV, so
+Two-level caching: a local disk cache plus co-located `.thumbs-v2/` folders on WebDAV, so
 thumbnails travel with your backup or a second client. Adjacent images are prefetched in the
 lightbox for instant navigation, and the gallery loads lazily with async decoding.
 A batch-generation button pre-renders every thumbnail with a progress bar.

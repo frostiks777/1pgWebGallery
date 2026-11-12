@@ -161,7 +161,7 @@ export async function getFirstPhotosFromDirectory(
 
 export async function getFoldersFromDirectory(directory: string = '/'): Promise<FolderInfo[]> {
   const client = getWebDAVClient();
-  const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+  const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 
   try {
     console.log(`[WebDAV] Fetching folders from: ${directory}`);

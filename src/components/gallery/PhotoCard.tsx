@@ -6,6 +6,7 @@ import { EyeOff, Trash2, RectangleHorizontal, Star, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
 import { useRetryingImage } from './useRetryingImage';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 // Hover must "commit" for this long before we bother fetching a trailer —
 // avoids firing a request (and, on first view, an ffmpeg generation job)
@@ -48,8 +49,8 @@ export const PhotoCard = memo(function PhotoCard({
   showCaption = true,
 }: PhotoCardProps) {
   const imageUrl = useMemo(
-    () => `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
-    [photo.path],
+    () => buildImageUrl(photo.path, 'thumbnail', photo.lastModified),
+    [photo.path, photo.lastModified],
   );
 
   // Temporary 503s (ffmpeg slot busy) must not park a card on "Failed to load"

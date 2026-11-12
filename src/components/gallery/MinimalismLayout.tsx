@@ -4,6 +4,7 @@ import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
 import { cn } from '@/lib/utils';
+import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
@@ -19,7 +20,7 @@ interface MinimalismLayoutProps {
 function thumbUrl(photo: Photo): string {
   return photo.path.startsWith('/demo-photos/')
     ? photo.path
-    : `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`;
+    : buildImageUrl(photo.path, 'thumbnail', photo.lastModified);
 }
 
 export function MinimalismLayout({

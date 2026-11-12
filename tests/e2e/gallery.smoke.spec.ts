@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import sharp from 'sharp';
 
 /**
  * Baseline smoke coverage for the gallery, run against the built-in demo
@@ -60,5 +61,50 @@ test.describe('gallery smoke', () => {
 
     await page.getByLabel('Закрыть').click();
     await expect(page.getByLabel('Закрыть')).toBeHidden();
+  });
+
+  test('serves the 450px thumbnail preset from the v3 cache key', async ({ request }) => {
+    // The preset is a server-side behaviour, so fetch it directly instead of
+    // measuring the rendered card: the grid's CSS size says nothing about the
+    // bytes sharp produced. Before the preset/cache-key change this returns an
+    // 800x800 WebP from the old cache entry.
+    const photosResponse = await request.get('/api/photos');
+    expect(photosResponse.ok()).toBeTruthy();
+    const { photos } = await photosResponse.json();
+    const photo = photos.find(
+      (candidate: { name: string }) => candidate.name === '01_mountain_sunset.jpg',
+    );
+    expect(photo).toBeTruthy();
+
+    const imageResponse = await request.get(
+      `/api/images?path=${encodeURIComponent(photo.path)}&size=thumbnail`,
+    );
+    expect(imageResponse.ok()).toBeTruthy();
+    expect(imageResponse.headers()['content-type']).toContain('image/webp');
+
+    const metadata = await sharp(await imageResponse.body()).metadata();
+    // Demo photos are not all square; the preset caps the long side at 450.
+    expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBe(450);
+  });
+
+  test('image URLs carry the preset and mtime version', async ({ page }) => {
+    // The response is cached as immutable for a year, so the URL must change
+    // when the preset or the source file changes. `v=4` is the preset version;
+    // the numeric suffix is the photo's mtime.
+    await page.goto('/');
+
+    const firstCard = page.locator('.obs-photo-card').first();
+    await expect(firstCard).toBeVisible();
+    const cardSrc = await firstCard.locator('img').getAttribute('src');
+    expect(cardSrc).toMatch(/[?&]v=4-\d+/);
+
+    await firstCard.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const mediumImage = dialog.locator('img[src*="size=medium"]').first();
+    await expect(mediumImage).toBeVisible();
+    const mediumSrc = await mediumImage.getAttribute('src');
+    expect(mediumSrc).toMatch(/[?&]v=4-\d+/);
   });
 });

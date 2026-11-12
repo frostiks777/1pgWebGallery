@@ -64,6 +64,10 @@ upload/
 .cache/
 .data/
 **/.thumbs/
+**/.thumbs-v*/
+
+# Temporary e2e fixtures (created and removed by the specs)
+public/demo-photos/.e2e-*/
 
 # CI/CD deploy target on the server (rsync'd standalone build, not source)
 /release/

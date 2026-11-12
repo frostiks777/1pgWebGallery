@@ -78,11 +78,11 @@ try {
 } catch {}
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
-const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
 const IMAGE_PRESETS = {
-  thumbnail: { width: 800,  height: 800,  quality: 80, effort: 6 },
+  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
   medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
   full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
 } as const;
@@ -105,7 +105,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tmpCacheExists(photo: string, size: ImageSize): boolean {
-  const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+  const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
   const p = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
   return fs.existsSync(p);
 }
@@ -113,7 +113,7 @@ function tmpCacheExists(photo: string, size: ImageSize): boolean {
 function writeTmpCache(photo: string, size: ImageSize, buf: Buffer): void {
   try {
     if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const hash = crypto.createHash('md5').update(`${photo}-${size}-v2`).digest('hex');
+    const hash = crypto.createHash('md5').update(`${photo}-${size}-v3`).digest('hex');
     fs.writeFileSync(path.join(CACHE_DIR, `${hash}${thumbExt()}`), buf);
   } catch {}
 }
@@ -180,7 +180,7 @@ async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
 // Background generation job
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runGeneration(scopePath?: string) {
+async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES) {
   if (status.running) return;
 
   status.running    = true;
@@ -198,7 +198,7 @@ async function runGeneration(scopePath?: string) {
     })();
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
     const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
-    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs';
+    const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || '.thumbs-v2';
 
     // Scope walk to sub-directory; scopePath is already validated by POST handler
     const startDir = scopePath
@@ -265,14 +265,14 @@ async function runGeneration(scopePath?: string) {
       }
     }
 
-    status.total = photoPaths.length * ALL_SIZES.length;
-    console.info(`[Generate] Starting: ${photoPaths.length} photos × ${ALL_SIZES.length} sizes = ${status.total} tasks`);
+    status.total = photoPaths.length * sizes.length;
+    console.info(`[Generate] Starting: ${photoPaths.length} photos × ${sizes.length} sizes = ${status.total} tasks`);
 
     // Checked once up front (not per-file) — orphan-video poster paths in
     // photoPaths are simply skipped below if ffmpeg isn't installed.
     const ffmpegOK = await hasFfmpeg();
 
-    for (const size of ALL_SIZES) {
+    for (const size of sizes) {
       for (const photoPath of photoPaths) {
         try {
           // Check if already exists in local disk cache
@@ -286,7 +286,7 @@ async function runGeneration(scopePath?: string) {
                 continue;
               }
               // DAV thumb missing — read from local cache and upload
-              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v2`).digest('hex');
+              const hash = crypto.createHash('md5').update(`${photoPath}-${size}-v3`).digest('hex');
               const tmpFile = path.join(CACHE_DIR, `${hash}${thumbExt()}`);
               const cached = fs.readFileSync(tmpFile);
               await writeDavThumb(client, photoPath, size, cached);
@@ -374,7 +374,7 @@ async function runGeneration(scopePath?: string) {
         const expectedFiles = new Set<string>();
         for (const pp of photoPaths) {
           for (const sz of ALL_SIZES) {
-            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v2`).digest('hex');
+            const hash = crypto.createHash('md5').update(`${pp}-${sz}-v3`).digest('hex');
             expectedFiles.add(`${hash}${thumbExt()}`);
           }
         }
@@ -475,8 +475,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const body = await request.json().catch(() => ({})) as { path?: string };
+  const body = await request.json().catch(() => ({})) as { path?: string; size?: string };
   const rawScopePath = body?.path || undefined;
+  const rawSize = body?.size ?? request.nextUrl.searchParams.get('size') ?? undefined;
 
   // Validate scopePath: must be a relative path with no traversal sequences
   let scopePath: string | undefined;
@@ -492,11 +493,20 @@ export async function POST(request: NextRequest) {
     scopePath = rawScopePath;
   }
 
+  let sizes: ImageSize[] = ALL_SIZES;
+  if (rawSize !== undefined) {
+    if (typeof rawSize !== 'string' || !ALL_SIZES.includes(rawSize as ImageSize)) {
+      return NextResponse.json({ error: 'Invalid size' }, { status: 400 });
+    }
+    sizes = [rawSize as ImageSize];
+  }
+
   // Fire-and-forget: start the job but respond immediately
-  runGeneration(scopePath).catch(err => console.error('[Generate] Unhandled:', err));
+  runGeneration(scopePath, sizes).catch(err => console.error('[Generate] Unhandled:', err));
 
   return NextResponse.json({
     message: scopePath ? `Generation started for: ${scopePath}` : 'Generation started',
+    sizes,
     running: status.running,
     startedAt: status.startedAt,
   });
