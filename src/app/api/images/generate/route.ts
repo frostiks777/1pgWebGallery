@@ -48,6 +48,7 @@ async function videoPosterViaFile(
 
 interface GenerateStatus {
   running: boolean;
+  sizes: ImageSize[];
   total: number;
   done: number;
   skipped: number;
@@ -60,6 +61,7 @@ interface GenerateStatus {
 
 const status: GenerateStatus = {
   running: false,
+  sizes: [],
   total: 0,
   done: 0,
   skipped: 0,
@@ -187,6 +189,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
   if (status.running) return;
 
   status.running    = true;
+  status.sizes      = sizes;
   status.done       = 0;
   status.skipped    = 0;
   status.errors     = 0;
@@ -492,6 +495,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as { path?: string; size?: string };
   const rawScopePath = body?.path || undefined;
+  // `size` exists for the A0.6 ops migration: after a preset bump only the
+  // thumbnail cache is stale, and a full pass would re-encode medium/full for
+  // no changed bytes (3x the time and disk). The UI button sends no body and
+  // still gets all sizes; `status.sizes` reports what a running job is doing.
   const rawSize = body?.size ?? request.nextUrl.searchParams.get('size') ?? undefined;
 
   // Validate scopePath: must be a relative path with no traversal sequences
