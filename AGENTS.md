@@ -197,7 +197,7 @@ Task queue under `.agents/skills/`, all state in this repo's own git history.
 | Путь | Ветка | Кто |
 |---|---|---|
 | `C:\My_projects_GIT\1pg_gall` | `main` | Основной checkout: мержи, правки в `main`, чтение |
-| `C:\My_projects_GIT\1pg_gall-readme` | `docs/readme-sync` | Отдельная задача на README |
+| `C:\My_projects_GIT\1pg_gall-<задача>` | `feat/...` | Одноразовый worktree под задачу; удаляется после мержа |
 
 Правила, которые это влечёт:
 
@@ -215,6 +215,26 @@ Task queue under `.agents/skills/`, all state in this repo's own git history.
 - **Состояние задачи — в git, а не в каталоге.** Правило «claim/lease machinery отсутствует»
   остаётся в силе: кто первый занял ветку, тот и работает, и это видно в
   `git worktree list`.
+
+### Уборка после задачи
+
+Задача заканчивается не на мерже, а на чистом `git worktree list`: после мержа PR
+не должно остаться хвостов — worktree, ветки, временных файлов.
+
+- `git worktree remove <путь>` — только свой worktree; если остались ignored-артефакты
+  (`.next`, `node_modules`), удалить каталог целиком. Копию, удалённую вручную, снимает
+  `git worktree prune`.
+- `git branch -d <ветка>` для локальной; `git push origin --delete <ветка>` для remote.
+  Ветку, которая не влита, удалять только с подтверждением владельца (`-D` — осознанно).
+- `git fetch --prune` — чтобы `origin/*` не показывал уже удалённые ветки.
+- Удалить временные файлы проверки: скрипты, фикстуры, `test-results`,
+  `tsconfig.tsbuildinfo`, сгенерированные `.data`-файлы. **Не удалять** `.data/dir-meta`,
+  `.env.local` и состояние `telegram-bot/` — это состояние владельца, а не мусор.
+- Проверить `git worktree list`, `git branch -vv`, `git status`: остаются `main` и активная
+  задача; в отчёте перечислить, что удалено.
+
+Открытый PR — исключение: его worktree живёт до мержа. Ветку release-please можно удалять
+после мержа релизного PR — бот пересоздаст её к следующему релизу.
 
 - Route first: a large feature or bug (public API/UX, `.data` format, > ~2 files) goes to a
   GitHub Issue instead — see `## Agent behavior`. The inbox/task queue is for small, mechanical work.
