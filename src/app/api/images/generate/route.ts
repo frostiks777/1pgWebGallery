@@ -446,7 +446,15 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
 // POST — starts generation in background
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Batch status exposes lastPhoto (a content name) and progress; it is owner
+  // telemetry, not a public listing. 401 is consistent with POST (#116, #151).
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } },
+    );
+  }
   return NextResponse.json({
     ...status,
     sharpAvailable: isSharpAvailable(),
