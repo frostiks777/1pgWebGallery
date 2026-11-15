@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.5.0...v1.5.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **api:** закрыть авторизацией covers, hidden, panoramas и GET generate ([#151](https://github.com/frostiks777/1pgWebGallery/issues/151)) ([c4de622](https://github.com/frostiks777/1pgWebGallery/commit/c4de622c79aae7a9d430bc49e3d415d9d95599f8))
+* **api:** закрыть авторизацией covers, hidden, panoramas и GET generate ([#151](https://github.com/frostiks777/1pgWebGallery/issues/151)) ([2f59645](https://github.com/frostiks777/1pgWebGallery/commit/2f59645ac9efd9ddd88fbabcd6ed67f70b81f56c))
+
 ## [1.5.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.4.0...v1.5.0) (2026-11-15)
 
 
