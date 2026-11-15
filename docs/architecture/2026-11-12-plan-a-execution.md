@@ -11,7 +11,9 @@ PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен 
 A0.7 (deferred minors) — 6 атомарных issue закрыты, PR
 [#141](https://github.com/frostiks777/1pgWebGallery/pull/141);
 A0.6 — ops; A1.7 (кэш листинга) и A1.8 (очередь sharp) закрыты;
-A1.10 — ops; A2 запланирован.
+A1.10 — ops; A2 сдвинут: перед ним внеплановый трек
+[#151](https://github.com/frostiks777/1pgWebGallery/issues/151)–[#155](https://github.com/frostiks777/1pgWebGallery/issues/155)
+(2026-11-15), #151 первым.
 
 ## Как читать этот файл
 
@@ -62,6 +64,22 @@ A1.10 — ops; A2 запланирован.
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
 #59/#60 (стабильность бокса), #92/#116 (auth в `generate`, предпосылка A0.6),
 #76 (актуализация документации), #86/#87/#117–#120 (Lighthouse).
+
+## Внеплановый трек 2026-11-15: #151–#155
+
+Ревью 2026-11-15 нашло пять дефектов вне плана A. Владелец поставил их **перед A2**;
+#151 — первым, потому что это дыра авторизации, а не гигиена.
+
+| Порядок | Issue | Что | Почему здесь |
+|---:|---|---|---|
+| 1 | [#151](https://github.com/frostiks777/1pgWebGallery/issues/151) | auth на `covers`, `hidden`, `panoramas`, `GET /api/images/generate` | при включённом пароле аноним читает и **меняет** скрытые/обложки/панорамы в `.data/dir-meta` |
+| 2 | [#152](https://github.com/frostiks777/1pgWebGallery/issues/152) | коллизия `sanitizeDir` для кириллицы | две русские папки одинаковой длины пишут в один `.data/dir-meta/*.json` и затирают настройки друг друга |
+| 3 | [#154](https://github.com/frostiks777/1pgWebGallery/issues/154) | `deploy.yml`: блокирующий линт | деплой может выкатить прод с линтерными дефектами; правка `.github/workflows/*` — с разрешения владельца |
+| 4 | [#155](https://github.com/frostiks777/1pgWebGallery/issues/155) | безопасное извлечение расширений в `webdav.ts`, удалить `/api`-заглушку | файл без точки в имени ложно считается картинкой; мёртвый код |
+| 5 | [#153](https://github.com/frostiks777/1pgWebGallery/issues/153) | `type: module` в `.opencode`, чистка `package.json` | предупреждение Node, мёртвые `zod`/`tailwindcss-animate`, рассинхрон sharp |
+
+A2 (#10, #8, `/api/health`) идёт после этого трека. #151 не меняет формат `.data`;
+#152 меняет и требует обратной совместимости со старыми файлами (см. issue).
 
 ## Чек-лист
 
