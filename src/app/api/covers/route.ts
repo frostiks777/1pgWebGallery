@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readMeta, writeMeta, MAX_PATH_LENGTH, MAX_DIR_LENGTH, MAX_COVERS } from '@/lib/dir-meta';
+import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // Covers are user state in .data/dir-meta, not a public listing. Anonymous
+  // reads get an empty list so the gallery degrades quietly; mutations below
+  // answer 401 (#151).
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json({ paths: [] });
+  }
   const dir = (request.nextUrl.searchParams.get('dir') ?? '').slice(0, MAX_DIR_LENGTH);
   const meta = readMeta(dir);
   return NextResponse.json({ paths: meta.covers });
 }
 
 export async function POST(request: NextRequest) {
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body      = await request.json();
     const photoPath = body?.path;
@@ -35,6 +45,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body      = await request.json();
     const photoPath = body?.path;
@@ -55,6 +68,9 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (isAuthRequired() && !validateAuthCookie(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body  = await request.json();
     const paths = body?.paths;
