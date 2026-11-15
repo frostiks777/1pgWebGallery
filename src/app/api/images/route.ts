@@ -11,6 +11,8 @@ import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile } from '@/lib/videoExt';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
+import { IMAGE_PRESETS, optimizeImage, thumbExt, isSharpAvailable, fmtBytes, type ImageSize } from '@/lib/imageOptimize';
+import { withSharpSlot, SharpQueueFullError } from '@/lib/sharpQueue';
 import {
   hasFfmpeg,
   tryReservePosterSlot,
@@ -18,34 +20,6 @@ import {
   extractVideoPosterBuffer,
   extractVideoPosterFromFile,
 } from '@/lib/ffmpeg';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sharp initialisation — the CRITICAL piece for image optimisation.
-//
-// In standalone mode, Next.js cannot bundle native C++ addons.
-// `serverExternalPackages: ['sharp']` in next.config.ts tells Next.js
-// to keep sharp as an external require rather than trying to bundle it.
-// If it still fails, we log loudly so the admin sees it immediately.
-// ─────────────────────────────────────────────────────────────────────────────
-
-let sharp: typeof import('sharp') | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  sharp = require('sharp');
-  sharp!.concurrency(1);
-  // libvips keeps a 50 MB decoded-image cache by default (sharp/lib/utility.js:
-  // "Default cache settings of 50MB, 20 files, 100 items"). On the ~800 MB prod
-  // box that ceiling is pure overhead: every generated thumbnail is already
-  // cached on disk (local .data/ or colocated .thumbs-v2/ on WebDAV), so a cache
-  // hit only ever saves re-decoding the original inside the SAME request that
-  // was going to encode it anyway.
-  sharp!.cache({ memory: 0 });
-  console.info('[Images] sharp loaded OK — image optimisation is ACTIVE');
-} catch (err) {
-  console.error('[Images] *** SHARP FAILED TO LOAD — images will NOT be optimised! ***');
-  console.error('[Images] Error:', err instanceof Error ? err.message : String(err));
-  console.error('[Images] Make sure "sharp" is installed: bun add sharp');
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -66,28 +40,6 @@ const MAX_VIDEO_BYTES = Number(process.env.VIDEO_PREVIEW_MAX_MB || 300) * 1024 *
 // The slowest observed prod pull (96 MB) took 5.5 s; 120 s leaves room for a
 // slow uplink without letting a stuck transfer pin the ffmpeg slot.
 const VIDEO_DOWNLOAD_TIMEOUT_MS = Number(process.env.VIDEO_DOWNLOAD_TIMEOUT_MS || 120_000);
-
-/**
- * Image size presets — tuned for real-world photos (3000–6000 px originals).
- *
- * Best-practice quality values for WebP:
- *   thumbnail  — viewed at ≤400 px in a grid; quality 50-60 is indistinguishable
- *   medium     — lightbox view; quality 72 is a sweet-spot
- *   full       — download / zoom; quality 82 preserves fine detail
- *
- * `effort` controls the encoder compression level (0-6). Higher = slower
- * but smaller files.  We use max effort for tiny thumbnails and less for
- * large images where encoding time matters.
- */
-const IMAGE_PRESETS = {
-  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
-  medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
-  full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
-} as const;
-
-type ImageSize = keyof typeof IMAGE_PRESETS;
-
-
 
 // WebDAV write back-off state
 let webdavWriteFailures    = 0;
@@ -123,10 +75,8 @@ function dav(): WebDAVClient | null {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const thumbExt = () => (sharp ? '.webp' : '.jpg');
-
 function contentType(p: string): string {
-  if (sharp) return 'image/webp';
+  if (isSharpAvailable()) return 'image/webp';
   const ext = path.extname(p).toLowerCase();
   const m: Record<string, string> = {
     '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -140,69 +90,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     const t = setTimeout(() => reject(new Error(`Timeout ${ms}ms: ${label}`)), ms);
     promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
   });
-}
-
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Core optimisation pipeline
-//
-// Steps:
-//   1. Resize to target dimensions (fit: inside, no enlargement)
-//   2. Auto-rotate based on EXIF orientation
-//   3. Strip ALL metadata (EXIF, ICC, XMP) — saves 50-200 KB per photo
-//   4. Encode to WebP with per-size quality & effort settings
-//   5. If result is somehow bigger than input (edge case), return original
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
-  if (!sharp) {
-    console.warn(`[Images] sharp not loaded — returning original (${fmtBytes(buf.byteLength)})`);
-    return buf;
-  }
-
-  const preset = IMAGE_PRESETS[size];
-
-  try {
-    const pipeline = sharp(buf)
-      .rotate()                        // auto-rotate from EXIF
-      .resize(preset.width, preset.height, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .removeAlpha()                   // drop alpha for photos — saves bytes
-      .webp({
-        quality: preset.quality,
-        effort: preset.effort,
-        smartSubsample: true,          // chroma subsampling for smaller files
-        nearLossless: false,
-      })
-      .withMetadata({})                // strip all EXIF/ICC/XMP
-
-    const out = await pipeline.toBuffer();
-
-    const ratio   = out.byteLength / buf.byteLength;
-    const pctSave = ((1 - ratio) * 100).toFixed(1);
-
-    console.info(
-      `[Images] ${size}: ${fmtBytes(buf.byteLength)} → ${fmtBytes(out.byteLength)} (−${pctSave}%, ratio ${ratio.toFixed(3)})`
-    );
-
-    // Safety: if optimised version is somehow bigger, return original
-    if (out.byteLength >= buf.byteLength) {
-      console.warn(`[Images] ${size}: optimised is >= original — returning original`);
-      return buf;
-    }
-
-    return out;
-  } catch (err) {
-    console.error('[Images] sharp pipeline failed:', err);
-    return buf;
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -470,96 +357,107 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'ffmpeg not available on server' }, { status: 501 });
     }
 
-    // Never let poster work queue up. The check was previously a flag that got
-    // set *inside* the already-queued job, so every request arriving in the same
-    // tick passed it and queued anyway; the reservation is taken synchronously,
-    // before any await, which is what actually enforces "one poster at a time"
-    // (issue #99). Everyone else gets a cheap "try again" that the client
-    // retries (#98).
-    const releasePosterSlot = isVideo ? tryReservePosterSlot() : null;
-    if (isVideo && !releasePosterSlot) {
-      return NextResponse.json(
-        { error: 'Poster generation busy' },
-        { status: 503, headers: { 'Retry-After': '5' } },
-      );
-    }
-
-    // Poster width — ffmpeg scales in-process so sharp is never handed a 4K
-    // frame (a 3840x2160 JPEG costs ~8x the encode time of a 1280px one).
-    const posterWidth = VIDEO_POSTER_WIDTH;
-
-    // ── 3. Fetch original ───────────────────────────────────────────────────
-    let original: Buffer;
-    // Every early return below (404/413/500) has to hand the poster slot back —
-    // otherwise one bad request would keep every later video answering 503.
-    try {
-      if (isDemo) {
-        const fp = safePublicPath(decoded);
-        if (!fp) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        if (!fs.existsSync(/*turbopackIgnore: true*/ fp)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        if (isVideo && fs.statSync(/*turbopackIgnore: true*/ fp).size > MAX_VIDEO_BYTES) {
+    // Validate the cheap parts (existence, size, PHOTOS_DIR scope) BEFORE taking
+    // any slot: a 404/413 must not sit in the sharp queue behind real work.
+    let demoFile: string | null = null;
+    if (isDemo) {
+      demoFile = safePublicPath(decoded);
+      if (!demoFile || !fs.existsSync(/*turbopackIgnore: true*/ demoFile)) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
+      if (isVideo && fs.statSync(/*turbopackIgnore: true*/ demoFile).size > MAX_VIDEO_BYTES) {
+        return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+      }
+    } else {
+      // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
+      const photosDir = process.env.PHOTOS_DIR || '/Photos';
+      const normalizedPhotosDir = photosDir.endsWith('/') ? photosDir : photosDir + '/';
+      if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
+      if (isVideo) {
+        const vsize = await statSize(decoded);
+        if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
           return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
         }
-        original = fs.readFileSync(/*turbopackIgnore: true*/ fp);
-      } else {
-        // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
-        const photosDir = process.env.PHOTOS_DIR || '/Photos';
-        const normalizedPhotosDir = photosDir.endsWith('/') ? photosDir : photosDir + '/';
-        if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
-          return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        }
-        if (isVideo) {
-          const vsize = await statSize(decoded);
-          if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
-            return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
-          }
+      }
+    }
+
+    // ── 3. Poster extraction (videos only) ──────────────────────────────────
+    //
+    // Its own ffmpeg slot, deliberately WITHOUT a sharp slot: waiting for
+    // ffmpeg can take up to 90 s, and one of the two sharp pipelines must stay
+    // available for ordinary photos meanwhile.
+    let poster: Buffer | null = null;
+    if (isVideo) {
+      // Never let poster work queue up. The check was previously a flag that got
+      // set *inside* the already-queued job, so every request arriving in the same
+      // tick passed it and queued anyway; the reservation is taken synchronously,
+      // before any await, which is what actually enforces "one poster at a time"
+      // (issue #99). Everyone else gets a cheap "try again" that the client
+      // retries (#98).
+      const releasePosterSlot = tryReservePosterSlot();
+      if (!releasePosterSlot) {
+        return NextResponse.json(
+          { error: 'Poster generation busy' },
+          { status: 503, headers: { 'Retry-After': '5' } },
+        );
+      }
+      try {
+        if (isDemo) {
+          const original = fs.readFileSync(/*turbopackIgnore: true*/ demoFile!);
+          poster = await withFfmpegSlot(() =>
+            extractVideoPosterBuffer(original, { width: VIDEO_POSTER_WIDTH }),
+          );
+        } else {
           // Stream to a scratch file, take one frame, delete the file — all
           // inside the single global ffmpeg slot, so at most one source video
           // exists on this box at any moment. See fetchVideoToFile for why this
           // is not fetchOriginal.
           const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vsrc-'));
           const videoPath = path.join(workDir, 'src.mp4');
-          let poster: Buffer;
           try {
             poster = await withFfmpegSlot(async () => {
               await fetchVideoToFile(decoded, videoPath);
-              return extractVideoPosterFromFile(videoPath, { width: posterWidth });
+              return extractVideoPosterFromFile(videoPath, { width: VIDEO_POSTER_WIDTH });
             });
-          } catch (err) {
-            console.error('[Images] video poster extraction failed:', err);
-            return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
           } finally {
             fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
           }
-          original = poster;
-        } else {
-          try { original = await fetchOriginal(decoded); }
-          catch (err) {
-            console.error('[Images] fetch failed:', err);
-            return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
-          }
         }
+      } catch (err) {
+        console.error('[Images] poster extraction failed:', err);
+        return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
+      } finally {
+        releasePosterSlot();
       }
-
-      // Demo-mode videos are small local files, so the Buffer path is still fine
-      // there — but the extraction still runs inside the ffmpeg queue, so the
-      // demo mode stops being the one path where the busy check never fires.
-      if (isVideo && isDemo) {
-        try {
-          original = await withFfmpegSlot(() =>
-            extractVideoPosterBuffer(original, { width: posterWidth }),
-          );
-        } catch (err) {
-          console.error('[Images] poster extraction failed:', err);
-          return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
-        }
-      }
-    } finally {
-      releasePosterSlot?.();
     }
 
-    // ── 4. Optimise ─────────────────────────────────────────────────────────
-    const result = await optimizeImage(original, size);
+    // ── 4. Fetch + optimise under the shared sharp queue ────────────────────
+    //
+    // For a still photo the slot covers the original fetch too: without it, the
+    // 22 requests the queue accepts would all pull their originals into the V8
+    // heap before the first one reached sharp — the memory half of #144. A video
+    // poster is already extracted and small (1280 px), so it only needs the
+    // encode slot.
+    let result: Buffer;
+    try {
+      result = await withSharpSlot(async () => {
+        const original = poster ?? (isDemo
+          ? fs.readFileSync(/*turbopackIgnore: true*/ demoFile!)
+          : await fetchOriginal(decoded));
+        return optimizeImage(original, size);
+      });
+    } catch (err) {
+      if (err instanceof SharpQueueFullError) {
+        return NextResponse.json(
+          { error: 'Image processing queue is full' },
+          { status: 503, headers: { 'Retry-After': '3' } },
+        );
+      }
+      console.error('[Images] fetch failed:', err);
+      return NextResponse.json({ error: 'Image fetch failed' }, { status: 500 });
+    }
 
     // ── 5. Local disk cache (sync, fast) ────────────────────────────────────
     writeTmpCache(decoded, size, result);

@@ -10,7 +10,8 @@ PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен 
 задеплоен; follow-up #131 — PR [#132](https://github.com/frostiks777/1pgWebGallery/pull/132);
 A0.7 (deferred minors) — 6 атомарных issue закрыты, PR
 [#141](https://github.com/frostiks777/1pgWebGallery/pull/141);
-A0.6 — ops; A1/A2 запланированы.
+A0.6 — ops; A1.7 (кэш листинга) и A1.8 (очередь sharp) закрыты;
+A1.10 — ops; A2 запланирован.
 
 ## Как читать этот файл
 
@@ -51,7 +52,7 @@ A0.6 — ops; A1/A2 запланированы.
 | A0.7.6 | 404/403 WebDAV не отдаются как retryable 503 | [#139](https://github.com/frostiks777/1pgWebGallery/issues/139) | ✅ |
 | A0.6 | Перегенерация `thumbnail` на проде | [#126](https://github.com/frostiks777/1pgWebGallery/issues/126) | ⏸️ |
 | A1.7 | JSON-кэш листинга, TTL 30 с, SWR | [#145](https://github.com/frostiks777/1pgWebGallery/issues/145) | ✅ |
-| A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | связан с [#74](https://github.com/frostiks777/1pgWebGallery/issues/74), нужен отдельный issue | ⬜ |
+| A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | [#144](https://github.com/frostiks777/1pgWebGallery/issues/144) | ✅ |
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ⬜ |
@@ -142,12 +143,12 @@ A0.6 — ops; A1/A2 запланированы.
     после `delete` запись инвалидируется; lint/tsc/build/e2e.
   - Issue: [#145](https://github.com/frostiks777/1pgWebGallery/issues/145).
 
-- [ ] **A1.8. Ограниченная очередь sharp.**
+- [x] **A1.8. Ограниченная очередь sharp.** ✅
   - Файлы: `src/app/api/images/route.ts`, `src/app/api/images/generate/route.ts`,
-    новый `src/lib/sharp-queue.ts`.
-  - Проверка: не более 2 одновременных пайплайнов; очередь > 20 → `503` +
-    `Retry-After: 3`; `useRetryingImage` повторяет; lint/tsc/build/e2e.
-  - Issue: создать перед A1 (связан с #74, но это не очередь постеров ffmpeg).
+    новые `src/lib/sharpQueue.ts` и `src/lib/imageOptimize.ts`.
+  - Проверка: 25 параллельных запросов → 22×200, 3×503 + `Retry-After: 3`,
+    одновременно не больше 2 пайплайнов; lint/tsc/build/e2e.
+  - Issue: [#144](https://github.com/frostiks777/1pgWebGallery/issues/144).
 
 - [x] **A1.9. Проверка версии URL во всех точках.** ✅
   - Файлы: те же, что A0.2c.
@@ -620,3 +621,41 @@ PR #129; каждый issue закрывается своим `Closes` в тел
 
 **PR:** [#141](https://github.com/frostiks777/1pgWebGallery/pull/141) открыт в `main`;
 мерж и деплой — вручную владельцем.
+
+### 2026-11-15 — A1.8: ограниченная очередь sharp (#144)
+
+**Что сделано**
+
+- `src/lib/sharpQueue.ts`: не больше 2 одновременных пайплайнов и 20 ожидающих;
+  21-й ожидающий получает `SharpQueueFullError` до того, как начнёт работу.
+- `src/lib/imageOptimize.ts`: единственная точка инициализации sharp
+  (`concurrency(1)`, `cache({ memory: 0 })`), пресеты и `optimizeImage`; батч
+  больше не создаёт второй экземпляр sharp без этих настроек.
+- `/api/images`: слот занимается после проверки кэшей; для фото он покрывает и
+  fetch оригинала (в памяти не больше 2 оригиналов), для видео — только encode,
+  потому что ждать ffmpeg под sharp-слотом значило бы держать одну из двух
+  полос занятой до 90 с. Переполнение — `503` + `Retry-After: 3`.
+- `/api/images/generate`: тот же слот вокруг `optimizeImage`; переполнение —
+  `console.warn`, `errors++`, `done++`, `continue` (фоновый прогон не падает).
+- `sharpAvailable` в статусе батча теперь из общего модуля.
+
+**Проверки**
+
+- Временный Bun-скрипт: 25 задач → `maxActive=2`, `rejected=3`, `completed=22`.
+- HTTP-скрипт против dev-сервера, 25 параллельных запросов к холодному
+  4000×3000 JPEG: **22×200, 3×503**, у всех 503 `Retry-After: 3`; в логе
+  видно по 2 пайплайна.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успех;
+  `bun run test:e2e` — **14 passed**.
+
+**Ruling**
+
+- 2 активных + 20 ожидающих, а не 20 всего: формулировка issue «очередь не длиннее
+  20» точнее, чем арифметика приёмки (25 → 5×503); фактически 25 → 3×503.
+- Общий модуль sharp, а не только очередь: `concurrency(1)`/`cache(0)` — глобальные
+  настройки libvips, и второй экземпляр в `generate` мог загрузиться первым и
+  работать с дефолтным пулом потоков. Очередь теперь единственный вход в sharp.
+- Слот для фото покрывает fetch: иначе 22 принятых запроса успевают вытащить
+  22 оригинала в heap до первого `optimizeImage` — это memory-половина #144.
+
+**PR:** [#149](https://github.com/frostiks777/1pgWebGallery/pull/149); мерж и деплой — вручную владельцем.
