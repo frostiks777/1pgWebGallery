@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.4.0...v1.5.0) (2026-11-15)
+
+
+### Features
+
+* **images:** ограниченная очередь sharp ([#144](https://github.com/frostiks777/1pgWebGallery/issues/144)) ([182f47a](https://github.com/frostiks777/1pgWebGallery/commit/182f47a8b389925edbb7edf26607addb297dc1a0))
+* **images:** ограниченная очередь sharp ([#144](https://github.com/frostiks777/1pgWebGallery/issues/144)) ([df21978](https://github.com/frostiks777/1pgWebGallery/commit/df21978722de43c9bacc1177ee6b50b1ef651d3d))
+
 ## [1.4.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.3.0...v1.4.0) (2026-11-12)
 
 
