@@ -13,6 +13,8 @@ import { isVideoFile, stemOf } from '@/lib/videoExt';
 import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
+import { IMAGE_PRESETS, optimizeImage, thumbExt, isSharpAvailable, type ImageSize } from '@/lib/imageOptimize';
+import { withSharpSlot, SharpQueueFullError } from '@/lib/sharpQueue';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared state — lives for the lifetime of the server process
@@ -73,29 +75,14 @@ const status: GenerateStatus = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Re-use shared infra from the images route (sharp, webdav, presets)
+// Re-use shared infra from src/lib (sharp, presets, cache versions)
 // ─────────────────────────────────────────────────────────────────────────────
-
-let sharp: typeof import('sharp') | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  sharp = require('sharp');
-} catch {}
 
 const CACHE_DIR     = process.env.CACHE_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), '.data');
 const THUMBS_SUBDIR = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 
-const IMAGE_PRESETS = {
-  thumbnail: { width: 450,  height: 450,  quality: 60, effort: 4 },
-  medium:    { width: 1400, height: 1400, quality: 72, effort: 4 },
-  full:      { width: 2400, height: 2400, quality: 82, effort: 2 },
-} as const;
-
-type ImageSize = keyof typeof IMAGE_PRESETS;
 const ALL_SIZES: ImageSize[] = ['thumbnail', 'medium', 'full'];
-
-const thumbExt = () => (sharp ? '.webp' : '.jpg');
 
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -160,25 +147,6 @@ async function writeDavThumb(client: WebDAVClient, photo: string, size: ImageSiz
     client.putFileContents(file, Buffer.from(buf), { overwrite: true }),
     30_000, `put ${file}`,
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Optimise image (same pipeline as images/route.ts)
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function optimizeImage(buf: Buffer, size: ImageSize): Promise<Buffer> {
-  if (!sharp) return buf;
-  const preset = IMAGE_PRESETS[size];
-  try {
-    const out = await sharp(buf)
-      .rotate()
-      .resize(preset.width, preset.height, { fit: 'inside', withoutEnlargement: true })
-      .removeAlpha()
-      .webp({ quality: preset.quality, effort: preset.effort, smartSubsample: true })
-      .withMetadata({})
-      .toBuffer();
-    return out.byteLength < buf.byteLength ? out : buf;
-  } catch { return buf; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -353,7 +321,10 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
           }
 
 
-          const result = await optimizeImage(original, size);
+          // Same shared queue as the on-demand route: the batch takes one of the
+          // two slots, leaving one for gallery traffic. It stays sequential, so
+          // it never holds more than one original in memory here.
+          const result = await withSharpSlot(() => optimizeImage(original, size, { log: false }));
 
           // Save to local disk cache
           writeTmpCache(photoPath, size, result);
@@ -366,6 +337,15 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
           status.done++;
           console.info(`[Generate] ${status.done}/${status.total}: ${path.basename(photoPath)} [${size}]`);
         } catch (err) {
+          if (err instanceof SharpQueueFullError) {
+            // A full queue is a transient "come back later", not a broken photo:
+            // keep the run moving and let a rerun fill the gaps once the gallery
+            // is idle. Counting it as an error keeps `errors` honest.
+            status.errors++;
+            status.done++;
+            console.warn(`[Generate] sharp queue full, skipped ${photoPath} [${size}]`);
+            continue;
+          }
           status.errors++;
           status.done++;
           console.error(`[Generate] FAILED ${photoPath} [${size}]:`,
@@ -469,7 +449,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
 export async function GET() {
   return NextResponse.json({
     ...status,
-    sharpAvailable: !!sharp,
+    sharpAvailable: isSharpAvailable(),
     progress: status.total > 0 ? Math.round((status.done / status.total) * 100) : 0,
   });
 }
