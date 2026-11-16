@@ -175,7 +175,7 @@ API, лимит провайдера, требование бизнеса, со�
 
 `git push` to `main` → `.github/workflows/deploy.yml` builds the standalone bundle on GitHub's
 runners and rsyncs it (`--delete`) to the `DEPLOY_PATH` secret, then restarts the `photo-gallery`
-systemd unit. Lint there is `continue-on-error`. The **server never runs `next build`** — that was
+systemd unit. Lint there is blocking, same as `ci.yml` (ADR-0003). The **server never runs `next build`** — that was
 the cause of repeated OOM kills on its ~800MB RAM. `DEPLOY_PATH` must be a dedicated release dir
 that owns nothing durable: `.env.local` (a symlink back to the real file) and `.data` must stay
 outside it. One-time server setup: `DEPLOYMENT.md` §10.
