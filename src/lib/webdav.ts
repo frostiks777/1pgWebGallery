@@ -1,5 +1,6 @@
 import { createClient, WebDAVClient, FileStat, AuthType } from 'webdav';
 import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from './videoExt';
+import { isImageFile } from './imageExt';
 import { DEFAULT_COLOCATED_THUMBS_DIR } from './cacheVersions';
 
 export interface PhotoInfo {
@@ -146,14 +147,12 @@ export async function getFirstPhotosFromDirectory(
   limit: number = 3,
 ): Promise<string[]> {
   const client = getWebDAVClient();
-  const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
   try {
     const contents = await client.getDirectoryContents(directory);
     if (!Array.isArray(contents)) return [];
     return contents
       .filter((f: FileStat) =>
-        f.type === 'file' &&
-        imageExts.includes(f.basename.toLowerCase().substring(f.basename.lastIndexOf('.')))
+        f.type === 'file' && isImageFile(f.basename)
       )
       .slice(0, limit)
       .map((f: FileStat) => f.filename);
@@ -211,8 +210,6 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
       return [];
     }
 
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.heic', '.heif'];
-
     // Counter for logging
     let loggedCount = 0;
 
@@ -223,8 +220,7 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
     const photos: PhotoInfo[] = files
       .filter((file: FileStat) => {
         if (file.type !== 'file') return false;
-        const ext = file.basename.toLowerCase().substring(file.basename.lastIndexOf('.'));
-        return imageExtensions.includes(ext);
+        return isImageFile(file.basename);
       })
       .map((file: FileStat) => {
         // Log the first few paths to debug
@@ -256,8 +252,7 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
       files
         .filter((file: FileStat) => {
           if (file.type !== 'file') return false;
-          const ext = file.basename.toLowerCase().substring(file.basename.lastIndexOf('.'));
-          return imageExtensions.includes(ext);
+          return isImageFile(file.basename);
         })
         .map((file: FileStat) => stemOf(file.basename)),
     );
@@ -286,26 +281,6 @@ export async function getPhotosFromDirectory(directory: string = '/'): Promise<P
     return photos;
   } catch (error) {
     console.error('[WebDAV] Error fetching photos:', error);
-    throw error;
-  }
-}
-
-export async function getPhotoBuffer(photoPath: string): Promise<Buffer> {
-  const client = getWebDAVClient();
-  
-  try {
-    console.log(`[WebDAV] Fetching photo: ${photoPath}`);
-    
-    // Get the file as ArrayBuffer
-    const buffer = await client.getFileContents(photoPath, { 
-      format: 'binary' 
-    }) as ArrayBuffer;
-    
-    console.log(`[WebDAV] Received ${buffer.byteLength} bytes for ${photoPath}`);
-    
-    return Buffer.from(buffer);
-  } catch (error) {
-    console.error(`[WebDAV] Error fetching photo ${photoPath}:`, error);
     throw error;
   }
 }
