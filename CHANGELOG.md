@@ -8,6 +8,12 @@
 * **health:** публичный /api/health и Telegram-алерт по cron ([#166](https://github.com/frostiks777/1pgWebGallery/issues/166)) ([02e6c44](https://github.com/frostiks777/1pgWebGallery/commit/02e6c445df18b7fcb80e72c083d614d64303ad2a))
 * **health:** публичный /api/health с проверкой WebDAV ([#166](https://github.com/frostiks777/1pgWebGallery/issues/166)) ([7846047](https://github.com/frostiks777/1pgWebGallery/commit/7846047787c2deaf0cf71c07acff48e24cf148f1))
 
+
+### Bug Fixes
+
+* **health:** не дублировать 000 в тексте алерта ([465b90e](https://github.com/frostiks777/1pgWebGallery/commit/465b90efac7ee5ab7cf67ebaebbe25dc9bbc4bad))
+* **health:** не дублировать 000 в тексте алерта ([0a29c8f](https://github.com/frostiks777/1pgWebGallery/commit/0a29c8ffcd5c26ba426799c1dad2d3ea92540cc0))
+
 ## [1.5.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.5.1...v1.5.2) (2026-11-16)
 
 
