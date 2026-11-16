@@ -63,8 +63,8 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | [#144](https://github.com/frostiks777/1pgWebGallery/issues/144) | ✅ |
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
-| A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | 🟡 PR [#164](https://github.com/frostiks777/1pgWebGallery/pull/164) |
-| A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | частично [#8](https://github.com/frostiks777/1pgWebGallery/issues/8), нужен отдельный issue | ⬜ |
+| A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ✅ |
+| A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | [#8](https://github.com/frostiks777/1pgWebGallery/issues/8) | 🟡 PR [#165](https://github.com/frostiks777/1pgWebGallery/pull/165) |
 | A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | issue не создан (A2) | ⬜ |
 
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
@@ -828,3 +828,33 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   обновил lock, но не удалил с диска старые каталоги.
 
 **PR:** [#164](https://github.com/frostiks777/1pgWebGallery/pull/164).
+
+### 2026-11-16 - #8: один workflow на `main` и кеш `.next/cache`
+
+**Что сделано**
+
+- `ci.yml` больше не триггерится на `push: main` — только `pull_request`.
+  Гейт на `main` остаётся в `deploy.yml`, где lint и build блокирующие с #154.
+- `actions/cache@v4` для `.next/cache` добавлен в `ci.yml` и `deploy.yml`
+  с общим ключом по `bun.lock` и `restore-keys` fallback.
+- Комментарии в обоих workflow объясняют, почему кеш общий и почему `main`
+  собирает только деплой.
+
+**Проверка**
+
+- PR: единственный workflow — `CI`, success. `Build & Deploy` на PR не пошёл.
+- Три прогона одного коммита: Build 15 с (cold) → 10 с / 13 с (cache hit),
+  `Compiled successfully in 5.9s`; job total 28 → 40 → 28 с.
+- Кеш в CI: 157 КБ распакованного, 41 КБ архива — не 69 МБ.
+
+**Ruling**
+
+- Кеш оставлен, хотя общий job не ускорился: он корректен, стоит ~1 с на
+  restore и ускоряет именно компиляцию. Acceptance «второй прогон заметно
+  быстрее» по общему времени **не подтверждён** — записано как есть, а не
+  подогнано.
+- Цифра 69 МБ из issue не воспроизводится на `next build`: это локальный
+  dev-кеш. Реальный выигрыш #8 — снятая вторая сборка `main` (~один полный
+  прогон на каждый пуш).
+
+**PR:** [#165](https://github.com/frostiks777/1pgWebGallery/pull/165).
