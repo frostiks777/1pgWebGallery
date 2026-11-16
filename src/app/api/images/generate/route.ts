@@ -10,6 +10,7 @@ import type { WebDAVClient, FileStat } from 'webdav';
 import { getWebDAVClient } from '@/lib/webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile, stemOf } from '@/lib/videoExt';
+import { isImageFile } from '@/lib/imageExt';
 import { hasFfmpeg, withFfmpegSlot, extractVideoPosterFromFile, extractVideoPosterBuffer } from '@/lib/ffmpeg';
 import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
@@ -171,7 +172,6 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
       try { return getWebDAVClient(); } catch { return null; }
     })();
     const photosDir = process.env.PHOTOS_DIR || '/Photos';
-    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
     const thumbsDirName = process.env.COLOCATED_THUMBS_DIR || DEFAULT_COLOCATED_THUMBS_DIR;
 
     // Scope walk to sub-directory; scopePath is already validated by POST handler
@@ -204,7 +204,7 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
             if (entry.basename.startsWith('.')) continue; // skip .thumbs-v2 and other hidden dirs
             await walkDir(entry.filename);
           } else if (
-            imageExts.includes(entry.basename.toLowerCase().substring(entry.basename.lastIndexOf('.'))) &&
+            isImageFile(entry.basename) &&
             !entry.filename.split('/').includes(thumbsDirName)
           ) {
             photoPaths.push(entry.filename);
@@ -230,10 +230,10 @@ async function runGeneration(scopePath?: string, sizes: ImageSize[] = ALL_SIZES)
       if (fs.existsSync(demoDir)) {
         const allFiles = fs.readdirSync(demoDir);
         const imageStemsHere = new Set(
-          allFiles.filter(f => imageExts.includes(path.extname(f).toLowerCase())).map(stemOf),
+          allFiles.filter(f => isImageFile(f)).map(stemOf),
         );
         photoPaths = allFiles
-          .filter(f => imageExts.includes(path.extname(f).toLowerCase()) ||
+          .filter(f => isImageFile(f) ||
             (isVideoFile(f) && !imageStemsHere.has(stemOf(f))))
           .map(f => `${demoPrefix}/${f}`);
       }
