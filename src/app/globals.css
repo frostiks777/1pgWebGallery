@@ -51,6 +51,10 @@
   --amber-glow: rgba(230, 168, 90, 0.25);
   --amber-tint: rgba(230, 168, 90, 0.12);
   --amber-border: rgba(230, 168, 90, 0.35);
+  /* #142: grid thumbnails crop with `object-fit: cover`. 25% shows roughly the
+     14–57% band of a 3:2 photo — heads survive, the bottom third goes. One
+     knob, so the framing can be retuned without touching components. */
+  --thumb-focus: 25%;
   --accent-badge-bg: rgba(230, 168, 90, 0.18);
   --ok: #e6a85a;
   --r-xs: 4px;
@@ -436,6 +440,12 @@ body::after {
   margin-left: auto;
   margin-right: auto;
   padding: 4px 24px 24px;
+}
+
+/* #142: `object-position` on an axis without overflow is a no-op, so a static
+   upward shift cannot break portrait-in-wide-tile or square-in-square crops. */
+.obs-thumb-crop {
+  object-position: 50% var(--thumb-focus);
 }
 
 /* ── Lightbox thumbnail scrollbar ─────────────────────────────────────────── */

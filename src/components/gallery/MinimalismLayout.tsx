@@ -60,7 +60,7 @@ export function MinimalismLayout({
             <img
               src={thumbUrl(photo)}
               alt=""
-              className="h-full w-full object-cover"
+              className="obs-thumb-crop h-full w-full object-cover"
               loading="lazy"
             />
           </div>

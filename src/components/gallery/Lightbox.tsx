@@ -380,7 +380,7 @@ function LightboxContent({
               <img
                 src={buildImageUrl(photo.path, 'thumbnail', photo.lastModified)}
                 alt=""
-                className="h-full w-full object-cover"
+                className="obs-thumb-crop h-full w-full object-cover"
                 loading="lazy"
                 fetchPriority="low"
               />

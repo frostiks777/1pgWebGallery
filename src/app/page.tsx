@@ -857,7 +857,7 @@ export default function GalleryPage() {
                               <img
                                 src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="obs-thumb-crop w-full h-full object-cover"
                                 loading="lazy"
                               />
                             </div>
@@ -866,13 +866,13 @@ export default function GalleryPage() {
                               <img
                                 src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="obs-thumb-crop w-full h-full object-cover"
                                 loading="lazy"
                               />
                               <img
                                 src={buildImageUrl(previews[1], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="obs-thumb-crop w-full h-full object-cover"
                                 loading="lazy"
                               />
                             </div>
@@ -881,19 +881,19 @@ export default function GalleryPage() {
                               <img
                                 src={buildImageUrl(previews[0], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover row-span-2"
+                                className="obs-thumb-crop w-full h-full object-cover row-span-2"
                                 loading="lazy"
                               />
                               <img
                                 src={buildImageUrl(previews[1], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="obs-thumb-crop w-full h-full object-cover"
                                 loading="lazy"
                               />
                               <img
                                 src={buildImageUrl(previews[2], 'thumbnail')}
                                 alt=""
-                                className="w-full h-full object-cover"
+                                className="obs-thumb-crop w-full h-full object-cover"
                                 loading="lazy"
                               />
                             </div>

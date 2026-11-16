@@ -81,7 +81,7 @@ export function HoneycombLayout({
               <img
                 src={thumbnailUrl}
                 alt={photo.name}
-                className="h-full w-full object-cover bg-black"
+                className="obs-thumb-crop h-full w-full object-cover bg-black"
                 loading="lazy"
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
