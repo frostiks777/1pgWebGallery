@@ -58,7 +58,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ⬜ |
-| A2.12 | Деплой-гейт: `continue-on-error` + `push: main` в `ci.yml` | частично [#8](https://github.com/frostiks777/1pgWebGallery/issues/8), нужен отдельный issue | ⬜ |
+| A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | частично [#8](https://github.com/frostiks777/1pgWebGallery/issues/8), нужен отдельный issue | ⬜ |
 | A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | issue не создан (A2) | ⬜ |
 
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
