@@ -14,8 +14,9 @@ A0.6 — ops; A1.7 (кэш листинга) и A1.8 (очередь sharp) за
 A1.10 — ops; A2 сдвинут: перед ним внеплановый трек
 [#151](https://github.com/frostiks777/1pgWebGallery/issues/151)–[#155](https://github.com/frostiks777/1pgWebGallery/issues/155)
 (2026-11-15), #151 смержен (PR
-[#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 — PR
-[#159](https://github.com/frostiks777/1pgWebGallery/pull/159).
+[#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 смержен (PR
+[#159](https://github.com/frostiks777/1pgWebGallery/pull/159)), #154 смержен (PR
+[#160](https://github.com/frostiks777/1pgWebGallery/pull/160)).
 
 ## Как читать этот файл
 
@@ -708,3 +709,27 @@ PR #129; каждый issue закрывается своим `Closes` в тел
 - ADR не нужен: структура JSON не меняется, меняется только внутреннее имя файла.
 
 **PR:** [#159](https://github.com/frostiks777/1pgWebGallery/pull/159).
+
+### 2026-11-16 - #154: блокирующий линт в `deploy.yml`
+
+**Что сделано**
+
+- `.github/workflows/deploy.yml`: у шага Lint убран `continue-on-error`, шаг
+  переименован в `Lint`, комментарий ссылается на ADR-0003 и `8a922af` (#12).
+- `AGENTS.md`: «Lint there is blocking, same as `ci.yml` (ADR-0003)».
+- `MEMORY.md`: пункт про гейт линта на `main` больше не требует парной правки.
+
+**Проверка**
+
+- YAML разобран `js-yaml`: шаг `Lint` без `continue-on-error`.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успешно;
+  `bun run test:e2e` — **18 passed** (ветка от `main` до мержа #152).
+
+**Ruling**
+
+- Правка `MEMORY.md` — часть той же фактической ошибки: пункт прямо описывал
+  `deploy.yml:39-41` как текущее состояние.
+- Журнал добавлен после мержа: и #152, и #154 дописывали конец файла, и
+  одновременные PR дали бы конфликт.
+
+**PR:** [#160](https://github.com/frostiks777/1pgWebGallery/pull/160).
