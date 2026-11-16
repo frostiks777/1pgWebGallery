@@ -16,8 +16,9 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 (2026-11-15), #151 смержен (PR
 [#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 смержен (PR
 [#159](https://github.com/frostiks777/1pgWebGallery/pull/159)), #154 смержен (PR
-[#160](https://github.com/frostiks777/1pgWebGallery/pull/160)), #155 — PR
-[#162](https://github.com/frostiks777/1pgWebGallery/pull/162).
+[#160](https://github.com/frostiks777/1pgWebGallery/pull/160)), #155 смержен (PR
+[#162](https://github.com/frostiks777/1pgWebGallery/pull/162)), #153 — PR
+[#163](https://github.com/frostiks777/1pgWebGallery/pull/163).
 
 ## Как читать этот файл
 
@@ -765,3 +766,34 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   набор для демо-файлов, в задачу #155 не входит.
 
 **PR:** [#162](https://github.com/frostiks777/1pgWebGallery/pull/162).
+
+### 2026-11-16 - #153: `type: module` и чистка `package.json`
+
+**Что сделано**
+
+- `.opencode/package.json`: `"type": "module"` — Node больше не выводит
+  `MODULE_TYPELESS_PACKAGE_JSON` при импорте `telegram-autostart.js`. Файл был
+  скрыт локальным `.opencode/.gitignore`, поэтому добавлен принудительно:
+  иначе фикс не доехал бы до чистого клона.
+- `package.json`: убраны `engines.npm` (противоречил `devEngines` с bun),
+  `zod` и `tailwindcss-animate`; `@img/sharp-linux-x64` выровнен до `~0.33.5`.
+- Удалён `tailwind.config.ts`: его единственным потребителем был
+  `tailwindcss-animate`, а Tailwind v4 читает `globals.css` и
+  `postcss.config.mjs`, `@config` нигде не указан.
+- `bun.lock` обновлён (`bun install`, не frozen): минус два пакета.
+
+**Проверка**
+
+- `bun run test:plugin-smoke` — **12/12 PASS**, 0 предупреждений
+  `MODULE_TYPELESS` (три прогона подряд).
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успешно;
+  `bun run test:e2e` — **25 passed**.
+
+**Ruling**
+
+- `tailwind.config.ts` удалён, а не оставлен мёртвым: после удаления пакета его
+  импорт сломал бы `tsc`, а v4 его не читает — сборка подтвердила.
+- `zod` остаётся в `bun.lock` транзитивно через `eslint-plugin-react-hooks`;
+  прямой зависимости в `package.json` больше нет.
+
+**PR:** [#163](https://github.com/frostiks777/1pgWebGallery/pull/163).
