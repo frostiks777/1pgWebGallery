@@ -17,8 +17,9 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 [#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 смержен (PR
 [#159](https://github.com/frostiks777/1pgWebGallery/pull/159)), #154 смержен (PR
 [#160](https://github.com/frostiks777/1pgWebGallery/pull/160)), #155 смержен (PR
-[#162](https://github.com/frostiks777/1pgWebGallery/pull/162)), #153 — PR
-[#163](https://github.com/frostiks777/1pgWebGallery/pull/163).
+[#162](https://github.com/frostiks777/1pgWebGallery/pull/162)), #153 смержен (PR
+[#163](https://github.com/frostiks777/1pgWebGallery/pull/163)) — внеплановый трек
+закрыт 2026-11-16.
 
 ## Как читать этот файл
 
