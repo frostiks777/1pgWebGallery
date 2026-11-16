@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.5.1...v1.5.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deploy:** сделать линт блокирующим ([e112f02](https://github.com/frostiks777/1pgWebGallery/commit/e112f028afe6e4c4b55c6629110be6371c8ab67b))
+* **deploy:** сделать линт блокирующим ([#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) ([f7e1937](https://github.com/frostiks777/1pgWebGallery/commit/f7e19378ea335b2c8f3b592506b2883dd58250ea))
+* **dir-meta:** уникальные файлы настроек для кириллических папок ([6276d04](https://github.com/frostiks777/1pgWebGallery/commit/6276d0426594f8938154315d619a59207038026d))
+* **dir-meta:** уникальные файлы настроек для кириллических папок ([#152](https://github.com/frostiks777/1pgWebGallery/issues/152)) ([b2bf288](https://github.com/frostiks777/1pgWebGallery/commit/b2bf288d05eda1724b2ccbe2844dd83ba9717b18))
+* **webdav:** безопасно извлекать расширение и убрать мёртвый /api ([b44e0fe](https://github.com/frostiks777/1pgWebGallery/commit/b44e0fef0637fb567b09afe08efa99d966e71711))
+* **webdav:** безопасно извлекать расширение и убрать мёртвый /api ([#155](https://github.com/frostiks777/1pgWebGallery/issues/155)) ([fa1ce82](https://github.com/frostiks777/1pgWebGallery/commit/fa1ce82aa7f61f470b3359be63823a626c3be956))
+
 ## [1.5.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.5.0...v1.5.1) (2026-11-15)
 
 
