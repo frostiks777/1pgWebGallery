@@ -157,7 +157,7 @@ export const PhotoCard = memo(function PhotoCard({
             src={imageSrc}
             alt={photo.name}
             className={cn(
-              'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
+              'obs-thumb-crop absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
               isLoading ? 'opacity-0' : 'opacity-100',
             )}
             loading="lazy"
@@ -181,7 +181,7 @@ export const PhotoCard = memo(function PhotoCard({
               preload="none"
               aria-hidden
               className={cn(
-                'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
+                'obs-thumb-crop absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
                 trailerLoaded ? 'opacity-100' : 'opacity-0',
               )}
               onPlaying={() => setTrailerLoaded(true)}

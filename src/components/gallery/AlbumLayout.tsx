@@ -100,7 +100,7 @@ function AlbumCard({
               <img
                 src={imageSrc}
                 alt={photo.name}
-                className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${
+                className={`obs-thumb-crop w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
                 loading="lazy"
