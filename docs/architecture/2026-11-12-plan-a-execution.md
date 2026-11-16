@@ -16,7 +16,8 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 (2026-11-15), #151 смержен (PR
 [#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 смержен (PR
 [#159](https://github.com/frostiks777/1pgWebGallery/pull/159)), #154 смержен (PR
-[#160](https://github.com/frostiks777/1pgWebGallery/pull/160)).
+[#160](https://github.com/frostiks777/1pgWebGallery/pull/160)), #155 — PR
+[#162](https://github.com/frostiks777/1pgWebGallery/pull/162).
 
 ## Как читать этот файл
 
@@ -733,3 +734,34 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   одновременные PR дали бы конфликт.
 
 **PR:** [#160](https://github.com/frostiks777/1pgWebGallery/pull/160).
+
+### 2026-11-16 - #155: безопасное расширение и мёртвый `/api`
+
+**Что сделано**
+
+- Новый `src/lib/imageExt.ts`: `IMAGE_EXTENSIONS`, `imageExtOf`, `isImageFile`.
+  `imageExtOf` повторяет семантику `videoExtOf` из `videoExt.ts`.
+- `src/lib/webdav.ts`: обе функции листинга используют `isImageFile`; превью
+  папок получило `.svg`, как и полный листинг. Удалена неиспользуемая
+  `getPhotoBuffer`.
+- `src/app/api/images/generate/route.ts`: три места с локальным `imageExts`
+  переведены на общий helper.
+- Удалён `src/app/api/route.ts` — заглушка `Hello, world!`.
+- `tests/e2e/image-ext.spec.ts`: имена без точки, регистр, `.svg`, точка в
+  середине имени и 404 на `/api`.
+
+**Проверка**
+
+- До правки спека падала только на `/api` (`200` вместо `404`), после — 5 passed.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успешно;
+  `bun run test:e2e` — **25 passed**.
+
+**Ruling**
+
+- Общий модуль, а не правка одной строки: три копии списка уже разъехались
+  (`.svg` был только в одной), и следующая правка расширений снова задела бы
+  не все. Форма модуля повторяет `videoExt.ts`.
+- `photos/route.ts` (demo-листинг, 5 расширений) не трогали: это отдельный
+  набор для демо-файлов, в задачу #155 не входит.
+
+**PR:** [#162](https://github.com/frostiks777/1pgWebGallery/pull/162).
