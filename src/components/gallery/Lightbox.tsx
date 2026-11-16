@@ -34,7 +34,10 @@ interface LightboxProps {
 // `canPlayType` is the only synchronous capability signal available before a
 // file is opened. Both profiles are checked: the camera files are Main 10
 // (`hvc1.2.4.L153.B0`), older clips are Main (`hvc1.1.6.L120.B0`). The probe
-// element and the answer are created once per page.
+// element and the answer are created once per page: a codec installed at the
+// OS level is not picked up by an already-open tab anyway, and probing per
+// video would create a throwaway <video> on every lightbox navigation for an
+// answer that does not change mid-session.
 let hevcPlayable: boolean | null = null;
 function browserPlaysHevc(): boolean {
   if (hevcPlayable === null) {

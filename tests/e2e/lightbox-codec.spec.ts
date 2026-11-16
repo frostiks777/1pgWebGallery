@@ -16,7 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 async function openVideoLightbox(
   page: Page,
-  options: { videoWidth: number; decodedFrames: number },
+  options: { videoWidth: number; decodedFrames: number; dispatchPlaying?: boolean },
 ) {
   await page.route('**/api/photos**', async (route) => {
     const response = await route.fetch();
@@ -69,7 +69,7 @@ async function openVideoLightbox(
         creationTime: 0,
       }),
     });
-    el.dispatchEvent(new Event('playing'));
+    if (opts.dispatchPlaying !== false) el.dispatchEvent(new Event('playing'));
   }, options);
 
   return dialog;
@@ -95,9 +95,15 @@ test.describe('lightbox codec fallback (#52)', () => {
 
   // The headed Chrome in #52 stayed silent, but Playwright's Chromium rejects
   // the same class of file with code 4 — verified against a real 1 MB HEVC
-  // sample. That path must end in the same message, not in a bare poster.
+  // sample. No `playing` event is dispatched here: a rejecting browser never
+  // starts playback, so this must prove the error branch alone produces the
+  // message, not the delayed zero-frames check.
   test('surfaces a decode rejection instead of hiding the video', async ({ page }) => {
-    const dialog = await openVideoLightbox(page, { videoWidth: 1920, decodedFrames: 42 });
+    const dialog = await openVideoLightbox(page, {
+      videoWidth: 1920,
+      decodedFrames: 42,
+      dispatchPlaying: false,
+    });
     const video = dialog.locator('video');
 
     await video.evaluate((el) => {
