@@ -21,7 +21,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 [#163](https://github.com/frostiks777/1pgWebGallery/pull/163)) — внеплановый трек
 закрыт 2026-11-16; A2.11 (#10, PR [#164](https://github.com/frostiks777/1pgWebGallery/pull/164))
 и A2.12 (#8, PR [#165](https://github.com/frostiks777/1pgWebGallery/pull/165)) смержены
-2026-11-16; остаётся A2.13.
+2026-11-16; A2.13 — PR [#167](https://github.com/frostiks777/1pgWebGallery/pull/167).
 
 ## Как читать этот файл
 
@@ -67,7 +67,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ✅ |
 | A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | [#8](https://github.com/frostiks777/1pgWebGallery/issues/8) | ✅ |
-| A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | issue не создан (A2) | ⬜ |
+| A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | [#166](https://github.com/frostiks777/1pgWebGallery/issues/166) | 🟡 PR [#167](https://github.com/frostiks777/1pgWebGallery/pull/167) |
 
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
 #59/#60 (стабильность бокса), #92/#116 (auth в `generate`, предпосылка A0.6),
@@ -191,13 +191,13 @@ A2 (#10, #8, `/api/health`) идёт после этого трека. #151 не
 
 ### A2 — чистка, деплой-гейт, healthcheck (1–2 дня)
 
-- [ ] **A2.11. Чистка зависимостей и мёртвых `ui/*.tsx`.**
+- [x] **A2.11. Чистка зависимостей и мёртвых `ui/*.tsx`.**
   - Файлы: `package.json`, `bun.lock`, `src/components/ui/*`, `src/app/globals.css`.
   - Проверка: `bunx tsc --noEmit`, `bun run lint`, `bun run build`,
     `bun run test:e2e`; размер `node_modules` и CSS до/после.
   - Issue: #10.
 
-- [ ] **A2.12. Деплой-гейт.**
+- [x] **A2.12. Деплой-гейт.**
   - Файлы: `.github/workflows/deploy.yml` (`:41`), `.github/workflows/ci.yml` (`:12-15`).
   - Проверка: пуш в `main` даёт один workflow со сборкой; PR не запускает деплой;
     lint в деплое блокирующий.
@@ -205,10 +205,11 @@ A2 (#10, #8, `/api/health`) идёт после этого трека. #151 не
     на правку `.github/workflows/*`.**
 
 - [ ] **A2.13. `/api/health` + WebDAV + алерт.**
-  - Файлы: новый `src/app/api/health/route.ts`, `telegram-bot/`/`scripts/`.
+  - Файлы: `src/app/api/health/route.ts`, `src/proxy.ts`,
+    `.github/workflows/health.yml`.
   - Проверка: `/api/health` возвращает статус WebDAV; при сбое — алерт в Telegram;
     lint/tsc/build/e2e.
-  - Issue: создать перед A2.
+  - Issue: [#166](https://github.com/frostiks777/1pgWebGallery/issues/166).
 
 ## Метрики до/после
 
@@ -860,3 +861,36 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   прогон на каждый пуш).
 
 **PR:** [#165](https://github.com/frostiks777/1pgWebGallery/pull/165).
+
+### 2026-11-16 - #166: публичный `/api/health` и Telegram-алерт
+
+**Что сделано**
+
+- `src/app/api/health/route.ts`: `200 ok` с `webdav: ok|not_configured`,
+  `503 degraded` при недоступном WebDAV. `stat` (PROPFIND Depth:0) на
+  `PHOTOS_DIR`, таймаут 5 с, `Cache-Control: no-store`, `force-dynamic`.
+  В теле и логах нет URL/кредов — только `HTTP <status>` или `unreachable`.
+- `src/proxy.ts`: `/api/health` пропускается мимо `API_SECRET_TOKEN`
+  (решение владельца), rate limit остаётся.
+- `.github/workflows/health.yml`: cron `*/15 * * * *` + `workflow_dispatch`,
+  `curl` с `--max-time 10`, не-200 → Telegram и `exit 1`.
+
+**Проверка**
+
+- Спека `tests/e2e/health.spec.ts` до маршрута падала `404`, после — 2 passed.
+- Вручную на production build: недоступный `WEBDAV_URL` → **503 за 0,2 с**,
+  в теле нет URL/кредов; с `API_SECRET_TOKEN` health без Bearer → 200,
+  `/api/folders` без Bearer → 401.
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успешно
+  (`ƒ /api/health`); `bun run test:e2e` — **27 passed**.
+
+**Ruling**
+
+- Публичный GET, без кеша: решение владельца; монитор не должен хранить токен,
+  а кеш мог бы отдавать «ok» во время падения.
+- Cron в Actions — дополнение, а не замена внешнего uptime (A1.10): при
+  недоступном GitHub алерта не будет.
+- Пока нет секретов `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ALLOWED_CHAT_ID`, job падает
+  с явным `::error::` — молчаливый пропуск скрыл бы, что алерта нет.
+
+**PR:** [#167](https://github.com/frostiks777/1pgWebGallery/pull/167).
