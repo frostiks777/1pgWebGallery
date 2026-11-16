@@ -31,6 +31,24 @@ interface LightboxProps {
   onToggleCover?: (photo: Photo) => void;
 }
 
+// `canPlayType` is the only synchronous capability signal available before a
+// file is opened. Both profiles are checked: the camera files are Main 10
+// (`hvc1.2.4.L153.B0`), older clips are Main (`hvc1.1.6.L120.B0`). The probe
+// element and the answer are created once per page: a codec installed at the
+// OS level is not picked up by an already-open tab anyway, and probing per
+// video would create a throwaway <video> on every lightbox navigation for an
+// answer that does not change mid-session.
+let hevcPlayable: boolean | null = null;
+function browserPlaysHevc(): boolean {
+  if (hevcPlayable === null) {
+    const probe = document.createElement('video');
+    hevcPlayable =
+      probe.canPlayType('video/mp4; codecs="hvc1.1.6.L120.B0"') !== '' ||
+      probe.canPlayType('video/mp4; codecs="hvc1.2.4.L153.B0"') !== '';
+  }
+  return hevcPlayable;
+}
+
 // Owns its own loaded/failed state and is remounted (via `key={src}`) whenever
 // the photo changes — sidesteps the setState-in-effect anti-pattern that
 // resetting this state from a parent-level useEffect would require.
@@ -41,21 +59,87 @@ interface LightboxProps {
 function LightboxTrailer({ src, zoom }: { src: string; zoom: number }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [codecUnsupported, setCodecUnsupported] = useState(false);
+  const codecCheckTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (codecCheckTimer.current !== null) window.clearTimeout(codecCheckTimer.current);
+    };
+  }, []);
+
+  // #52: `videoWidth === 0` alone is not evidence — audio-only files and video
+  // that has not decoded a frame yet look the same. Two guards per the
+  // handover in MEMORY.md: only browsers that report no HEVC support at all
+  // run the check, and only after `playing`, with ~2 s for a frame to appear.
+  // Desktop Chrome without a hardware decoder parses the container, plays the
+  // audio track and advances `currentTime`, but never produces a frame and
+  // fires no `error` — the old behaviour, a frozen poster with sound.
+  const scheduleCodecCheck = (video: HTMLVideoElement) => {
+    if (browserPlaysHevc() || codecCheckTimer.current !== null) return;
+
+    codecCheckTimer.current = window.setTimeout(() => {
+      codecCheckTimer.current = null;
+      if (!video.isConnected) return;
+      const frames = video.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
+      if (frames > 0 || video.videoWidth > 0) return;
+      video.pause();
+      setCodecUnsupported(true);
+    }, 2_000);
+  };
+
+  // Some Chromium builds do not stay silent: they reject the whole pipeline
+  // with MEDIA_ERR_DECODE (3) or MEDIA_ERR_SRC_NOT_SUPPORTED (4). Before this
+  // change the element was unmounted and the user saw only the poster, which
+  // is the same dead end as the silent HEVC case. Network/abort errors (1, 2)
+  // keep the old behaviour — there is a retry path for the poster image, not
+  // for the video stream.
+  const handleVideoError = (video: HTMLVideoElement) => {
+    const code = video.error?.code;
+    if (code === 3 || code === 4) {
+      setCodecUnsupported(true);
+      return;
+    }
+    setFailed(true);
+  };
+
   if (failed) return null;
   return (
-    <video
-      src={src}
-      controls
-      autoPlay
-      playsInline
-      preload="metadata"
-      className={`absolute max-h-full max-w-full object-contain transition-opacity duration-300 ${
-        loaded ? 'opacity-100' : 'opacity-0'
-      }`}
-      style={{ transform: `scale(${zoom})` }}
-      onLoadedData={() => setLoaded(true)}
-      onError={() => setFailed(true)}
-    />
+    <>
+      <video
+        src={src}
+        controls
+        autoPlay
+        playsInline
+        preload="metadata"
+        className={`absolute max-h-full max-w-full object-contain transition-opacity duration-300 ${
+          codecUnsupported || !loaded ? 'opacity-0' : 'opacity-100'
+        }`}
+        style={{ transform: `scale(${zoom})` }}
+        onLoadedData={() => setLoaded(true)}
+        onPlaying={(event) => scheduleCodecCheck(event.currentTarget)}
+        onError={(event) => handleVideoError(event.currentTarget)}
+      />
+      {codecUnsupported && (
+        <div
+          role="alert"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 p-6 text-center text-white"
+        >
+          <p className="text-base font-medium">Видео не воспроизводится в этом браузере</p>
+          <p className="max-w-md text-sm text-white/70">
+            Дорожка закодирована в HEVC (H.265) или другом формате, который этот браузер не
+            декодирует. Откройте видео в Safari на macOS/iOS или на Android — либо скачайте файл.
+          </p>
+          <a
+            href={src}
+            download
+            className="rounded-md border border-white/30 px-4 py-2 text-sm transition-colors hover:bg-white/10"
+          >
+            Скачать видео
+          </a>
+        </div>
+      )}
+    </>
   );
 }
 
