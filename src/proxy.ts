@@ -90,7 +90,12 @@ export function proxy(req: NextRequest) {
     );
   }
 
-  if (!checkApiAuth(req)) {
+  // Public on purpose: an external monitor must not hold API_SECRET_TOKEN, and
+  // the body carries only booleans (see src/app/api/health/route.ts). The rate
+  // limit above still applies, so the exemption is auth-only.
+  const isHealthRequest = req.nextUrl.pathname === '/api/health';
+
+  if (!isHealthRequest && !checkApiAuth(req)) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } },
