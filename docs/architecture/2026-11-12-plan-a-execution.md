@@ -63,7 +63,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.8 | Семафор sharp: 2 пайплайна, очередь > 20 → `503` | [#144](https://github.com/frostiks777/1pgWebGallery/issues/144) | ✅ |
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
-| A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ⬜ |
+| A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | 🟡 PR [#164](https://github.com/frostiks777/1pgWebGallery/pull/164) |
 | A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | частично [#8](https://github.com/frostiks777/1pgWebGallery/issues/8), нужен отдельный issue | ⬜ |
 | A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | issue не создан (A2) | ⬜ |
 
@@ -798,3 +798,33 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   прямой зависимости в `package.json` больше нет.
 
 **PR:** [#163](https://github.com/frostiks777/1pgWebGallery/pull/163).
+
+### 2026-11-16 - #10: мёртвые зависимости и `ui/*.tsx`
+
+**Что сделано**
+
+- Удалены 30 мёртвых файлов `src/components/ui/`: из 38 остались `button`,
+  `card`, `dialog`, `dropdown-menu`, `sheet`, `toast`, `toaster`, `tooltip`.
+- Удалены 24 прямые зависимости: 22 Radix-пакета, `sonner`, `next-themes`.
+- Из `globals.css` убраны 13 `--color-sidebar-*`/`--color-chart-*` из
+  `@theme inline` и их определения в `:root` и `html[data-theme="light"]`.
+- `bun.lock` обновлён (`bun install`).
+
+**Проверка**
+
+- `bun run lint` — 0; `bunx tsc --noEmit` — 0; `bun run build` — успешно;
+  `bun run test:e2e` — **25 passed**.
+- `node_modules`: 471,6 → 469,3 МБ; CSS-бандл: 98,3 → 80,7 КБ (−18 %).
+
+**Ruling**
+
+- `zod` в списке issue уже был удалён в #153, а `@radix-ui/react-navigation-menu`
+  в issue пропущен — он мёртв так же, как остальные, и удалён. Поэтому счёт
+  снова 24.
+- Цепочка `toast`/`use-toast` оставлена: по импортам она живая, но `toast()`
+  никто не вызывает. Issue просил подтверждение владельца — кандидат на
+  отдельный issue.
+- Замер «после» сделан на `node_modules`, пересозданном с нуля: `bun install`
+  обновил lock, но не удалил с диска старые каталоги.
+
+**PR:** [#164](https://github.com/frostiks777/1pgWebGallery/pull/164).
