@@ -1,23 +1,23 @@
 name: CI
 
-# ADR-0003: lint + build, оба блокирующие. Baseline-ошибки
-# react-hooks/set-state-in-effect закрыты (9 штук), `continue-on-error`
-# у шага Lint снят 2026-10-15.
+# ADR-0003: lint + build, оба блокирующие.
+#
+# Гейт на `main` живёт в deploy.yml: он собирает тот же коммит и падает на
+# lint/build до rsync на сервер (#154). Поэтому здесь только pull_request —
+# иначе каждый пуш в main собирался бы дважды (#8).
 #
 # E2e здесь намеренно нет — он остаётся локальным гейтом
 # (`bun run test:e2e`, .agents/shared/checks.md): он требует Chromium
 # и поднимает `next dev`. Возврат e2e в CI — открытый вопрос, см. issue #13.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
-# Новые коммиты в тот же PR глушим, деплой по ветке main не отменяем.
+# Новые коммиты в тот же PR отменяют предыдущий прогон; main здесь не бывает.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-build:
@@ -33,6 +33,17 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      # Кеш Turbopack переживает прогоны. Ключ только по bun.lock: инвалидацию
+      # исходников Next делает сам, а restore-keys даёт fallback, когда lockfile
+      # изменился. deploy.yml пишет этот же кеш на push в main, PR его читает.
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-cache-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-next-cache-
 
       - name: Lint
         run: bun run lint
