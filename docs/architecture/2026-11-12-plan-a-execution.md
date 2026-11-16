@@ -21,7 +21,8 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 [#163](https://github.com/frostiks777/1pgWebGallery/pull/163)) — внеплановый трек
 закрыт 2026-11-16; A2.11 (#10, PR [#164](https://github.com/frostiks777/1pgWebGallery/pull/164))
 и A2.12 (#8, PR [#165](https://github.com/frostiks777/1pgWebGallery/pull/165)) смержены
-2026-11-16; A2.13 — PR [#167](https://github.com/frostiks777/1pgWebGallery/pull/167).
+2026-11-16; A2.13 (#166, PR [#167](https://github.com/frostiks777/1pgWebGallery/pull/167))
+смержен и проверен на проде 2026-11-16 — A2 закрыт.
 
 ## Как читать этот файл
 
@@ -67,7 +68,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ✅ |
 | A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | [#8](https://github.com/frostiks777/1pgWebGallery/issues/8) | ✅ |
-| A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | [#166](https://github.com/frostiks777/1pgWebGallery/issues/166) | 🟡 PR [#167](https://github.com/frostiks777/1pgWebGallery/pull/167) |
+| A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | [#166](https://github.com/frostiks777/1pgWebGallery/issues/166) | ✅ |
 
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
 #59/#60 (стабильность бокса), #92/#116 (auth в `generate`, предпосылка A0.6),
@@ -204,7 +205,7 @@ A2 (#10, #8, `/api/health`) идёт после этого трека. #151 не
   - Issue: #8 (часть), отдельный issue на гейт. **Нужно явное разрешение владельца
     на правку `.github/workflows/*`.**
 
-- [ ] **A2.13. `/api/health` + WebDAV + алерт.**
+- [x] **A2.13. `/api/health` + WebDAV + алерт.**
   - Файлы: `src/app/api/health/route.ts`, `src/proxy.ts`,
     `.github/workflows/health.yml`.
   - Проверка: `/api/health` возвращает статус WebDAV; при сбое — алерт в Telegram;
@@ -894,3 +895,17 @@ PR #129; каждый issue закрывается своим `Closes` в тел
   с явным `::error::` — молчаливый пропуск скрыл бы, что алерта нет.
 
 **PR:** [#167](https://github.com/frostiks777/1pgWebGallery/pull/167).
+
+**Проверка на проде (2026-11-16)**
+
+- Деплой `02e6c44` — success; на `main` только `Build & Deploy`.
+- `health.yml` вручную — success, `Health OK: {"status":"ok","webdav":"ok"}`.
+- Плохой путь: `APP_URL=https://invalid.invalid/` → job красный, Telegram ушёл.
+  Дефект: сообщение содержало `HTTP 000000` — `curl` сам печатает `000`,
+  а `|| echo 000` добавлял второй. Исправлено PR
+  [#169](https://github.com/frostiks777/1pgWebGallery/pull/169).
+- `APP_URL` восстановлен, повторный прогон — success.
+- Секреты Actions проверены `getMe`/`getChat`/`sendMessage`; значения
+  остались в `telegram-bot/.env` и secrets, в чат/репозиторий не попадали.
+
+**PR:** [#169](https://github.com/frostiks777/1pgWebGallery/pull/169) — фикс `000000`.
