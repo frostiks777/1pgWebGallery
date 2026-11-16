@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.6.0...v1.6.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **gallery:** сдвинуть кроп превью кверху через --thumb-focus ([#142](https://github.com/frostiks777/1pgWebGallery/issues/142)) ([7957f96](https://github.com/frostiks777/1pgWebGallery/commit/7957f9633ace04c02a6f0579ee3e2db4c12d1009))
+* **gallery:** сдвинуть кроп превью кверху через --thumb-focus ([#142](https://github.com/frostiks777/1pgWebGallery/issues/142)) ([26528c6](https://github.com/frostiks777/1pgWebGallery/commit/26528c6771d3a737c4c7dc657218f13fbd1b599c))
+* **lightbox:** объяснить видео, которое браузер не может декодировать ([#52](https://github.com/frostiks777/1pgWebGallery/issues/52)) ([75ee5b6](https://github.com/frostiks777/1pgWebGallery/commit/75ee5b627a1204dd57935d0d5a834c3fc353686f))
+* **lightbox:** сообщение для видео, которое браузер не декодирует ([#52](https://github.com/frostiks777/1pgWebGallery/issues/52)) ([16d519b](https://github.com/frostiks777/1pgWebGallery/commit/16d519b273245b7478fd4a945c8a62d3ba455734))
+
 ## [1.6.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.5.2...v1.6.0) (2026-11-16)
 
 
