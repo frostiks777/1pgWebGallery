@@ -40,7 +40,11 @@ jobs:
 
           url="${APP_URL%/}/api/health"
           body="$(mktemp)"
-          code="$(curl -sS --max-time 10 -o "$body" -w '%{http_code}' "$url" || echo 000)"
+          # curl prints 000 on DNS/connection failure; the earlier
+          # `|| echo 000` appended a second one ("HTTP 000000" on the first
+          # prod test), so `|| true` keeps curl's own 000.
+          code="$(curl -sS --max-time 10 -o "$body" -w '%{http_code}' "$url" || true)"
+          code="${code:-000}"
 
           if [ "$code" = "200" ]; then
             echo "Health OK: $(cat "$body")"
