@@ -11,7 +11,8 @@ PR [#129](https://github.com/frostiks777/1pgWebGallery/pull/129) смержен 
 A0.7 (deferred minors) — 6 атомарных issue закрыты, PR
 [#141](https://github.com/frostiks777/1pgWebGallery/pull/141);
 A0.6 — ops; A1.7 (кэш листинга) и A1.8 (очередь sharp) закрыты;
-A1.10 — ops; A2 сдвинут: перед ним внеплановый трек
+A1.10a (внешний uptime) закрыт решением владельца 2026-11-16 — cron-проб
+`health.yml` достаточно; A1.10b (nginx-логи) — ops; A2 сдвинут: перед ним внеплановый трек
 [#151](https://github.com/frostiks777/1pgWebGallery/issues/151)–[#155](https://github.com/frostiks777/1pgWebGallery/issues/155)
 (2026-11-15), #151 смержен (PR
 [#156](https://github.com/frostiks777/1pgWebGallery/pull/156)), #152 смержен (PR
@@ -183,12 +184,12 @@ A2 (#10, #8, `/api/health`) идёт после этого трека. #151 не
     `rg` не находит сырых URL.
   - Issue: #121.
 
-- [ ] **A1.10. Мониторинг.**
-  - Файлы: nginx-конфиг на сервере, внешний uptime-сервис.
-  - Проверка: отдельный `access_log` для `/api/images` и `/api/photos` с
-    `$upstream_response_time` и `$upstream_cache_status`; внешний пробник
-    настроен и шлёт алерт.
-  - Issue: создать перед A1; выполняет владелец.
+- [x] **A1.10a. Внешний uptime-пробник.** — 2026-11-16 владелец решил не
+  заводить внешний сервис: проба `health.yml` раз в 15 минут с Telegram-алертом
+  признана достаточной. Остаточный риск — падение самого GitHub Actions.
+- [ ] **A1.10b. nginx-логи для `/api/images` и `/api/photos`.** — отдельный
+  `access_log` с `$upstream_response_time` и `$upstream_cache_status`;
+  одна ops-задача, выполняет владелец.
 
 ### A2 — чистка, деплой-гейт, healthcheck (1–2 дня)
 
