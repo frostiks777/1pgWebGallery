@@ -19,7 +19,9 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 [#160](https://github.com/frostiks777/1pgWebGallery/pull/160)), #155 смержен (PR
 [#162](https://github.com/frostiks777/1pgWebGallery/pull/162)), #153 смержен (PR
 [#163](https://github.com/frostiks777/1pgWebGallery/pull/163)) — внеплановый трек
-закрыт 2026-11-16.
+закрыт 2026-11-16; A2.11 (#10, PR [#164](https://github.com/frostiks777/1pgWebGallery/pull/164))
+и A2.12 (#8, PR [#165](https://github.com/frostiks777/1pgWebGallery/pull/165)) смержены
+2026-11-16; остаётся A2.13.
 
 ## Как читать этот файл
 
@@ -64,7 +66,7 @@ A1.10 — ops; A2 сдвинут: перед ним внеплановый тр�
 | A1.9 | Проверка версии URL во всех точках | [#121](https://github.com/frostiks777/1pgWebGallery/issues/121) | ✅ |
 | A1.10 | Мониторинг: nginx access_log + внешний uptime | issue не создан (A1, ops) | ⏸️ |
 | A2.11 | Чистка зависимостей и мёртвых `ui/*.tsx` | [#10](https://github.com/frostiks777/1pgWebGallery/issues/10) | ✅ |
-| A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | [#8](https://github.com/frostiks777/1pgWebGallery/issues/8) | 🟡 PR [#165](https://github.com/frostiks777/1pgWebGallery/pull/165) |
+| A2.12 | Деплой-гейт: `push: main` в `ci.yml` (линт-гейт в `deploy.yml` закрыт [#154](https://github.com/frostiks777/1pgWebGallery/issues/154)) | [#8](https://github.com/frostiks777/1pgWebGallery/issues/8) | ✅ |
 | A2.13 | `/api/health` + проверка WebDAV + алерт в Telegram | issue не создан (A2) | ⬜ |
 
 **Связанные, но не входящие в A:** #13 (флак e2e), #52 (HEVC), #55 (nginx-прокси видео),
