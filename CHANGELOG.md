@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.6.1...v1.7.0) (2026-11-18)
+
+
+### Features
+
+* **telegram:** ходить в API Telegram через локальный прокси ([350bd8a](https://github.com/frostiks777/1pgWebGallery/commit/350bd8aea89db37f45f5a500deec9684b52145ac))
+
 ## [1.6.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.6.0...v1.6.1) (2026-11-16)
 
 
