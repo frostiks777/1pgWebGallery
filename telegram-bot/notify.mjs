@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { applyTelegramProxy } from './proxy.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +61,9 @@ const chatOverride = getFlag('--chat');
 // --dry-run печатает сообщение в консоль вместо отправки: так проверяется
 // разметка, не тревожа владельца чата.
 const dryRun = args.includes('--dry-run');
+
+// Проверка разметки не должна ради себя поднимать второй процесс.
+if (!dryRun) applyTelegramProxy();
 
 const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const chatId = chatOverride ?? process.env.TELEGRAM_ALLOWED_CHAT_ID ?? '';

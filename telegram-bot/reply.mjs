@@ -4,6 +4,7 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { applyTelegramProxy } from './proxy.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,7 @@ function loadEnvFile(path) {
 }
 
 loadEnvFile(join(dir, '.env'));
+applyTelegramProxy();
 
 const esc = (s) =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

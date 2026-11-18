@@ -7,6 +7,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { handOffToProxy } from './proxy.mjs';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 // Мост лежит в telegram-bot/ внутри репозитория, проект — родителем.
@@ -30,6 +31,7 @@ function loadEnvFile(path) {
 }
 
 loadEnvFile(join(dir, '.env'));
+handOffToProxy(join(dir, '.bot.pid'));
 
 const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const allowed = String(process.env.TELEGRAM_ALLOWED_CHAT_ID ?? '');

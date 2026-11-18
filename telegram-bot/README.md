@@ -32,6 +32,22 @@ node unread.mjs                                  # что осталось бе�
 Для запуска моста без консоли: двойной клик по `telegram-bot\start-bot.bat`.
 Без заполненного `.env` отправка молча пропускается (exit 0).
 
+### Если Telegram не открывается напрямую
+
+В РФ прямой маршрут до `api.telegram.org` режется: TCP проходит, TLS — нет
+(`curl` отдаёт `000`), а через локальный xray тот же запрос отвечает `200`.
+Поэтому в `.env` есть `TELEGRAM_PROXY`:
+
+```env
+TELEGRAM_PROXY=http://127.0.0.1:10809
+```
+
+`notify.mjs`, `reply.mjs` и `bot.mjs` читают его сами и перезапускают себя с
+`HTTP(S)_PROXY` и `NODE_USE_ENV_PROXY=1` (флаг Node 24+; на Node 20/22 прокси не
+применится, скрипт предупредит об этом). Пустое значение — прежний прямой маршрут.
+Перезапусти бота после правки: `taskkill /PID <pid из .bot.pid> /F`, затем
+`node bot.mjs`.
+
 ## 3. Автозапуск и автоуведомления с opencode
 
 `.opencode/plugins/telegram-autostart.js` работает сам при старте opencode — и в GUI, и в CLI:
