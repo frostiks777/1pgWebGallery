@@ -70,7 +70,16 @@ export function HoneycombLayout({
                 width: 170,
                 height: 196,
               }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Открыть фото ${photo.name}`}
               onClick={() => onPhotoClick(photo, index)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onPhotoClick(photo, index);
+                }
+              }}
             >
               <div
                 className="honeycomb-inner relative h-full w-full motion-safe:transition-[transform,filter] motion-safe:duration-200 motion-safe:group-hover:scale-[1.04]"
@@ -80,7 +89,9 @@ export function HoneycombLayout({
               >
               <img
                 src={thumbnailUrl}
-                alt={photo.name}
+                // Decorative: the tile is a named button; the file name is in
+                // its aria-label already.
+                alt=""
                 className="obs-thumb-crop h-full w-full object-cover bg-black"
                 loading="lazy"
               />

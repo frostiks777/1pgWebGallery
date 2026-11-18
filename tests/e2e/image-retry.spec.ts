@@ -43,7 +43,9 @@ test.describe('image retry', () => {
 
     await page.goto('/');
 
-    const image = page.locator(`img[alt="${FIRST_DEMO_PHOTO}"]`);
+    // Thumbnails are decorative (alt="") because the card is a named button, so
+    // the photo is identified by its URL instead of its alt text.
+    const image = page.locator(`img[src*="${FIRST_DEMO_PHOTO}"]`);
     await expect(image).toBeVisible();
     // opacity-100 means `isLoading` was cleared by a successful load.
     await expect(image).toHaveClass(/opacity-100/, { timeout: 20_000 });
@@ -89,7 +91,7 @@ test.describe('image retry', () => {
     await page.goto('/');
     await page
       .locator('.obs-photo-card')
-      .filter({ has: page.locator(`img[alt="${target}"]`) })
+      .filter({ has: page.locator(`img[src*="${target}"]`) })
       .first()
       .click();
 

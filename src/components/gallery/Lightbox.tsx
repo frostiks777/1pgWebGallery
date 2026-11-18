@@ -434,7 +434,7 @@ function LightboxContent({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/10 bg-black/50 px-4 py-2 text-center font-mono text-[11px] tracking-wide text-[rgba(233,228,217,0.75)]">
+      <div className="shrink-0 border-t border-white/10 bg-black/50 px-4 py-2 text-center font-mono text-xs tracking-wide text-[rgba(233,228,217,0.75)]">
         {currentPhoto.name} · {metaLine} · «frame {index + 1}/{photos.length}»
       </div>
 

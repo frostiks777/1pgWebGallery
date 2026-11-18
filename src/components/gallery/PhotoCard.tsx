@@ -105,10 +105,21 @@ export const PhotoCard = memo(function PhotoCard({
 
   const aspectClass = aspectRatio.trim() === '' ? 'min-h-0 h-full w-full' : aspectRatio;
 
+  // WCAG 2.5.3: the accessible name must contain the text shown on screen, and
+  // axe reads that text in DOM order (frame counter first, then the file name).
+  // "Открыть фото X" alone failed label-content-name-mismatch because the
+  // counter is visible too — the name below is the same sentence a sighted
+  // guest reads, with the action appended.
+  const accessibleName = `${computedFrame ? `${computedFrame} ` : ''}${photo.name} — открыть фото`;
+
   return (
+    // The card's name must not be inferred from the caption/img alt it contains:
+    // a screen reader would announce "button" and then the raw file name, which
+    // is not what activating the card does.
     <div
       role="button"
       tabIndex={0}
+      aria-label={accessibleName}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -143,7 +154,7 @@ export const PhotoCard = memo(function PhotoCard({
           <div className="mb-2 text-2xl" aria-hidden>
             ⚠️
           </div>
-          <p className="max-w-full truncate font-mono text-[10px] text-[var(--obs-muted)]">{photo.name}</p>
+          <p className="max-w-full truncate font-mono text-xs text-[var(--obs-muted)]">{photo.name}</p>
           <p className="mt-1 text-xs text-red-400">Failed to load</p>
         </div>
       ) : (
@@ -155,7 +166,10 @@ export const PhotoCard = memo(function PhotoCard({
           )}
           <img
             src={imageSrc}
-            alt={photo.name}
+            // Decorative: the card is a named button and the caption right below
+            // repeats the same file name, so an alt here only makes a screen
+            // reader say the name twice (Lighthouse: image-redundant-alt).
+            alt=""
             className={cn(
               'obs-thumb-crop absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
               isLoading ? 'opacity-0' : 'opacity-100',
@@ -212,17 +226,17 @@ export const PhotoCard = memo(function PhotoCard({
 
       {computedFrame && (
         <div
-          className="pointer-events-none absolute left-2.5 top-2 z-10 font-mono text-[10px] uppercase tracking-[0.14em] text-[rgba(233,228,217,0.75)] dark:text-[rgba(233,228,217,0.75)]"
+          className="pointer-events-none absolute left-2.5 top-2 z-10 font-mono text-xs uppercase tracking-[0.14em] text-[rgba(233,228,217,0.75)] dark:text-[rgba(233,228,217,0.75)]"
           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
         >
-          {computedFrame}
+          {computedFrame}{' '}
         </div>
       )}
 
       {isCover && onToggleCover && (
         <button
           type="button"
-          className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
+          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
           aria-label="Убрать с обложки"
           onClick={(e) => {
             e.stopPropagation();
@@ -234,7 +248,7 @@ export const PhotoCard = memo(function PhotoCard({
       )}
       {isCover && !onToggleCover && (
         <div
-          className="pointer-events-none absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
+          className="pointer-events-none absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--amber-border)] bg-[var(--star-capsule-bg)] backdrop-blur-[6px]"
           aria-hidden
         >
           <Star className="h-[11px] w-[11px] fill-[var(--amber)] text-[var(--amber)]" />
@@ -315,9 +329,9 @@ export const PhotoCard = memo(function PhotoCard({
           className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-2.5 pb-1.5 pt-[18px]"
           style={{ backgroundImage: 'var(--photo-caption-gradient)' }}
         >
-          <div className="flex items-end justify-between gap-2 font-mono text-[10px] tracking-[0.04em] text-[var(--photo-caption-fg)]">
+          <div className="flex items-end justify-between gap-2 font-mono text-xs tracking-[0.04em] text-[var(--photo-caption-fg)]">
             <span className="min-w-0 truncate">{photo.name}</span>
-            <span className="max-w-[48%] shrink-0 text-right text-[var(--photo-exif-hover)] opacity-0 transition-opacity duration-[250ms] group-hover:opacity-100">
+            <span className="invisible max-w-[48%] shrink-0 text-right text-[var(--photo-exif-hover)] opacity-0 transition-opacity duration-[250ms] group-hover:visible group-hover:opacity-100">
               {metaLine}
             </span>
           </div>

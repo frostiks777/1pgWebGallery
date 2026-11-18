@@ -42,6 +42,11 @@ export function MinimalismLayout({
           key={photo.path}
           role="button"
           tabIndex={0}
+          // The row shows its index, file name and EXIF line, so the name is
+          // that same text followed by the action (WCAG 2.5.3).
+          aria-label={`${String(i + 1).padStart(2, '0')} ${photo.name}${
+            coverPaths?.includes(photo.path) ? ' ★' : ''
+          } ${formatSyntheticMeta(photo)} — открыть фото`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -49,13 +54,13 @@ export function MinimalismLayout({
             }
           }}
           className={cn(
-            'group grid cursor-pointer items-center gap-2 border-b border-[var(--rule)] py-2 font-mono text-[11px] sm:gap-3',
+            'group grid cursor-pointer items-center gap-2 border-b border-[var(--rule)] py-2 font-mono text-xs sm:gap-3',
             'text-[var(--obs-muted)] transition-colors hover:text-[var(--amber)]',
             'grid-cols-[40px_44px_minmax(0,1fr)_auto] md:grid-cols-[56px_64px_minmax(0,1fr)_minmax(7rem,9rem)_auto]',
           )}
           onClick={() => onPhotoClick(photo, i)}
         >
-          <span className="tabular-nums tracking-[0.16em] opacity-55">{String(i + 1).padStart(2, '0')}</span>
+          <span className="tabular-nums tracking-[0.16em]">{String(i + 1).padStart(2, '0')}{' '}</span>
           <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-[var(--r-sm)] border border-[var(--surface-border)] bg-black/20 md:h-14 md:w-14">
             <img
               src={thumbUrl(photo)}
@@ -65,10 +70,10 @@ export function MinimalismLayout({
             />
           </div>
           <span className="min-w-0 truncate tracking-[0.04em]">
-            {photo.name}
+            {photo.name}{' '}
             {coverPaths?.includes(photo.path) && <span className="ml-2 text-[var(--amber)]">★</span>}
           </span>
-          <span className="hidden min-w-0 truncate text-right text-[10px] opacity-55 md:block">
+          <span className="hidden min-w-0 truncate text-right text-xs md:block">
             {formatSyntheticMeta(photo)}
           </span>
           <div
