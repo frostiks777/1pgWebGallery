@@ -62,6 +62,14 @@ Both must be clean — the 9
 `4370e29` #11). A red run is your diff, not a known exception. The current baseline for both
 is **0 errors**.
 
+**One false red is known.** A `TS2307` raised inside `.next/dev/types/validator.ts` or
+`.next/types/validator.ts` for a route file that no longer exists (seen with
+`src/app/api/route.js` after #155) is a stale build artifact, not your diff: the validator
+is generated from the route tree of the *last* build, so a checkout that was not rebuilt
+after the route was deleted keeps importing it. Run `bun run build` and re-run
+`bunx tsc --noEmit`; if the error disappears, it was never in the source. Do not "fix" it
+by editing `.next` or `tsconfig.json`.
+
 ## 2a. Telegram plugin smoke (only when you touch the plugin)
 
 ```bash
