@@ -145,3 +145,11 @@ Steps 2–3 pass (3 may fall back per above, with that fallback stated in the re
 passes — and only a UI change additionally needs step 5 — or the task file records a
 specific, honest blocker instead of a task marked done on a failing check. A change to
 `.opencode/plugins/telegram-autostart.js` also means step 2a passes.
+
+## Cleanup after a task
+
+`git worktree remove` refuses to run while ignored artifacts (`.next`, `node_modules`) sit in
+the worktree, and `git worktree prune` clears only the metadata — the directory survives and
+later looks like a stray copy of the project. After removing a worktree, verify the path is
+actually gone (`Test-Path <path>`); if it is still there, delete the directory. On 2026-11-18
+nine empty `1pg_gall-<task>/` folders with a leftover `.next` were found exactly this way.
