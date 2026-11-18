@@ -43,8 +43,12 @@
   --bg-elev: #ffffff;
   --bg-card: #ffffff;
   --fg: #1a1715;
-  --obs-muted: rgba(26, 23, 21, 0.6);
-  --obs-muted-dim: rgba(26, 23, 21, 0.35);
+  /* Muted ink carries captions, meta lines and footer text, so it has to clear
+     WCAG AA (4.5:1) on both the page and the card surface: at these alphas it
+     composites to ≥4.7:1 on #f5f1e8 and #ffffff, and --obs-muted-dim stays a
+     visible step lighter than --obs-muted instead of being decorative-only. */
+  --obs-muted: rgba(26, 23, 21, 0.7);
+  --obs-muted-dim: rgba(26, 23, 21, 0.62);
   --rule: rgba(0, 0, 0, 0.08);
   --amber: #e6a85a;
   --amber-dim: #c88a3e;
@@ -140,8 +144,8 @@ html[data-theme="light"] {
   --bg-elev: #f7f5ee;
   --bg-card: #ffffff;
   --fg: #142523;
-  --obs-muted: rgba(20, 37, 35, 0.6);
-  --obs-muted-dim: rgba(20, 37, 35, 0.36);
+  --obs-muted: rgba(20, 37, 35, 0.72);
+  --obs-muted-dim: rgba(20, 37, 35, 0.65);
   --rule: rgba(20, 37, 35, 0.1);
   --surface-0: rgba(255, 255, 255, 0.55);
   --surface-1: rgba(255, 255, 255, 0.85);
@@ -266,8 +270,8 @@ html[data-theme="light"] {
   --bg-elev: #141416;
   --bg-card: #17161a;
   --fg: #e9e4d9;
-  --obs-muted: rgba(233, 228, 217, 0.55);
-  --obs-muted-dim: rgba(233, 228, 217, 0.3);
+  --obs-muted: rgba(233, 228, 217, 0.62);
+  --obs-muted-dim: rgba(233, 228, 217, 0.55);
   --rule: rgba(255, 255, 255, 0.06);
   --amber: #e6a85a;
   --amber-dim: #c88a3e;

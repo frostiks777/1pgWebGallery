@@ -833,7 +833,7 @@ export default function GalleryPage() {
               ) : (
                 <>
                   {isAtRoot && photos.length === 0 ? null : (
-                    <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)] mb-3">
+                    <p className="text-xs font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)] mb-3">
                       Folders
                     </p>
                   )}

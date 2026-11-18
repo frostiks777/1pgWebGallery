@@ -156,7 +156,7 @@ function ToolbarMeta({
               <button
                 type="button"
                 onClick={onConfirmDelete}
-                className="h-[30px] px-2 rounded-[var(--r-md)] text-[11px] font-mono bg-red-600/90 text-white hover:bg-red-600 max-md:min-h-11 inline-flex items-center gap-1"
+                className="h-[30px] px-2 rounded-[var(--r-md)] text-xs font-mono bg-red-600/90 text-white hover:bg-red-600 max-md:min-h-11 inline-flex items-center gap-1"
                 aria-label="Удалить навсегда"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -207,10 +207,12 @@ function ToolbarSortGenRefreshTheme({
             type="button"
             className={cn(
               'inline-flex h-[30px] min-h-[30px] items-center justify-center gap-1 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2',
-              'font-mono text-[11px] leading-none text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] data-[state=open]:bg-[var(--accent-tint-soft)]',
+              'font-mono text-xs leading-none text-[var(--fg)] hover:bg-[var(--accent-tint-soft)] data-[state=open]:bg-[var(--accent-tint-soft)]',
               'transition-all duration-[180ms] max-md:min-h-11 max-md:min-w-0',
             )}
-            aria-label="Сортировка"
+            // Must contain the visible "NAME ↑" label (WCAG 2.5.3): a bare
+            // "Сортировка" name contradicts what the button shows.
+            aria-label={`Сортировка: ${sl.line} ${sl.arrow}`}
           >
             <IconSort className="size-[13px] shrink-0 opacity-80" />
             {/* leading-none on the button doesn't reliably reach these text nodes' own line box
@@ -226,21 +228,21 @@ function ToolbarSortGenRefreshTheme({
           align="end"
           className="z-[100] min-w-[11rem] font-mono text-xs"
         >
-          <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.14em] text-[var(--obs-muted)]">
+          <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-[var(--obs-muted)]">
             Сортировка
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuRadioGroup value={sortOption} onValueChange={(v) => onSortChange(v as SortOption)}>
-            <DropdownMenuRadioItem value="name-asc" className="text-[11px]">
+            <DropdownMenuRadioItem value="name-asc" className="text-xs">
               Имя · по возрастанию
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="name-desc" className="text-[11px]">
+            <DropdownMenuRadioItem value="name-desc" className="text-xs">
               Имя · по убыванию
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="date-asc" className="text-[11px]">
+            <DropdownMenuRadioItem value="date-asc" className="text-xs">
               Дата · старые сначала
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="date-desc" className="text-[11px]">
+            <DropdownMenuRadioItem value="date-desc" className="text-xs">
               Дата · новые сначала
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
@@ -258,7 +260,7 @@ function ToolbarSortGenRefreshTheme({
             {genStatus === 'running' ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-bold font-mono bg-[var(--amber)] text-[#1a0f05] rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center">
+                <span className="absolute -bottom-0.5 -right-0.5 text-xs font-bold font-mono bg-[var(--amber)] text-[#1a0f05] rounded-full min-w-[16px] h-4 px-0.5 flex items-center justify-center">
                   {genProgress}
                 </span>
               </>
@@ -390,7 +392,7 @@ export function GalleryChrome({
       <form onSubmit={onAuthSubmit} className="flex items-center gap-1.5 shrink-0">
         <label className="relative flex h-[30px] w-[180px] max-w-[min(180px,50vw)] items-stretch gap-1.5 rounded-[var(--r-md)] border border-[var(--surface-border)] bg-[var(--surface-0)] px-2 max-md:h-11 max-md:w-full max-md:max-w-none max-md:min-h-11">
           <span
-            className="flex shrink-0 items-center font-mono text-[10px] leading-none tracking-[0.12em] text-[var(--pass-label-color)]"
+            className="flex shrink-0 items-center font-mono text-xs leading-none tracking-[0.12em] text-[var(--pass-label-color)]"
             aria-hidden
           >
             PASS
@@ -496,7 +498,7 @@ export function GalleryChrome({
               {/* leading-none (line-height:1) clips JetBrains Mono's glyph ink at this size — measured
                   against the deployed font: leading-[1.4] is the smallest line-height that both stops
                   the clipping and keeps the dot/text vertically centered on each other. */}
-              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase leading-[1.4] tracking-[0.14em] text-[var(--obs-muted)] truncate">
+              <p className="flex items-center gap-1.5 font-mono text-xs uppercase leading-[1.4] tracking-[0.14em] text-[var(--obs-muted)] truncate">
                 <WebDavStatusDot status={webDavIndicator} />
                 <span className="truncate" title={mode === 'webdav' ? 'WebDAV' : 'Demo'}>
                   {mode === 'webdav' ? 'webdav' : 'demo'}
@@ -546,10 +548,17 @@ export function GalleryChrome({
             {LAYOUT_CHIPS.map(({ value, label, Icon, isNew }) => {
               const active = layout === value;
               return (
+                // The text label is hidden below `sm`, and Lighthouse measures the
+                // stand at 390px: without this the chips are unnamed icon buttons
+                // exactly on the width the audit reports.
                 <button
                   key={value}
                   type="button"
                   aria-pressed={active}
+                  // Must include the "NEW" badge: below `sm` the visible text of
+                  // the chip is exactly that badge, and an accessible name that
+                  // omits visible text breaks WCAG 2.5.3.
+                  aria-label={isNew ? `${label} NEW` : label}
                   onClick={() => onLayoutChange(value)}
                   className={cn(
                     'flex items-center gap-1.5 shrink-0 rounded-[var(--r-md)] px-3 py-[7px] text-[12px] transition-all duration-[180ms] border',
@@ -563,7 +572,7 @@ export function GalleryChrome({
                   {isNew && (
                     <span
                       className={cn(
-                        'ml-0.5 rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] leading-none',
+                        'ml-0.5 rounded px-1 py-0.5 text-xs font-bold uppercase tracking-[0.08em] leading-none',
                         active
                           ? 'text-[var(--accent-on)] bg-[rgba(0,0,0,0.12)] dark:bg-[rgba(26,15,5,0.25)]'
                           : 'text-[var(--amber)] bg-[var(--accent-badge-bg)]',
@@ -595,7 +604,7 @@ export function GalleryCountRow({
 }): ReactNode {
   return (
     <div className="gallery-grid-shell mt-5 pt-1 pb-1">
-      <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)]">
+      <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.18em] text-[var(--obs-muted)]">
         <span className="min-w-0 shrink whitespace-normal sm:whitespace-nowrap">
           {photoCount} photos · {layoutLabel} · {sortLine} {sortArrow}
         </span>
@@ -609,7 +618,7 @@ export function GalleryFooter(): ReactNode {
   return (
     <footer className="mt-auto border-t border-[var(--rule)] bg-[var(--bg)] px-6 py-10 pb-7 max-sm:px-4">
       <div className="mx-auto flex max-w-[1440px] flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-between md:gap-4 md:text-left">
-        <p className="order-2 font-mono text-[10px] tracking-[0.12em] text-[var(--obs-muted)] md:order-1 md:w-[min(100%,220px)] md:shrink-0 md:text-left">
+        <p className="order-2 font-mono text-xs tracking-[0.12em] text-[var(--obs-muted)] md:order-1 md:w-[min(100%,220px)] md:shrink-0 md:text-left">
           © photo.gallery · 1pg
         </p>
         <p
@@ -618,7 +627,7 @@ export function GalleryFooter(): ReactNode {
         >
           every frame a held breath.
         </p>
-        <p className="order-3 font-mono text-[10px] tracking-[0.18em] text-[var(--obs-muted)] md:w-[min(100%,220px)] md:shrink-0 md:text-right">
+        <p className="order-3 font-mono text-xs tracking-[0.18em] text-[var(--obs-muted)] md:w-[min(100%,220px)] md:shrink-0 md:text-right">
           <button
             type="button"
             // leading-[1.7]: at this 10px size the default line-height leaves the glyph ink

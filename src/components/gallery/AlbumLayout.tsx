@@ -73,7 +73,18 @@ function AlbumCard({
   return (
     <div
       className={`${col} ${row} group cursor-pointer flex flex-col`}
+      role="button"
+      tabIndex={0}
+      // The visible caption is the de-slugged file name, so the name is built
+      // from the same string instead of the raw path (WCAG 2.5.3).
+      aria-label={`${String(index + 1).padStart(2, '0')} ${caption} — открыть фото`}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div
         className="flex-1 p-2 rounded-[var(--r-md)] border border-[var(--album-mat-outline)] shadow-[var(--shadow-card)] motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-300 motion-safe:group-hover:-translate-y-px motion-safe:group-hover:border-[var(--amber-border)] motion-safe:group-hover:shadow-[var(--shadow-hover)] flex flex-col min-h-0"
@@ -99,7 +110,9 @@ function AlbumCard({
               )}
               <img
                 src={imageSrc}
-                alt={photo.name}
+                // Decorative: the card carries the accessible name and the
+                // caption below repeats the file name.
+                alt=""
                 className={`obs-thumb-crop w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
@@ -118,16 +131,17 @@ function AlbumCard({
               ✕
             </div>
           )}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-end justify-end p-1.5 opacity-0 group-hover:opacity-100">
-            <span className="text-[10px] font-mono text-white/80">
-              {String(index + 1).padStart(2, '0')}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-end justify-end p-1.5 invisible opacity-0 group-hover:visible group-hover:opacity-100">
+            <span className="text-xs font-mono text-white/80">
+              {String(index + 1).padStart(2, '0')}{' '}
             </span>
           </div>
           <div className="absolute top-1.5 left-1.5 flex items-center gap-1 z-10">
             {onHidePhoto && (
               <button
-                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1 hover:bg-black/70"
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-black/70"
                 title="Скрыть фото"
+                aria-label="Скрыть фото"
                 onClick={(e) => { e.stopPropagation(); onHidePhoto(photo); }}
               >
                 <EyeOff className="h-3 w-3" />
@@ -135,8 +149,9 @@ function AlbumCard({
             )}
             {onDeletePhoto && (
               <button
-                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1 hover:bg-red-600/90"
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500/70 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600/90"
                 title="Удалить фото"
+                aria-label="Удалить фото"
                 onClick={(e) => { e.stopPropagation(); onDeletePhoto(photo); }}
               >
                 <Trash2 className="h-3 w-3" />
@@ -144,12 +159,13 @@ function AlbumCard({
             )}
             {onTogglePanorama && (
               <button
-                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1 ${
+                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1.5 ${
                   isPanorama
                     ? 'opacity-100 bg-blue-500/80 hover:bg-blue-600/90'
                     : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
                 }`}
                 title={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
+                aria-label={isPanorama ? 'Снять отметку панорамы' : 'Отметить как панораму'}
                 onClick={(e) => { e.stopPropagation(); onTogglePanorama(photo); }}
               >
                 <RectangleHorizontal className="h-3 w-3" />
@@ -157,12 +173,13 @@ function AlbumCard({
             )}
             {onToggleCover && (
               <button
-                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1 ${
+                className={`transition-opacity duration-200 backdrop-blur-sm text-white rounded-full p-1.5 ${
                   isCover
                     ? 'opacity-100 bg-amber-500/80 hover:bg-amber-600/90'
                     : 'opacity-0 group-hover:opacity-100 bg-black/50 text-white/70 hover:bg-black/70 hover:text-white'
                 }`}
                 title={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
+                aria-label={isCover ? 'Убрать с обложки' : 'Сделать обложкой папки'}
                 onClick={(e) => { e.stopPropagation(); onToggleCover(photo); }}
               >
                 <Star className={`h-3 w-3 ${isCover ? 'fill-current' : ''}`} />
@@ -171,7 +188,7 @@ function AlbumCard({
           </div>
         </div>
         <p
-          className="mt-1.5 text-[10px] tracking-wider lowercase truncate leading-tight shrink-0"
+          className="mt-1.5 text-xs tracking-wider lowercase truncate leading-tight shrink-0"
           style={{ color: 'var(--album-caption)' }}
         >
           {caption}
@@ -194,7 +211,7 @@ export function AlbumLayout({ photos, onPhotoClick, onHidePhoto, onDeletePhoto, 
     <div className="min-h-screen px-4 pb-10 pt-3 sm:px-8" style={{ background: 'var(--album-page-bg)' }}>
       <header className="mb-4 text-center">
         <p
-          className="font-mono text-[10px] uppercase tracking-[0.4em] text-[var(--obs-muted)]"
+          className="font-mono text-xs uppercase tracking-[0.4em] text-[var(--obs-muted)]"
         >
           — A L B U M —
         </p>
