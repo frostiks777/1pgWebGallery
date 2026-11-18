@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.0...v1.7.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **a11y:** доступные имена контролов, шрифт не мельче 12px и контраст AA ([#148](https://github.com/frostiks777/1pgWebGallery/issues/148)) ([565151c](https://github.com/frostiks777/1pgWebGallery/commit/565151c46bff8f67ab977123efa4e1ee325d1542))
+* **a11y:** доступные имена, шрифт 12px и контраст AA ([#148](https://github.com/frostiks777/1pgWebGallery/issues/148)) ([0381a5e](https://github.com/frostiks777/1pgWebGallery/commit/0381a5e6f7044880f2a335c9614c7088f4df7531))
+
 ## [1.7.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.6.1...v1.7.0) (2026-11-18)
 
 
