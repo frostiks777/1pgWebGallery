@@ -295,8 +295,8 @@ OpenRouter в секрете `OPENROUTER_API_KEY`. Решения —
 бесплатный тир Google даёт flash-моделям **5 RPM и 20 запросов в сутки**; агентская сессия
 делает десятки вызовов, один прогон аудита выедает суточный лимит и получает «retry in 11h24m».
 flash-lite (15 RPM) проходит, но это качественный потолок. Платный ключ OpenRouter снимает и
-RPM, и суточный потолок. Локальные сессии это не затрагивает: в `opencode.jsonc` по-прежнему
-`opencode/mimo-v2.6-flash-free`.
+RPM, и суточный потолок. Локальные сессии это не затрагивает: в `opencode.jsonc` по умолчанию
+`opencode-go/deepseek-v4.1-flash` (подписка OpenCode Go).
 
 **Модель в CI задаётся переменной репозитория `OPENCODE_MODEL`**
 (Settings → Secrets and variables → Actions → Variables) и записывается там **без префикса
@@ -374,12 +374,21 @@ RPM, и суточный потолок. Локальные сессии это 
 
 ## Notifications (toast + Telegram)
 
-Notify the user only in two cases (never "just because"):
+Notify the user in three cases (never "just because"):
 1. **A decision is needed** — the agent hit a question/choice/blocker and is waiting
    (`question(...)`, ambiguity, a check still red after two iterations).
 2. **A successful release** — push done, CI/deploy went green, task finished and pushed.
+3. **Завершение задачи** — работа, о которой просил владелец, доведена до конца: одна
+   короткая строка «что сделано», даже если это не релиз. Молчаливое «готово» в чате
+   без отбивки владелец читает как «агент ещё работает» или «агент забыл».
 
-Channels (either or both, same two cases):
+**DSH не поднимает opencode-плагин автозапуска**, поэтому автоматических отбивок в
+DSH-сессиях нет: агент отправляет её сам, из корня репозитория —
+`node telegram-bot/notify.mjs "…" "…"`. Мост читает `TELEGRAM_PROXY` из
+`telegram-bot/.env`: прямой маршрут до `api.telegram.org` не работает, без прокси
+отправка падает в `000`/502 и ничего не доходит.
+
+Channels (either or both, same three cases):
 
 - Windows toast:
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/notify.ps1 "Title" "Text"`
