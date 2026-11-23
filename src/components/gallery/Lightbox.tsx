@@ -202,10 +202,6 @@ function LightboxContent({
     ? `/api/video-stream?path=${encodeURIComponent(currentPhoto.videoPath)}`
     : null;
 
-  // A video over VIDEO_PREVIEW_MAX_MB has no poster: requesting /api/images for
-  // it can only answer 413, and the overlay would end up on "Failed to load"
-  // instead of the video itself (#180).
-  const posterSkipped = Boolean(currentPhoto?.posterUnavailable);
 
   const goToIndex = useCallback(
     (next: number) => {
@@ -408,13 +404,13 @@ function LightboxContent({
           </>
         )}
 
-        {!posterSkipped && isLoading && (
+        {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-[var(--amber)]" />
             <p className="text-sm text-white/60">Loading image...</p>
           </div>
         )}
-        {!posterSkipped && hasError && (
+        {hasError && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-white">
             <X className="h-12 w-12 text-red-400" />
             <p className="text-base">Failed to load image</p>
@@ -423,20 +419,18 @@ function LightboxContent({
             </Button>
           </div>
         )}
-        {!posterSkipped && (
-          <img
-            src={imageSrc}
-            alt={currentPhoto.name}
-            className={`max-h-full max-w-full object-contain transition-all duration-300 ${
-              isLoading || hasError ? 'opacity-0' : 'opacity-100'
-            }`}
-            style={{ transform: `scale(${zoom})` }}
-            fetchPriority="high"
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
-        )}
-        {trailerUrl && (posterSkipped || (!isLoading && !hasError)) && (
+        <img
+          src={imageSrc}
+          alt={currentPhoto.name}
+          className={`max-h-full max-w-full object-contain transition-all duration-300 ${
+            isLoading || hasError ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ transform: `scale(${zoom})` }}
+          fetchPriority="high"
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+        />
+        {trailerUrl && !isLoading && !hasError && (
           <LightboxTrailer key={trailerUrl} src={trailerUrl} zoom={zoom} />
         )}
       </div>

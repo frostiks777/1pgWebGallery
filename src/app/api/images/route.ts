@@ -15,6 +15,7 @@ import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cac
 import { IMAGE_PRESETS, optimizeImage, thumbExt, isSharpAvailable, fmtBytes, type ImageSize } from '@/lib/imageOptimize';
 import { withSharpSlot, SharpQueueFullError } from '@/lib/sharpQueue';
 import { MAX_VIDEO_BYTES as MAX_VIDEO_BYTES_LIMIT } from '@/lib/videoLimits';
+import { POSTER_PLACEHOLDER_PNG, POSTER_PLACEHOLDER_HEADERS } from '@/lib/posterPlaceholder';
 import {
   hasFfmpeg,
   tryReservePosterSlot,
@@ -36,8 +37,9 @@ const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 // against spending minutes of the one CPU core on a huge upload, NOT against
 // holding it in memory (that is handled by streaming to disk instead — see
 // fetchVideoToFile below).
-// Shared with /api/photos, which marks such videos `posterUnavailable` so the
-// client does not request a poster that can only be refused.
+// On-request poster generation refuses anything larger and answers with the
+// Play placeholder; a poster can still appear later from the batch job
+// (POST /api/images/generate), which streams the file without this cap (#184).
 const MAX_VIDEO_BYTES = MAX_VIDEO_BYTES_LIMIT;
 
 // How long we will wait for a video to arrive from WebDAV before giving up.
@@ -364,6 +366,13 @@ export async function GET(request: NextRequest) {
         },
       });
 
+    // A poster for a video this large is never generated on request (see the
+    // 413 comment below); the gallery still needs an image, not an error.
+    const posterPlaceholderResponse = () =>
+      new NextResponse(new Uint8Array(POSTER_PLACEHOLDER_PNG), {
+        headers: { ...POSTER_PLACEHOLDER_HEADERS },
+      });
+
     // ── 1. Local disk cache ────────────────────────────────────────────────
     const tmpHit = readTmpCache(decoded, size);
     if (tmpHit) return respond(tmpHit, 'HIT');
@@ -395,7 +404,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
       if (isVideo && fs.statSync(/*turbopackIgnore: true*/ demoFile).size > MAX_VIDEO_BYTES) {
-        return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+        return posterPlaceholderResponse();
       }
     } else {
       // Restrict WebDAV fetches to PHOTOS_DIR to prevent over-broad reads
@@ -407,7 +416,7 @@ export async function GET(request: NextRequest) {
       if (isVideo) {
         const vsize = await statSize(decoded);
         if (vsize !== null && vsize > MAX_VIDEO_BYTES) {
-          return NextResponse.json({ error: 'Video too large for poster generation' }, { status: 413 });
+          return posterPlaceholderResponse();
         }
       }
     }
@@ -465,10 +474,7 @@ export async function GET(request: NextRequest) {
         // Same answer as when the size is known up front: the file is not broken,
         // it is over the poster budget — 500 would make it look like a server bug.
         if (err instanceof VideoTooLargeError) {
-          return NextResponse.json(
-            { error: 'Video too large for poster generation' },
-            { status: 413 },
-          );
+          return posterPlaceholderResponse();
         }
         console.error('[Images] poster extraction failed:', err);
         return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });

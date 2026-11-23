@@ -6,7 +6,6 @@ import { EyeOff, Trash2, RectangleHorizontal, Star, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
 import { useRetryingImage } from './useRetryingImage';
-import { PosterPlaceholder } from './PosterPlaceholder';
 import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 // Hover must "commit" for this long before we bother fetching a trailer —
@@ -150,9 +149,7 @@ export const PhotoCard = memo(function PhotoCard({
         aria-hidden
       />
 
-      {photo.posterUnavailable ? (
-        <PosterPlaceholder />
-      ) : hasError ? (
+      {hasError ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-black">
           <div className="mb-2 text-2xl" aria-hidden>
             ⚠️
