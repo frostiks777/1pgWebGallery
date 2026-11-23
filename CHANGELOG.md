@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.1...v1.7.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **images:** лимит видео на лету и awaited-уборка temp ([#100](https://github.com/frostiks777/1pgWebGallery/issues/100)) ([7d87248](https://github.com/frostiks777/1pgWebGallery/commit/7d87248c1ba0b22603dd189b27bd66e80266bfa9))
+* **images:** не писать видео сверх лимита на диск и убирать temp с await ([#100](https://github.com/frostiks777/1pgWebGallery/issues/100)) ([38f1363](https://github.com/frostiks777/1pgWebGallery/commit/38f1363949eb0a5cd4cbbbdcfc7c87eb1b9c07be))
+* **video:** заглушка вместо крестика для видео больше лимита ([#180](https://github.com/frostiks777/1pgWebGallery/issues/180)) ([3795b29](https://github.com/frostiks777/1pgWebGallery/commit/3795b29cf8465f78dd7123c3366c824605a3633a))
+* **video:** не запрашивать постер для видео больше лимита ([#180](https://github.com/frostiks777/1pgWebGallery/issues/180)) ([fcca03a](https://github.com/frostiks777/1pgWebGallery/commit/fcca03a503795e0e0b895dc082dc12315599cb83))
+
 ## [1.7.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.0...v1.7.1) (2026-11-18)
 
 
