@@ -243,13 +243,26 @@ export async function GET() {
   return NextResponse.json(snapshot());
 }
 
+function isLoopback(address: string): boolean {
+  // Node reports an IPv4 peer as ::ffff:127.0.0.1, and a proxy may append a
+  // port; both forms are still the same machine.
+  const bare = address.replace(/^::ffff:/i, '').replace(/:\d+$/, '').trim();
+  return bare === '127.0.0.1' || bare === '::1' || bare === 'localhost';
+}
+
 export async function POST(request: NextRequest) {
   // Same rule as the poster batch (#92): a cookie is required when the gallery
-  // has a password. A request with no `x-forwarded-for` did not come through
-  // nginx, i.e. it is the local nightly timer; nginx appends the real client
-  // address for outside traffic, so this cannot be forged from the internet.
-  const forwarded = request.headers.get('x-forwarded-for');
-  const isLocal = !forwarded;
+  // has a password.
+  //
+  // The nightly timer calls this over the loopback interface without a cookie.
+  // Next fills `x-forwarded-for` from the socket even for a direct local call,
+  // so the check is "the last hop is loopback": nginx APPENDS the real peer to
+  // anything the client sent, making the last hop trustworthy for outside
+  // traffic, while a direct local request has only 127.0.0.1 there.
+  const forwarded = request.headers.get('x-forwarded-for') ?? '';
+  const hops = forwarded.split(',').map((hop) => hop.trim()).filter(Boolean);
+  const peer = hops.length > 0 ? hops[hops.length - 1] : '';
+  const isLocal = peer === '' || isLoopback(peer);
   if (isAuthRequired() && !isLocal && !validateAuthCookie(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
