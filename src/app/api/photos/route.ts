@@ -4,7 +4,6 @@ import path from 'path';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { getListing } from '@/lib/listingCache';
 import { buildVideoStemMap, isVideoFile, stemOf, videoMimeOf } from '@/lib/videoExt';
-import { isPosterUnavailable } from '@/lib/videoLimits';
 
 interface LocalPhoto {
   name: string;
@@ -13,8 +12,6 @@ interface LocalPhoto {
   lastModified: string;
   mimeType: string;
   videoPath?: string;
-  /** Video is over VIDEO_PREVIEW_MAX_MB: no poster exists, and asking for one is a guaranteed 413 (#180). */
-  posterUnavailable?: boolean;
 }
 
 async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
@@ -68,7 +65,6 @@ async function getLocalDemoPhotos(): Promise<LocalPhoto[]> {
         lastModified: stats.mtime.toISOString(),
         mimeType: videoMimeOf(file),
         videoPath: `/demo-photos/${file}`,
-        posterUnavailable: isPosterUnavailable(file, stats.size),
       });
     }
 
@@ -134,7 +130,6 @@ export async function GET(request: NextRequest) {
             lastModified: photo.lastModified.toISOString(),
             mimeType: photo.mimeType,
             videoPath: photo.videoPath,
-            posterUnavailable: isPosterUnavailable(photo.name, photo.size) || undefined,
           }));
         });
 
