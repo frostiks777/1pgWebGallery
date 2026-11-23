@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.2...v1.8.0) (2026-11-23)
+
+
+### Features
+
+* **video:** ночной транскод HEVC в H.264 ([#186](https://github.com/frostiks777/1pgWebGallery/issues/186)) ([13f0e73](https://github.com/frostiks777/1pgWebGallery/commit/13f0e7347eb8575665a3f1db06b3bfc66f8c2c22))
+* **video:** ночной транскод HEVC в H.264 и отдача кэша ([#186](https://github.com/frostiks777/1pgWebGallery/issues/186)) ([fc08141](https://github.com/frostiks777/1pgWebGallery/commit/fc08141b7dd8dc3dad5a4d165813d516fc5e23df))
+
+
+### Bug Fixes
+
+* **images:** заглушка 200 вместо 413 для видео больше лимита ([#184](https://github.com/frostiks777/1pgWebGallery/issues/184)) ([87825a0](https://github.com/frostiks777/1pgWebGallery/commit/87825a0b246ba99218248b64d5c0c915b5f93c92))
+* **images:** заглушка 200 вместо 413, постеры для больших видео ([#184](https://github.com/frostiks777/1pgWebGallery/issues/184)) ([1c2f0e7](https://github.com/frostiks777/1pgWebGallery/commit/1c2f0e72e3df96ba8dff1d283c59657acc9a3961))
+
 ## [1.7.2](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.1...v1.7.2) (2026-11-23)
 
 
