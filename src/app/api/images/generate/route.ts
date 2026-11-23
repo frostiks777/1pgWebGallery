@@ -45,7 +45,14 @@ async function videoPosterViaFile(
       return extractVideoPosterFromFile(videoPath, { width });
     });
   } finally {
-    fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    // Awaited and logged, like the route that serves posters: a fire-and-forget
+    // `rm` can lose the race with the still-open write stream and leave a
+    // partial video in /tmp for good (issue #100).
+    try {
+      await fsp.rm(workDir, { recursive: true, force: true });
+    } catch (cleanupErr) {
+      console.warn('[Generate] failed to remove temp dir', workDir, cleanupErr);
+    }
   }
 }
 
