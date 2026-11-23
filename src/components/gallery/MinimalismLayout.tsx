@@ -5,6 +5,7 @@ import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 import { formatSyntheticMeta } from '@/lib/photo-meta';
 import { cn } from '@/lib/utils';
 import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
+import { PosterPlaceholder } from './PosterPlaceholder';
 
 interface MinimalismLayoutProps {
   photos: Photo[];
@@ -62,12 +63,16 @@ export function MinimalismLayout({
         >
           <span className="tabular-nums tracking-[0.16em]">{String(i + 1).padStart(2, '0')}{' '}</span>
           <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-[var(--r-sm)] border border-[var(--surface-border)] bg-black/20 md:h-14 md:w-14">
-            <img
-              src={thumbUrl(photo)}
-              alt=""
-              className="obs-thumb-crop h-full w-full object-cover"
-              loading="lazy"
-            />
+            {photo.posterUnavailable ? (
+              <PosterPlaceholder className="h-full w-full" />
+            ) : (
+              <img
+                src={thumbUrl(photo)}
+                alt=""
+                className="obs-thumb-crop h-full w-full object-cover"
+                loading="lazy"
+              />
+            )}
           </div>
           <span className="min-w-0 truncate tracking-[0.04em]">
             {photo.name}{' '}

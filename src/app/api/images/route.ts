@@ -13,6 +13,7 @@ import { VIDEO_POSTER_WIDTH } from '@/lib/imagePresets';
 import { IMAGE_CACHE_KEY_VERSION, DEFAULT_COLOCATED_THUMBS_DIR } from '@/lib/cacheVersions';
 import { IMAGE_PRESETS, optimizeImage, thumbExt, isSharpAvailable, fmtBytes, type ImageSize } from '@/lib/imageOptimize';
 import { withSharpSlot, SharpQueueFullError } from '@/lib/sharpQueue';
+import { MAX_VIDEO_BYTES as MAX_VIDEO_BYTES_LIMIT } from '@/lib/videoLimits';
 import {
   hasFfmpeg,
   tryReservePosterSlot,
@@ -34,7 +35,9 @@ const WEBDAV_COLOCATED_ENABLED = process.env.WEBDAV_COLOCATED_CACHE !== 'false';
 // against spending minutes of the one CPU core on a huge upload, NOT against
 // holding it in memory (that is handled by streaming to disk instead — see
 // fetchVideoToFile below).
-const MAX_VIDEO_BYTES = Number(process.env.VIDEO_PREVIEW_MAX_MB || 300) * 1024 * 1024;
+// Shared with /api/photos, which marks such videos `posterUnavailable` so the
+// client does not request a poster that can only be refused.
+const MAX_VIDEO_BYTES = MAX_VIDEO_BYTES_LIMIT;
 
 // How long we will wait for a video to arrive from WebDAV before giving up.
 // The slowest observed prod pull (96 MB) took 5.5 s; 120 s leaves room for a

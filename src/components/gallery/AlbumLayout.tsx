@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 import { useRetryingImage } from './useRetryingImage';
+import { PosterPlaceholder } from './PosterPlaceholder';
 import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
 
 interface AlbumLayoutProps {
@@ -94,7 +95,8 @@ function AlbumCard({
           className="flex-1 overflow-hidden relative min-h-0"
           style={{ background: 'var(--album-photo-bg)' }}
         >
-          {!hasError && (
+          {photo.posterUnavailable && <PosterPlaceholder className="absolute inset-0" />}
+          {!photo.posterUnavailable && !hasError && (
             <>
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -123,7 +125,7 @@ function AlbumCard({
               />
             </>
           )}
-          {hasError && (
+          {!photo.posterUnavailable && hasError && (
             <div
               className="absolute inset-0 flex items-center justify-center text-2xl"
               style={{ color: 'var(--album-caption)' }}

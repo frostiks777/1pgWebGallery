@@ -4,6 +4,7 @@ import { useMemo, useEffect, useState } from 'react';
 import { Photo } from './types';
 import { EyeOff, Trash2, RectangleHorizontal, Star } from 'lucide-react';
 import { imageUrl as buildImageUrl } from '@/lib/imageUrl';
+import { PosterPlaceholder } from './PosterPlaceholder';
 
 interface HoneycombLayoutProps {
   photos: Photo[];
@@ -87,14 +88,18 @@ export function HoneycombLayout({
                   clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
                 }}
               >
-              <img
-                src={thumbnailUrl}
-                // Decorative: the tile is a named button; the file name is in
-                // its aria-label already.
-                alt=""
-                className="obs-thumb-crop h-full w-full object-cover bg-black"
-                loading="lazy"
-              />
+              {photo.posterUnavailable ? (
+                <PosterPlaceholder className="h-full w-full" />
+              ) : (
+                <img
+                  src={thumbnailUrl}
+                  // Decorative: the tile is a named button; the file name is in
+                  // its aria-label already.
+                  alt=""
+                  className="obs-thumb-crop h-full w-full object-cover bg-black"
+                  loading="lazy"
+                />
+              )}
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 gap-1">
                 {onHidePhoto && (
