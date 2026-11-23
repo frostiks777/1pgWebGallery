@@ -213,6 +213,22 @@ export async function extractFrameAt(
  * this inside {@link withFfmpegSlot}, otherwise the demo path bypasses the
  * serialisation the WebDAV path gets (issue #99).
  */
+/**
+ * Removes a scratch directory and reports a failure instead of swallowing it.
+ *
+ * The old `rm(...).catch(() => {})` was not awaited: on the timeout path the
+ * write stream could still hold a file, `rm` returned ENOTEMPTY, and a partial
+ * video stayed in /tmp until the box ran out of disk (issue #100, prod was at
+ * 93 % in #27).
+ */
+async function removeTempDir(dir: string): Promise<void> {
+  try {
+    await fsp.rm(dir, { recursive: true, force: true });
+  } catch (err) {
+    console.warn('[ffmpeg] failed to remove temp dir', dir, err);
+  }
+}
+
 export async function extractVideoPosterBuffer(
   videoBuf: Buffer,
   opts: { width?: number } = {},
@@ -228,7 +244,7 @@ export async function extractVideoPosterBuffer(
     });
     return await fsp.readFile(frameFile);
   } finally {
-    fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    await removeTempDir(workDir);
   }
 }
 
@@ -259,6 +275,6 @@ export async function extractVideoPosterFromFile(
     });
     return await fsp.readFile(frameFile);
   } finally {
-    fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    await removeTempDir(workDir);
   }
 }

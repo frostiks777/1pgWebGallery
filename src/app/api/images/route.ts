@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 import { pipeline } from 'stream/promises';
+import { Transform } from 'stream';
 import type { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
@@ -277,6 +278,13 @@ async function statSize(photo: string): Promise<number | null> {
  * Streaming keeps peak process memory flat — measured on prod: 96 MB pulled in
  * 5.5 s with `used` going 477 MB → 461 MB, i.e. no growth at all.
  */
+class VideoTooLargeError extends Error {
+  constructor() {
+    super('video exceeds VIDEO_PREVIEW_MAX_MB');
+    this.name = 'VideoTooLargeError';
+  }
+}
+
 async function fetchVideoToFile(photo: string, destPath: string): Promise<void> {
   const c = dav();
   if (!c) throw new Error('WebDAV not configured');
@@ -284,9 +292,27 @@ async function fetchVideoToFile(photo: string, destPath: string): Promise<void> 
   // `createReadStream` returns a PassThrough fed by a ranged GET; piping it to
   // a file lets the OS page cache absorb the bytes instead of the V8 heap.
   const src = c.createReadStream(p) as unknown as Readable;
+
+  // `statSize` before this call is a HEAD request with a 10 s budget; when WebDAV
+  // does not answer it, the size is unknown and the old code streamed a file of
+  // any length into /tmp (issue #100). Prod disk was at 93 % once already (#27),
+  // so the limit has to be enforced on the bytes we actually receive, not on a
+  // number we failed to obtain.
+  let received = 0;
+  const limiter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length;
+      if (received > MAX_VIDEO_BYTES) {
+        callback(new VideoTooLargeError());
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+
   try {
     await withTimeout(
-      pipeline(src, fs.createWriteStream(destPath)),
+      pipeline(src, limiter, fs.createWriteStream(destPath)),
       VIDEO_DOWNLOAD_TIMEOUT_MS,
       `download ${p}`,
     );
@@ -425,10 +451,25 @@ export async function GET(request: NextRequest) {
               return extractVideoPosterFromFile(videoPath, { width: VIDEO_POSTER_WIDTH });
             });
           } finally {
-            fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+            // Awaited, and a failure is logged with the path: the old fire-and-forget
+            // `rm` swallowed ENOTEMPTY while the write stream still held the file,
+            // leaving a partial video in /tmp forever (#100).
+            try {
+              await fsp.rm(workDir, { recursive: true, force: true });
+            } catch (cleanupErr) {
+              console.warn('[Images] failed to remove temp dir', workDir, cleanupErr);
+            }
           }
         }
       } catch (err) {
+        // Same answer as when the size is known up front: the file is not broken,
+        // it is over the poster budget — 500 would make it look like a server bug.
+        if (err instanceof VideoTooLargeError) {
+          return NextResponse.json(
+            { error: 'Video too large for poster generation' },
+            { status: 413 },
+          );
+        }
         console.error('[Images] poster extraction failed:', err);
         return NextResponse.json({ error: 'Poster generation failed' }, { status: 500 });
       } finally {
