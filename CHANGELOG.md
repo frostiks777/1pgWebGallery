@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.1](https://github.com/frostiks777/1pgWebGallery/compare/v1.8.0...v1.8.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **transcode:** локальный кэш вместо WebDAV и loopback-авторизация ([1972930](https://github.com/frostiks777/1pgWebGallery/commit/1972930da341b0ecd52481ce71f7ca66fc463f11))
+* **transcode:** локальный кэш вместо WebDAV и loopback-авторизация ([60c2615](https://github.com/frostiks777/1pgWebGallery/commit/60c2615454f1516f7cc9c659d4fceac0f5d33f3c))
+* **transcode:** считать локальным вызов с loopback в последнем хопе XFF ([18ac969](https://github.com/frostiks777/1pgWebGallery/commit/18ac969c4b0f5744a6e97b540e143b55c10aeb08))
+
 ## [1.8.0](https://github.com/frostiks777/1pgWebGallery/compare/v1.7.2...v1.8.0) (2026-11-23)
 
 
