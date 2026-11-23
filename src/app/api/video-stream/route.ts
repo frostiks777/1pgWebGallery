@@ -5,6 +5,7 @@ import { Readable } from 'stream';
 import type { WebDAVClient } from 'webdav';
 import { isAuthRequired, validateAuthCookie } from '@/lib/auth';
 import { isVideoFile, videoMimeOf } from '@/lib/videoExt';
+import { transcodedPath } from '@/lib/transcodePaths';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Native video playback — streams the ACTUAL source video (not a generated
@@ -52,13 +53,46 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 async function statVideoSize(video: string): Promise<number | null> {
+  const meta = await statVideoMeta(video);
+  return meta ? meta.size : null;
+}
+
+/**
+ * Size and mtime of a WebDAV video. The mtime is what selects a transcoded
+ * copy: if the source was replaced, the encoded name no longer matches and the
+ * viewer falls back to the original instead of playing stale frames.
+ */
+async function statVideoMeta(video: string): Promise<{ size: number; mtimeMs: number } | null> {
   const c = dav();
   if (!c) return null;
   try {
     const stat = await withTimeout(c.stat(video), 10_000, `stat ${video}`);
     const s = 'data' in stat ? stat.data : stat;
-    return typeof s.size === 'number' ? s.size : null;
+    if (typeof s.size !== 'number') return null;
+    const parsed = s.lastmod ? Date.parse(s.lastmod) : NaN;
+    return { size: s.size, mtimeMs: Number.isFinite(parsed) ? parsed : 0 };
   } catch { return null; }
+}
+
+/**
+ * The H.264 copy produced by scripts/transcode-hevc.mjs, if one exists for the
+ * current source mtime. One stat on the read path; a miss is the normal case
+ * until the nightly run has reached this folder.
+ */
+async function findTranscode(
+  video: string,
+  mtimeMs: number,
+): Promise<{ path: string; size: number } | null> {
+  const c = dav();
+  if (!c || !mtimeMs) return null;
+  const candidate = transcodedPath(video, mtimeMs);
+  try {
+    const stat = await withTimeout(c.stat(candidate), 5_000, `stat ${candidate}`);
+    const s = 'data' in stat ? stat.data : stat;
+    return typeof s.size === 'number' ? { path: candidate, size: s.size } : null;
+  } catch {
+    return null;
+  }
 }
 
 const PUBLIC_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public');
@@ -161,14 +195,22 @@ export async function GET(request: NextRequest) {
     if (!c) return NextResponse.json({ error: 'WebDAV not configured' }, { status: 500 });
 
     const p = decoded.startsWith('/') ? decoded : '/' + decoded;
-    const totalSize = await statVideoSize(p);
-    if (totalSize === null) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const meta = await statVideoMeta(p);
+    if (meta === null) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const contentType = videoMimeOf(decoded);
+    // A nightly job encodes HEVC to H.264 for browsers without an HEVC decoder
+    // (Chrome on Windows, #184). When the copy exists, every range request must
+    // target it — otherwise the player gets HEVC bytes for a file it rejects.
+    const transcode = await findTranscode(p, meta.mtimeMs);
+    const sourcePath = transcode?.path ?? p;
+    const totalSize = transcode?.size ?? meta.size;
+
+    // Transcoded copies are always MP4/H.264; the original keeps its own mime.
+    const contentType = transcode ? 'video/mp4' : videoMimeOf(decoded);
     const range = parseRange(request.headers.get('range'), totalSize);
 
     if (range) {
-      const nodeStream = asNodeReadable(c.createReadStream(p, { range: { start: range.start, end: range.end } }));
+      const nodeStream = asNodeReadable(c.createReadStream(sourcePath, { range: { start: range.start, end: range.end } }));
       const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
       return new NextResponse(webStream, {
         status: 206,
@@ -182,7 +224,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const nodeStream = asNodeReadable(c.createReadStream(p));
+    const nodeStream = asNodeReadable(c.createReadStream(sourcePath));
     const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
     return new NextResponse(webStream, {
       status: 200,
@@ -230,13 +272,15 @@ export async function HEAD(request: NextRequest) {
     if (!decoded.startsWith(normalizedPhotosDir) && decoded !== photosDir) {
       return new NextResponse(null, { status: 404 });
     }
-    const totalSize = await statVideoSize(decoded.startsWith('/') ? decoded : '/' + decoded);
-    if (totalSize === null) return new NextResponse(null, { status: 404 });
+    const p = decoded.startsWith('/') ? decoded : '/' + decoded;
+    const meta = await statVideoMeta(p);
+    if (meta === null) return new NextResponse(null, { status: 404 });
+    const transcode = await findTranscode(p, meta.mtimeMs);
     return new NextResponse(null, {
       status: 200,
       headers: {
-        'Content-Type': contentType,
-        'Content-Length': String(totalSize),
+        'Content-Type': transcode ? 'video/mp4' : contentType,
+        'Content-Length': String(transcode?.size ?? meta.size),
         'Accept-Ranges': 'bytes',
       },
     });
