@@ -24,7 +24,7 @@ Next.js 16 (App Router, Turbopack) + React 19 + Tailwind 4, `webdav` client, `sh
 in `src/components/ui/`, framer-motion, lucide. There is **no unit-test framework** — only
 Playwright e2e smoke tests.
 
-## Commands (verified 2026-10-15)
+## Commands (verified 2026-11-28)
 
 **bun is required.** Install it with `npm install -g bun` (an officially documented method).
 
@@ -63,7 +63,7 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   `src/app/fonts/` and loaded by `next/font/local`, so the old Google Fonts fetch (and its
   build-time HTTPS requirement) is gone. If the build fails in a sandbox, it is a code or
   environment defect, not a missing font download. "Dynamic filesystem access causes tracing of the whole project" warnings do **not** occur on the version CI and prod build from (Next 16.1.3, per `bun.lock`) — the "11 baseline warnings" these docs used to list were an artifact of `npm` resolving a different Next (#36). On a newer Next inside the `^16.1.1` range they do appear; then annotate the `fs.*Sync` call with `/*turbopackIgnore: true*/` **on its argument** rather than letting tracing balloon the bundle. Note the flip side: an annotated path stops being swept into the bundle for free, so anything the app must ship at runtime (e.g. `public/logo.svg`) has to be named in `outputFileTracingIncludes` in `next.config.ts`.
-- `bun run test:e2e` — **работает локально** (проверено 2026-10-15: `3 passed` за ~28 с).
+- `bun run test:e2e` — **работает локально** (проверено 2026-11-28: `41 passed` за ~27 с).
   Прежний провал «таймаут 30 с, а приложение живое» был не в тестах, а в
   `playwright.config.ts`: `baseURL` был `http://127.0.0.1:3100`, а Next 16 не пускает
   dev-ресурсы (клиентские чанки, HMR-сокет) с origin, которого нет в `allowedDevOrigins`.
@@ -93,8 +93,9 @@ Ordered gate: **lint → build → e2e**, details in `.agents/shared/checks.md`.
   `types.ts` (`Photo` carries an optional `videoPath`), barrel `index.ts`.
 - `src/app/api/*/route.ts` — `photos`, `folders`, `images` (+ `images/generate` for the batch
   thumbnail job), `photos/delete`, `hidden`, `panoramas`, `covers`, `auth`, `webdav/test`,
-  `video-stream`.
-- `src/lib/` — `webdav.ts` (client + listing), `videoExt.ts`, `ffmpeg.ts`, `auth.ts`, `dir-meta.ts`.
+  `video-stream`, `video-transcode` (nightly HEVC→H.264 batch).
+- `src/lib/` — `webdav.ts` (client + listing), `videoExt.ts`, `ffmpeg.ts`, `auth.ts`, `dir-meta.ts`,
+  `transcodePaths.ts`.
 - `src/proxy.ts` — **not** `middleware.ts`; Next.js 16 renamed the file and the export. It rate-limits
   `/api/:path*` (in-memory, env `API_RATE_LIMIT`/`API_RATE_WINDOW`, and **`/api/images` is exempt**)
   and enforces the optional `API_SECRET_TOKEN` bearer token. Adding a new API route automatically
@@ -120,6 +121,12 @@ the gallery. It's gitignored, and on the server it lives *outside* `release/` pr
   optional: if missing, video posters silently degrade and the app logs a loud warning.
 - `withFfmpegSlot` is a single **server-wide serialization queue** because the prod box has 1 CPU
   core. Any new ffmpeg work must go through it, or that guarantee breaks.
+- HEVC → H.264 is an **offline nightly batch**, not an on-request transcode: 4K Main10 takes
+  minutes per clip on one core (measured: 438 s for a 13 s clip), so a viewer would wait.
+  `src/app/api/video-transcode/route.ts` writes results under `.data/transcoded`, and
+  `/api/video-stream` serves the cached copy transparently. The job does not schedule itself —
+  a systemd timer or cron posts to the route (`DEPLOYMENT.md`); it is a route rather than a
+  standalone script because the standalone build keeps `webdav` inside the server bundle.
 - A photo gains `videoPath` when a same-stem video sits next to it (e.g. `IMG_1.jpg` + `IMG_1.mp4`).
   A video with no companion photo is listed as a photo whose "image" is the extracted poster,
   capped by `VIDEO_PREVIEW_MAX_MB` (default 300).
@@ -425,14 +432,14 @@ Keep messages short, in Russian, no secrets.
 - All user-facing strings stay Russian; the e2e specs select on them.
 - `git push` to `main` deploys to production — don't push without a green local verify.
 
-## Known baseline issues (verified 2026-10-15 — not caused by your change)
+## Known baseline issues (verified 2026-11-28 — not caused by your change)
 
 - `bun run lint` — **0 ошибок**. Прежние 9 `react-hooks/set-state-in-effect` починены коммитом
   `8a922af` (#12) — эффекты перестроены, правило не подавлено. `continue-on-error` у шага
   Lint в `ci.yml` снят 2026-10-15, линт в CI блокирующий.
 - `bunx tsc --noEmit` — **0 ошибок**: прежние 2 TS2345 в `src/app/api/video-stream/route.ts`
   починены коммитом `4370e29`.
-- `bun run test:e2e` — **зелёный локально** (2026-10-15: `3 passed`, ~28 с). Прежний блокер
+- `bun run test:e2e` — **зелёный локально** (2026-11-28: `41 passed`, ~27 с). Прежний блокер
   «не гоняем на ноутбуке» снят: причина была в `baseURL: 127.0.0.1` вместо `localhost`
   (#13). Остаточный флак первого прогона на холодной машине не устранён — #13.
 - `bun run build` — **no outbound HTTPS needed** since A0.4 (fonts are local). It should emit

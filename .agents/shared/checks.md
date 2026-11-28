@@ -101,7 +101,7 @@ in a sandbox, treat it as a code or environment defect - see the baseline note i
 bun run test:e2e        # or: bunx playwright test — NOT `npm run test:e2e`
 ```
 
-**This works locally** (verified 2026-10-15: `3 passed`, ~28 s). The long-standing "don't
+**This works locally** (verified 2026-11-28: `41 passed`, ~27 s). The long-standing "don't
 run it on Andrew's laptop" note was wrong twice over:
 
 - `baseURL` was `http://127.0.0.1:3100`, and Next 16 refuses to serve dev resources
